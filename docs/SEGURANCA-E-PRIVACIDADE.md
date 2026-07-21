@@ -31,3 +31,18 @@ Ficam fora do GitHub:
 ## Biometria
 
 O MVP não implementa novo reconhecimento facial. A integração futura deverá receber apenas um evento autorizado do sistema de acesso já existente ou outra integração formalmente autorizada.
+
+
+## QR Code de câmera
+
+- processamento da imagem no navegador;
+- nenhum upload da fotografia para o Firebase;
+- descarte do link completo Yoosee;
+- descarte de InviteCode e token;
+- não salvar QR bruto;
+- confirmação humana antes de cadastrar;
+- ID do dispositivo somente em área autenticada.
+
+## Conta Yoosee
+
+O SMART24 armazena somente o e-mail operacional. Não existe campo de senha. A criação da conta e o compartilhamento da câmera são realizados manualmente no aplicativo oficial.

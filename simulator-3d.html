@@ -1,0 +1,4737 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+
+    <meta name="theme-color" content="#050608">
+
+    <title>SMART24 Fusion — Loja 3D</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        :root {
+            --brand: #00a859;
+            --brand-dark: #057541;
+            --blue: #3b82f6;
+            --red: #ef4444;
+            --yellow: #facc15;
+            --purple: #a855f7;
+            --background: #050608;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--background);
+            font-family: "Segoe UI", Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button,
+        select,
+        input {
+            font: inherit;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pointer-auto {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.48);
+            backdrop-filter: blur(12px);
+        }
+
+        .btn-action {
+            border: 1px solid transparent;
+            transition:
+                transform 0.2s,
+                background-color 0.2s,
+                border-color 0.2s;
+        }
+
+        .btn-action:active {
+            transform: scale(0.98);
+        }
+
+        .scenario-button.active {
+            border-color: #00a859;
+            background: rgba(0, 168, 89, 0.18);
+        }
+
+        .session-button.active {
+            color: white;
+            border-color: #00a859;
+            background: rgba(0, 168, 89, 0.22);
+        }
+
+        .camera-active {
+            border-color: #3b82f6 !important;
+            background: rgba(59, 130, 246, 0.12) !important;
+        }
+
+        .camera-offline {
+            border-color: #ef4444 !important;
+            background: rgba(239, 68, 68, 0.12) !important;
+        }
+
+        #loading {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+
+            color: white;
+            background: #050608;
+
+            transition: opacity 0.45s;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+
+            border: 3px solid rgba(0, 168, 89, 0.25);
+            border-top-color: #00a859;
+            border-radius: 50%;
+
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #tooltip {
+            position: fixed;
+            z-index: 100;
+
+            width: min(290px, calc(100vw - 24px));
+            padding: 12px 14px;
+
+            opacity: 0;
+            pointer-events: none;
+
+            color: white;
+            background: rgba(0, 0, 0, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-left: 4px solid #00a859;
+            border-radius: 8px;
+
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+
+            transform: translateY(8px);
+
+            transition:
+                opacity 0.2s,
+                transform 0.2s;
+        }
+
+        #tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #middle-container {
+            transition:
+                opacity 0.25s,
+                transform 0.25s;
+        }
+
+        #middle-container.panels-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(14px);
+        }
+
+        #middle-container.panels-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hide-scrollbar {
+            scrollbar-width: none;
+        }
+
+        .monitor-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .monitor-table th,
+        .monitor-table td {
+            padding: 5px 4px;
+            text-align: right;
+            font-size: 9px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .monitor-table th:first-child,
+        .monitor-table td:first-child {
+            text-align: left;
+        }
+
+        .monitor-table th {
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .monitor-table td {
+            color: #d1d5db;
+        }
+
+        .event-log {
+            max-height: 132px;
+            overflow-y: auto;
+        }
+
+        .event-log::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .event-log::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+
+        .photo-card img {
+            transition:
+                transform 0.25s,
+                opacity 0.25s;
+        }
+
+        .photo-card:hover img {
+            opacity: 1;
+            transform: scale(1.035);
+        }
+
+        @media (max-width: 767px) {
+            #middle-container {
+                position: absolute;
+                top: 62px;
+                right: 0;
+                bottom: 62px;
+                left: 0;
+
+                overflow-y: auto;
+            }
+
+            #tooltip {
+                left: 12px !important;
+                right: 12px !important;
+                bottom: 76px !important;
+                top: auto !important;
+                width: auto;
+            }
+
+            .monitor-table th,
+            .monitor-table td {
+                font-size: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-200 antialiased">
+
+    <div id="loading">
+        <div class="spinner"></div>
+
+        <h2 class="mt-4 text-lg font-black tracking-widest text-[#00a859]">
+            SMART24
+        </h2>
+
+        <p class="mt-1 px-5 text-center text-xs text-gray-500">
+            Preparando mercadinho, câmeras IP e fluxo de auditoria...
+        </p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="tooltip">
+        <div
+            id="tooltip-title"
+            class="mb-1 text-sm font-black uppercase tracking-wide text-[#00a859]"
+        >
+            Elemento
+        </div>
+
+        <div
+            id="tooltip-description"
+            class="text-xs leading-relaxed text-gray-300"
+        >
+            Descrição
+        </div>
+    </div>
+
+    <div id="ui-layer">
+
+        <header
+            class="glass-panel pointer-auto z-30 flex min-h-[62px] items-center justify-between gap-3 border-x-0 border-t-0 px-3 py-2 md:px-6"
+        >
+            <div>
+                <h1 class="text-lg font-black md:text-xl">
+                    <span class="text-[#00a859]">SMART</span>24
+                </h1>
+
+                <p class="hidden max-w-xl text-[10px] text-gray-400 md:block">
+                    Demonstração conceitual baseada nas fotos reais. Câmeras,
+                    caixa, facial e porta ainda não estão conectados.
+                </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button
+                    id="toggle-panels-button"
+                    onclick="togglePanels()"
+                    class="btn-action rounded bg-[#00a859] px-3 py-2 text-[10px] font-bold text-white md:text-xs"
+                >
+                    ESCONDER PAINÉIS
+                </button>
+
+                <button
+                    onclick="toggleGallery()"
+                    class="btn-action rounded bg-gray-800 px-3 py-2 text-[10px] font-bold text-white md:text-xs"
+                >
+                    FOTOS REAIS
+                </button>
+            </div>
+        </header>
+
+        <div
+            id="middle-container"
+            class="panels-visible pointer-auto z-20 flex flex-1 flex-col justify-between gap-3 overflow-y-auto p-2 md:flex-row md:overflow-visible md:p-4"
+        >
+
+            <aside
+                class="flex w-full shrink-0 flex-col gap-3 md:w-[320px]"
+            >
+                <section class="glass-panel rounded-xl p-3 md:p-4">
+                    <div class="mb-3 flex items-center justify-between">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-gray-400">
+                            Variáveis da demonstração
+                        </h2>
+
+                        <span
+                            id="scenario-status"
+                            class="rounded bg-gray-800 px-2 py-1 text-[9px] font-bold text-gray-400"
+                        >
+                            SELECIONADO
+                        </span>
+                    </div>
+
+                    <div class="flex max-h-[330px] flex-col gap-2 overflow-y-auto pr-1">
+
+                        <button
+                            data-scenario="regular"
+                            onclick="selectScenario('regular')"
+                            class="scenario-button active btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-white">
+                                1. Compra regular
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                10 retirados e 10 pagos por produto
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="return"
+                            onclick="selectScenario('return')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-white">
+                                2. Produto devolvido
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                10 retirados, 1 devolvido e 9 pagos
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="divergence"
+                            onclick="selectScenario('divergence')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-red-400">
+                                3. Item não registrado
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Produto específico com diferença de 1 unidade
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="multi"
+                            onclick="selectScenario('multi')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-blue-400">
+                                4. Três usuários
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Sessões separadas e uma interação ambígua
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="cameraFailure"
+                            onclick="selectScenario('cameraFailure')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-yellow-300">
+                                5. Câmera indisponível
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Imagem insuficiente, sem conclusão automática
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="wrongSku"
+                            onclick="selectScenario('wrongSku')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-purple-400">
+                                6. Produto diferente pago
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Total igual, mas códigos dos produtos diferentes
+                            </span>
+                        </button>
+
+                        <button
+                            data-scenario="paymentCanceled"
+                            onclick="selectScenario('paymentCanceled')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-orange-400">
+                                7. Pagamento cancelado
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Produtos registrados, mas pagamento não aprovado
+                            </span>
+                        </button>
+
+
+                        <button
+                            data-scenario="ambiguousInteraction"
+                            onclick="selectScenario('ambiguousInteraction')"
+                            class="scenario-button btn-action rounded border border-transparent bg-gray-800/80 p-2 text-left"
+                        >
+                            <span class="block text-xs font-bold text-pink-400">
+                                8. Interação ambígua
+                            </span>
+
+                            <span class="mt-0.5 block text-[10px] text-gray-400">
+                                Duas pessoas próximas, sem atribuição automática
+                            </span>
+                        </button>
+                    </div>
+
+                    <button
+                        id="start-button"
+                        onclick="startSelectedScenario()"
+                        class="mt-3 w-full rounded bg-[#00a859] p-3 text-sm font-black text-white shadow-lg shadow-green-950/50 transition hover:bg-green-600"
+                    >
+                        ► INICIAR FLUXO COMPLETO
+                    </button>
+
+                    <button
+                        onclick="resetSimulation()"
+                        class="mt-2 w-full rounded border border-gray-700 bg-gray-900 p-2 text-xs font-bold text-gray-300"
+                    >
+                        REINICIAR DEMONSTRAÇÃO
+                    </button>
+                </section>
+
+                <section class="glass-panel rounded-xl p-3 md:p-4">
+                    <h2 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                        Visualização
+                    </h2>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 text-[11px] text-gray-300">
+                            <input
+                                id="cones-toggle"
+                                type="checkbox"
+                                checked
+                                onchange="toggleCones()"
+                                class="accent-[#00a859]"
+                            >
+                            Cones IP
+                        </label>
+
+                        <label class="flex items-center gap-2 text-[11px] text-gray-300">
+                            <input
+                                id="zones-toggle"
+                                type="checkbox"
+                                checked
+                                onchange="toggleZones()"
+                                class="accent-[#00a859]"
+                            >
+                            Zonas
+                        </label>
+
+                        <label class="flex items-center gap-2 text-[11px] text-gray-300">
+                            <input
+                                id="paths-toggle"
+                                type="checkbox"
+                                checked
+                                onchange="togglePaths()"
+                                class="accent-[#00a859]"
+                            >
+                            Trajetórias
+                        </label>
+
+                        <label class="flex items-center gap-2 text-[11px] text-gray-300">
+                            <input
+                                id="labels-toggle"
+                                type="checkbox"
+                                checked
+                                onchange="toggleLabels()"
+                                class="accent-[#00a859]"
+                            >
+                            Identificadores
+                        </label>
+                    </div>
+                </section>
+
+                <section class="glass-panel rounded-xl p-3 md:p-4">
+                    <h2 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                        Integração futura
+                    </h2>
+
+                    <div class="space-y-2 text-[10px] leading-relaxed text-gray-400">
+                        <p>
+                            <strong class="text-gray-200">Câmeras:</strong>
+                            demonstração visual. O link compartilhado pelo WPS/Yoosee
+                            não é tratado neste protótipo como vídeo direto.
+                        </p>
+
+                        <p>
+                            <strong class="text-gray-200">Protocolo:</strong>
+                            RTSP, ONVIF ou SDK autorizado ainda precisam ser confirmados.
+                        </p>
+
+                        <p>
+                            <strong class="text-gray-200">Caixa:</strong>
+                            códigos, quantidades, cancelamentos e pagamento são simulados.
+                        </p>
+                    </div>
+                </section>
+            </aside>
+
+            <aside
+                class="flex w-full shrink-0 flex-col justify-end md:w-[350px]"
+            >
+                <section
+                    id="monitor-panel"
+                    class="glass-panel rounded-xl border-t-4 border-[#00a859] p-3 md:p-4"
+                >
+                    <div class="mb-3 flex items-center justify-between">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-white">
+                            Monitor da auditoria
+                        </h2>
+
+                        <span
+                            id="audit-badge"
+                            class="rounded bg-green-900/50 px-2 py-1 text-[9px] font-bold uppercase text-green-400"
+                        >
+                            Demonstração
+                        </span>
+                    </div>
+
+                    <div
+                        id="session-buttons"
+                        class="mb-3 flex gap-2 overflow-x-auto hide-scrollbar"
+                    ></div>
+
+                    <div class="mb-3 grid grid-cols-2 gap-2">
+                        <div class="rounded border border-gray-700 bg-gray-900/80 p-2">
+                            <span class="block text-[9px] uppercase text-gray-500">
+                                Sessão selecionada
+                            </span>
+
+                            <span
+                                id="session-id"
+                                class="font-mono text-xs text-white"
+                            >
+                                AGUARDANDO
+                            </span>
+                        </div>
+
+                        <div
+                            id="camera-box"
+                            class="rounded border border-gray-700 bg-gray-900/80 p-2"
+                        >
+                            <span class="block text-[9px] uppercase text-gray-500">
+                                Câmera em foco
+                            </span>
+
+                            <span
+                                id="active-camera"
+                                class="block truncate text-xs font-bold text-blue-400"
+                            >
+                                -
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 rounded bg-gray-900/60 p-2">
+                        <span class="block text-[9px] uppercase text-gray-500">
+                            Evento atual
+                        </span>
+
+                        <span
+                            id="current-event"
+                            class="mt-1 block text-[11px] leading-relaxed text-gray-300"
+                        >
+                            Selecione uma variável e inicie a demonstração.
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="monitor-table">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Ret.</th>
+                                    <th>Dev.</th>
+                                    <th>Esp.</th>
+                                    <th>Reg.</th>
+                                    <th>Pago</th>
+                                    <th>Dif.</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="product-table"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                        <div class="rounded bg-gray-900 p-2">
+                            <span class="block text-[9px] uppercase text-gray-500">
+                                Confiança do último evento
+                            </span>
+
+                            <strong
+                                id="confidence-value"
+                                class="mt-1 block text-lg text-white"
+                            >
+                                -
+                            </strong>
+                        </div>
+
+                        <div class="rounded bg-gray-900 p-2">
+                            <span class="block text-[9px] uppercase text-gray-500">
+                                Itens possivelmente faltantes
+                            </span>
+
+                            <strong
+                                id="positive-divergence"
+                                class="mt-1 block text-lg text-gray-500"
+                            >
+                                0
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div
+                        id="result-box"
+                        class="mt-3 rounded-lg border border-gray-700 bg-gray-900 p-3"
+                    >
+                        <span class="block text-[9px] font-bold uppercase text-gray-500">
+                            Resultado da sessão
+                        </span>
+
+                        <strong
+                            id="result-text"
+                            class="mt-1 block text-xs text-gray-400"
+                        >
+                            Aguardando fluxo
+                        </strong>
+                    </div>
+
+                    <div class="mt-2 rounded-lg border border-green-900 bg-green-950/30 p-2">
+                        <span class="block text-[9px] uppercase text-green-500">
+                            Porta e saída
+                        </span>
+
+                        <strong
+                            id="door-status"
+                            class="mt-1 block text-[11px] text-green-300"
+                        >
+                            Saída preservada — sem bloqueio pela IA
+                        </strong>
+                    </div>
+
+                    <div
+                        id="occurrence-box"
+                        class="mt-3 hidden rounded-lg border border-red-700 bg-red-950/30 p-3"
+                    >
+                        <div class="flex items-center justify-between gap-2">
+                            <strong class="text-xs uppercase text-red-300">
+                                Evento para revisão
+                            </strong>
+
+                            <span
+                                id="occurrence-id"
+                                class="font-mono text-[9px] text-red-400"
+                            >
+                                -
+                            </span>
+                        </div>
+
+                        <p
+                            id="occurrence-reason"
+                            class="mt-2 text-[10px] leading-relaxed text-red-100"
+                        ></p>
+
+                        <div
+                            id="occurrence-clips"
+                            class="mt-2 text-[9px] leading-relaxed text-red-300"
+                        ></div>
+                    </div>
+
+                    <div class="mt-3">
+                        <span class="text-[9px] font-bold uppercase text-gray-500">
+                            Registro dos eventos
+                        </span>
+
+                        <div
+                            id="event-log"
+                            class="event-log mt-1 space-y-1 rounded bg-black/25 p-2"
+                        ></div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <footer
+            class="glass-panel pointer-auto z-30 flex w-full shrink-0 flex-col gap-2 border-x-0 border-b-0 p-2 md:flex-row md:items-center md:justify-between"
+        >
+            <div class="flex w-full gap-2 overflow-x-auto hide-scrollbar md:w-auto">
+                <button
+                    onclick="setCameraView('iso')"
+                    class="btn-action shrink-0 rounded bg-gray-800 px-4 py-2 text-xs"
+                >
+                    Isométrica
+                </button>
+
+                <button
+                    onclick="setCameraView('entrance')"
+                    class="btn-action shrink-0 rounded bg-gray-800 px-4 py-2 text-xs"
+                >
+                    Entrada
+                </button>
+
+                <button
+                    onclick="setCameraView('shelf')"
+                    class="btn-action shrink-0 rounded bg-gray-800 px-4 py-2 text-xs"
+                >
+                    Estante
+                </button>
+
+                <button
+                    onclick="setCameraView('fridges')"
+                    class="btn-action shrink-0 rounded bg-gray-800 px-4 py-2 text-xs"
+                >
+                    Geladeiras
+                </button>
+
+                <button
+                    onclick="setCameraView('top')"
+                    class="btn-action shrink-0 rounded bg-gray-800 px-4 py-2 text-xs"
+                >
+                    Planta
+                </button>
+            </div>
+
+            <p class="hidden text-[9px] text-gray-500 md:block">
+                Demonstração conceitual — thIAguinho Soluções Digitais
+            </p>
+        </footer>
+    </div>
+
+    <div
+        id="gallery-layer"
+        class="pointer-auto fixed inset-0 z-50 hidden overflow-y-auto bg-[#050608]"
+    >
+        <div class="mx-auto max-w-6xl p-4 md:p-10">
+
+            <div class="mb-6 flex flex-col justify-between gap-4 border-b border-gray-800 pb-4 md:flex-row md:items-center">
+                <div>
+                    <h2 class="text-xl font-black text-white md:text-2xl">
+                        Fotos reais do mercadinho
+                    </h2>
+
+                    <p class="mt-1 text-xs text-gray-400">
+                        Comparação entre o ambiente fotografado e o modelo proporcional.
+                    </p>
+                </div>
+
+                <button
+                    onclick="toggleGallery()"
+                    class="rounded bg-[#00a859] px-6 py-3 text-sm font-bold text-white"
+                >
+                    VOLTAR AO SIMULADOR
+                </button>
+            </div>
+
+            <div
+                id="photo-grid"
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            ></div>
+
+            <div class="mt-8 rounded-xl border border-gray-800 bg-gray-900 p-5 text-center">
+                <p class="mb-3 text-xs text-gray-400">
+                    Caso as imagens não apareçam automaticamente, selecione os dez arquivos.
+                </p>
+
+                <input
+                    id="local-photo-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    class="hidden"
+                    onchange="loadLocalPhotos(event)"
+                >
+
+                <label
+                    for="local-photo-input"
+                    class="inline-block cursor-pointer rounded border border-gray-700 bg-gray-800 px-6 py-3 text-xs font-bold text-white"
+                >
+                    SELECIONAR FOTOS
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        if (typeof THREE === "undefined") {
+            document.getElementById("loading").innerHTML = `
+                <div class="max-w-md p-8 text-center text-red-400">
+                    <strong>Não foi possível carregar o motor 3D.</strong>
+                    <p class="mt-3 text-sm text-gray-400">
+                        Verifique a conexão com a internet e abra novamente.
+                    </p>
+                </div>
+            `;
+        }
+
+        const PRODUCTS = {
+            CHOCOLATE: {
+                name: "Chocolate 90 g",
+                shortName: "Chocolate",
+                color: 0xf59e0b
+            },
+
+            REFRIGERANTE: {
+                name: "Refrigerante 350 ml",
+                shortName: "Refrigerante",
+                color: 0xef4444
+            },
+
+            CEREAL: {
+                name: "Cereal",
+                shortName: "Cereal",
+                color: 0x8b5cf6
+            }
+        };
+
+        const LOCATIONS = {
+            entrance: [-0.85, 0, 4.15],
+            aisleFront: [0, 0, 2.15],
+            shelf: [-0.65, 0, -0.35],
+            fridge: [0.68, 0, -1.25],
+            back: [0, 0, -3.75],
+            checkout: [0.9, 0, 3.15],
+            exit: [-0.8, 0, 4.75],
+
+            multiShelf: [-0.65, 0, -0.55],
+            multiFridge: [0.7, 0, -1.2],
+            multiPass: [0.05, 0, -2.2]
+        };
+
+        const SCENARIOS = {
+            regular: {
+                title: "Compra regular",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Facial validada. A sessão temporária foi criada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-02",
+                        to: LOCATIONS.aisleFront,
+                        duration: 1500,
+                        message: "Pessoa 01 acompanhada pela câmera do corredor."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-04",
+                        to: LOCATIONS.shelf,
+                        duration: 1300,
+                        message: "Pessoa 01 aproximou-se da estante lateral."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-04",
+                        sku: "CHOCOLATE",
+                        quantity: 5,
+                        confidence: 0.96,
+                        message: "Cinco chocolates associados à sessão."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-05",
+                        to: LOCATIONS.fridge,
+                        duration: 1300,
+                        message: "A câmera da geladeira assume a interação."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 5,
+                        confidence: 0.94,
+                        message: "Cinco refrigerantes associados à sessão."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1700,
+                        message: "Pessoa 01 chegou ao autoatendimento."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "CHOCOLATE",
+                        quantity: 5,
+                        message: "Chocolate registrado uma vez com quantidade 5."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "REFRIGERANTE",
+                        quantity: 5,
+                        message: "Refrigerante registrado uma vez com quantidade 5."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            CHOCOLATE: 5,
+                            REFRIGERANTE: 5
+                        },
+                        message: "Pagamento aprovado para os dez itens."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "Visão e pagamento foram comparados por produto."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "Sessão regular encerrada. Saída preservada."
+                    }
+                ]
+            },
+
+            return: {
+                title: "Produto devolvido",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Sessão criada na entrada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-05",
+                        to: LOCATIONS.fridge,
+                        duration: 1900,
+                        message: "Pessoa 01 chegou às geladeiras."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 10,
+                        confidence: 0.95,
+                        message: "Dez unidades retiradas da geladeira."
+                    },
+                    {
+                        type: "return",
+                        person: "P01",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 1,
+                        confidence: 0.92,
+                        message: "Uma unidade foi devolvida à área monitorada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1700,
+                        message: "Pessoa 01 chegou ao caixa com saldo esperado de nove itens."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "REFRIGERANTE",
+                        quantity: 9,
+                        message: "Uma leitura foi feita com quantidade 9."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            REFRIGERANTE: 9
+                        },
+                        message: "Pagamento de nove unidades aprovado."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "10 retirados menos 1 devolvido: 9 esperados e 9 pagos."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "Sessão sem divergência. Saída preservada."
+                    }
+                ]
+            },
+
+            divergence: {
+                title: "Item não registrado",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Sessão criada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-04",
+                        to: LOCATIONS.shelf,
+                        duration: 1700,
+                        message: "Pessoa 01 chegou à estante."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-04",
+                        sku: "CHOCOLATE",
+                        quantity: 5,
+                        confidence: 0.96,
+                        message: "Cinco chocolates retirados."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-05",
+                        to: LOCATIONS.fridge,
+                        duration: 1200,
+                        message: "Pessoa 01 passou para a área das geladeiras."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 5,
+                        confidence: 0.94,
+                        message: "Cinco refrigerantes retirados."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1600,
+                        message: "Pessoa 01 chegou ao caixa."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "CHOCOLATE",
+                        quantity: 4,
+                        message: "Somente quatro chocolates foram registrados."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "REFRIGERANTE",
+                        quantity: 5,
+                        message: "Cinco refrigerantes foram registrados."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            CHOCOLATE: 4,
+                            REFRIGERANTE: 5
+                        },
+                        message: "Pagamento aprovado para nove itens."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "Foi encontrada possível diferença de um chocolate."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "A pessoa sai. A ocorrência fica salva para revisão."
+                    }
+                ]
+            },
+
+            multi: {
+                title: "Três usuários",
+                people: ["P01", "P02", "P03"],
+
+                steps: [
+                    {
+                        type: "enterMany",
+                        camera: "CAM-01",
+                        people: [
+                            {
+                                id: "P01",
+                                position: [-0.92, 0, 4.05]
+                            },
+                            {
+                                id: "P02",
+                                position: [-0.25, 0, 4.15]
+                            },
+                            {
+                                id: "P03",
+                                position: [0.45, 0, 4.05]
+                            }
+                        ],
+                        message: "Três sessões temporárias foram criadas."
+                    },
+                    {
+                        type: "moveMany",
+                        camera: "CAM-02",
+                        duration: 1700,
+                        moves: [
+                            {
+                                person: "P01",
+                                to: LOCATIONS.multiShelf
+                            },
+                            {
+                                person: "P02",
+                                to: LOCATIONS.multiFridge
+                            },
+                            {
+                                person: "P03",
+                                to: LOCATIONS.multiPass
+                            }
+                        ],
+                        message: "As três trajetórias permanecem separadas."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-04",
+                        sku: "CHOCOLATE",
+                        quantity: 2,
+                        confidence: 0.95,
+                        message: "Pessoa 01 retirou dois chocolates."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P02",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 3,
+                        confidence: 0.93,
+                        message: "Pessoa 02 retirou três refrigerantes."
+                    },
+                    {
+                        type: "ambiguous",
+                        camera: "CAM-04",
+                        candidates: ["P01", "P02"],
+                        sku: "CHOCOLATE",
+                        quantity: 1,
+                        confidence: 0.54,
+                        message: "Duas mãos próximas: o evento não foi atribuído automaticamente."
+                    },
+                    {
+                        type: "moveMany",
+                        camera: "CAM-07",
+                        duration: 1800,
+                        moves: [
+                            {
+                                person: "P01",
+                                to: [0.62, 0, 2.95]
+                            },
+                            {
+                                person: "P02",
+                                to: [1.02, 0, 2.55]
+                            },
+                            {
+                                person: "P03",
+                                to: [-0.25, 0, 2.2]
+                            }
+                        ],
+                        message: "Os três usuários retornam à parte frontal."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "CHOCOLATE",
+                        quantity: 2,
+                        message: "Pessoa 01 registrou dois chocolates."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            CHOCOLATE: 2
+                        },
+                        message: "Pagamento da Pessoa 01 aprovado."
+                    },
+                    {
+                        type: "register",
+                        person: "P02",
+                        camera: "CAM-07",
+                        sku: "REFRIGERANTE",
+                        quantity: 3,
+                        message: "Pessoa 02 registrou três refrigerantes."
+                    },
+                    {
+                        type: "payment",
+                        person: "P02",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            REFRIGERANTE: 3
+                        },
+                        message: "Pagamento da Pessoa 02 aprovado."
+                    },
+                    {
+                        type: "reconcileAll",
+                        camera: "CAM-07",
+                        message: "Compras regulares, com um evento ambíguo aguardando revisão."
+                    },
+                    {
+                        type: "exitMany",
+                        camera: "CAM-07",
+                        duration: 1300,
+                        moves: [
+                            {
+                                person: "P01",
+                                to: [-0.95, 0, 4.8]
+                            },
+                            {
+                                person: "P02",
+                                to: [-0.25, 0, 4.9]
+                            },
+                            {
+                                person: "P03",
+                                to: [0.45, 0, 4.85]
+                            }
+                        ],
+                        message: "As três pessoas saem. Nenhuma é bloqueada pela IA."
+                    }
+                ]
+            },
+
+            cameraFailure: {
+                title: "Câmera indisponível",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Sessão criada."
+                    },
+                    {
+                        type: "cameraOffline",
+                        camera: "CAM-04",
+                        message: "CAM-04 perdeu comunicação com o processamento local."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-02",
+                        to: LOCATIONS.shelf,
+                        duration: 1700,
+                        message: "A pessoa aproxima-se da estante com cobertura degradada."
+                    },
+                    {
+                        type: "uncertainPickup",
+                        person: "P01",
+                        camera: "CAM-04",
+                        sku: "CHOCOLATE",
+                        quantity: 1,
+                        confidence: 0.32,
+                        message: "Mudança provável na estante, mas a imagem não permite conclusão."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1600,
+                        message: "Pessoa 01 chega ao caixa."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "O sistema classifica a sessão como imagem insuficiente."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "Saída preservada. O proprietário poderá revisar o trecho."
+                    }
+                ]
+            },
+
+            wrongSku: {
+                title: "Produto diferente pago",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Sessão criada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-04",
+                        to: LOCATIONS.shelf,
+                        duration: 1700,
+                        message: "Pessoa 01 chegou à estante."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-04",
+                        sku: "CHOCOLATE",
+                        quantity: 2,
+                        confidence: 0.95,
+                        message: "Dois chocolates retirados."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1600,
+                        message: "Pessoa 01 chegou ao caixa."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "CEREAL",
+                        quantity: 2,
+                        message: "Foram registrados dois cereais, não dois chocolates."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: true,
+                        items: {
+                            CEREAL: 2
+                        },
+                        message: "O total de itens é igual, mas os produtos são diferentes."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "A conferência por SKU detecta a diferença que o total esconderia."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "Saída preservada e ocorrência enviada para revisão."
+                    }
+                ]
+            },
+
+            paymentCanceled: {
+                title: "Pagamento cancelado",
+                people: ["P01"],
+
+                steps: [
+                    {
+                        type: "enter",
+                        person: "P01",
+                        camera: "CAM-01",
+                        position: LOCATIONS.entrance,
+                        message: "Sessão criada."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-05",
+                        to: LOCATIONS.fridge,
+                        duration: 1800,
+                        message: "Pessoa 01 chegou às geladeiras."
+                    },
+                    {
+                        type: "pickup",
+                        person: "P01",
+                        camera: "CAM-05",
+                        sku: "REFRIGERANTE",
+                        quantity: 3,
+                        confidence: 0.94,
+                        message: "Três refrigerantes retirados."
+                    },
+                    {
+                        type: "move",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.checkout,
+                        duration: 1600,
+                        message: "Pessoa 01 chegou ao autoatendimento."
+                    },
+                    {
+                        type: "register",
+                        person: "P01",
+                        camera: "CAM-07",
+                        sku: "REFRIGERANTE",
+                        quantity: 3,
+                        message: "Três unidades foram registradas corretamente."
+                    },
+                    {
+                        type: "payment",
+                        person: "P01",
+                        camera: "CAM-07",
+                        approved: false,
+                        items: {
+                            REFRIGERANTE: 3
+                        },
+                        message: "Pagamento cancelado ou não aprovado."
+                    },
+                    {
+                        type: "reconcile",
+                        person: "P01",
+                        camera: "CAM-07",
+                        message: "Itens registrados, mas nenhum pagamento confirmado."
+                    },
+                    {
+                        type: "exit",
+                        person: "P01",
+                        camera: "CAM-07",
+                        to: LOCATIONS.exit,
+                        duration: 1100,
+                        message: "A pessoa sai. A sessão é marcada para revisão."
+                    }
+                ]
+            },
+
+            ambiguousInteraction: {
+                title: "Interação ambígua",
+                people: ["P01", "P02"],
+
+                steps: [
+                    {
+                        type: "enterMany",
+                        camera: "CAM-01",
+                        people: [
+                            { id: "P01", position: [-0.7, 0, 4.1] },
+                            { id: "P02", position: [0.15, 0, 4.15] }
+                        ],
+                        message: "Duas sessões temporárias foram criadas."
+                    },
+                    {
+                        type: "moveMany",
+                        camera: "CAM-04",
+                        duration: 1700,
+                        moves: [
+                            { person: "P01", to: [-0.55, 0, -0.25] },
+                            { person: "P02", to: [-0.15, 0, -0.15] }
+                        ],
+                        message: "As duas pessoas aproximaram-se da mesma zona da estante."
+                    },
+                    {
+                        type: "ambiguous",
+                        camera: "CAM-04",
+                        candidates: ["P01", "P02"],
+                        sku: "CHOCOLATE",
+                        quantity: 1,
+                        confidence: 0.48,
+                        message: "Duas mãos próximas: o produto não foi atribuído automaticamente."
+                    },
+                    {
+                        type: "reconcileAll",
+                        camera: "CAM-07",
+                        message: "A interação foi preservada como evento para revisão humana."
+                    },
+                    {
+                        type: "exitMany",
+                        camera: "CAM-07",
+                        duration: 1300,
+                        moves: [
+                            { person: "P01", to: [-0.85, 0, 4.8] },
+                            { person: "P02", to: [0.05, 0, 4.85] }
+                        ],
+                        message: "As duas pessoas saem. Nenhuma é bloqueada pela IA."
+                    }
+                ]
+            }
+        };
+
+        const CAMERA_SPECS = [
+            {
+                id: "CAM-01",
+                name: "Entrada e facial",
+                position: [-1.05, 2.65, 4.25],
+                target: [-0.65, 0.9, 3.55],
+                range: 2.2,
+                radius: 1.15,
+                description:
+                    "Relaciona o acesso facial à sessão temporária da pessoa."
+            },
+
+            {
+                id: "CAM-02",
+                name: "Corredor frontal",
+                position: [0, 2.7, 2.3],
+                target: [0, 0.8, 0.45],
+                range: 3.3,
+                radius: 1.65,
+                description:
+                    "Mantém a continuidade corporal na parte frontal e central."
+            },
+
+            {
+                id: "CAM-03",
+                name: "Corredor traseiro",
+                position: [0, 2.7, -2.45],
+                target: [0, 0.8, -3.55],
+                range: 2.8,
+                radius: 1.5,
+                description:
+                    "Mantém o rastreamento na parte traseira do contêiner."
+            },
+
+            {
+                id: "CAM-04",
+                name: "Estante lateral",
+                position: [1.2, 2.55, 0.45],
+                target: [-1.15, 1.05, -0.45],
+                range: 3.2,
+                radius: 1.5,
+                description:
+                    "Observa corpo, braço, mão e mudança nas zonas da estante."
+            },
+
+            {
+                id: "CAM-05",
+                name: "Geladeiras",
+                position: [-1.15, 2.55, -0.9],
+                target: [1.1, 1.05, -1.25],
+                range: 3.1,
+                radius: 1.5,
+                description:
+                    "Observa abertura da porta, braço, mão e região interna acessada."
+            },
+
+            {
+                id: "CAM-06",
+                name: "Prateleira do fundo",
+                position: [0, 2.6, -4.0],
+                target: [0, 1.05, -4.45],
+                range: 1.8,
+                radius: 1.15,
+                description:
+                    "Cobre as interações nas prateleiras da parede traseira."
+            },
+
+            {
+                id: "CAM-07",
+                name: "Caixa e saída",
+                position: [-0.75, 2.65, 3.65],
+                target: [0.72, 0.85, 3.2],
+                range: 2.5,
+                radius: 1.3,
+                description:
+                    "Relaciona a sessão com os eventos do caixa, pagamento e saída."
+            }
+        ];
+
+        const PHOTO_REFERENCES = [
+            {
+                file: "./assets/images/1000821653.jpg",
+                description: "Fachada, entrada e reconhecimento facial"
+            },
+            {
+                file: "./assets/images/1000821654.jpg",
+                description: "Estante lateral e produtos pequenos"
+            },
+            {
+                file: "./assets/images/1000821655.jpg",
+                description: "Corredor entre prateleiras e geladeiras"
+            },
+            {
+                file: "./assets/images/1000821656.jpg",
+                description: "Conjunto de geladeiras"
+            },
+            {
+                file: "./assets/images/1000821657.jpg",
+                description: "Prateleiras do fundo"
+            },
+            {
+                file: "./assets/images/1000821658.jpg",
+                description: "Encontro das prateleiras e área refrigerada"
+            },
+            {
+                file: "./assets/images/1000821659.jpg",
+                description: "Profundidade do mercadinho"
+            },
+            {
+                file: "./assets/images/1000821660.jpg",
+                description: "Produtos de higiene e limpeza"
+            },
+            {
+                file: "./assets/images/1000821661.jpg",
+                description: "Autoatendimento e máquina de pagamento"
+            },
+            {
+                file: "./assets/images/1000821662.jpg",
+                description: "Porta, saída e freezer frontal"
+            }
+        ];
+
+        const App3D = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            controls: null,
+
+            room: {
+                width: 3.4,
+                length: 9.5,
+                height: 2.8
+            },
+
+            interactables: [],
+            cameraObjects: {},
+            cones: [],
+            zones: [],
+            paths: [],
+            avatars: {},
+
+            raycaster: new THREE.Raycaster(),
+            pointer: new THREE.Vector2(),
+
+            init() {
+                const container = document.getElementById("canvas-container");
+
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x050608);
+                this.scene.fog = new THREE.FogExp2(0x050608, 0.035);
+
+                this.camera = new THREE.PerspectiveCamera(
+                    48,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    100
+                );
+
+                this.renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    powerPreference: "high-performance"
+                });
+
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+                this.renderer.setPixelRatio(
+                    Math.min(window.devicePixelRatio || 1, 2)
+                );
+
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+
+                container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.OrbitControls(
+                    this.camera,
+                    this.renderer.domElement
+                );
+
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.055;
+                this.controls.maxPolarAngle = Math.PI / 2 - 0.02;
+                this.controls.minDistance = 3.5;
+                this.controls.maxDistance = 18;
+                this.controls.target.set(0, 1.1, 0);
+
+                this.buildLighting();
+                this.buildRoom();
+                this.buildFurniture();
+                this.buildProductZones();
+                this.buildCameras();
+                this.buildAvatars();
+                this.buildPaths();
+
+                setCameraView("iso");
+
+                window.addEventListener(
+                    "resize",
+                    this.onResize.bind(this)
+                );
+
+                this.renderer.domElement.addEventListener(
+                    "pointerdown",
+                    this.onPointerDown.bind(this)
+                );
+
+                setTimeout(() => {
+                    const loading = document.getElementById("loading");
+                    loading.style.opacity = "0";
+
+                    setTimeout(() => {
+                        loading.style.display = "none";
+                    }, 450);
+                }, 700);
+
+                this.animate();
+            },
+
+            buildLighting() {
+                const ambient = new THREE.AmbientLight(0xffffff, 0.52);
+                this.scene.add(ambient);
+
+                const directional = new THREE.DirectionalLight(0xffffff, 0.35);
+                directional.position.set(3, 5, 5);
+                this.scene.add(directional);
+
+                [-3.8, -1.35, 1.15, 3.9].forEach((z) => {
+                    const spot = new THREE.SpotLight(
+                        0xfff9e6,
+                        0.72,
+                        11,
+                        Math.PI / 3.2,
+                        0.58,
+                        1
+                    );
+
+                    spot.position.set(0, this.room.height - 0.08, z);
+                    spot.target.position.set(0, 0, z);
+                    spot.castShadow = true;
+
+                    this.scene.add(spot);
+                    this.scene.add(spot.target);
+
+                    const fixture = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.045, 0.045, 0.11, 12),
+                        new THREE.MeshBasicMaterial({
+                            color: 0x252525
+                        })
+                    );
+
+                    fixture.position.set(0, this.room.height - 0.04, z);
+                    this.scene.add(fixture);
+                });
+            },
+
+            buildRoom() {
+                const floorTexture = createFloorTexture();
+
+                const floor = new THREE.Mesh(
+                    new THREE.PlaneGeometry(
+                        this.room.width,
+                        this.room.length
+                    ),
+                    new THREE.MeshStandardMaterial({
+                        map: floorTexture,
+                        roughness: 0.68,
+                        metalness: 0.05
+                    })
+                );
+
+                floor.rotation.x = -Math.PI / 2;
+                floor.receiveShadow = true;
+
+                this.scene.add(floor);
+
+                const wallMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x111111,
+                    roughness: 0.95,
+                    transparent: true,
+                    opacity: 0.32,
+                    side: THREE.DoubleSide
+                });
+
+                const addWall = (width, height, depth, x, y, z) => {
+                    const wall = new THREE.Mesh(
+                        new THREE.BoxGeometry(width, height, depth),
+                        wallMaterial
+                    );
+
+                    wall.position.set(x, y, z);
+                    wall.receiveShadow = true;
+
+                    this.scene.add(wall);
+                };
+
+                addWall(
+                    0.18,
+                    this.room.height,
+                    this.room.length,
+                    -this.room.width / 2 - 0.09,
+                    this.room.height / 2,
+                    0
+                );
+
+                addWall(
+                    0.18,
+                    this.room.height,
+                    this.room.length,
+                    this.room.width / 2 + 0.09,
+                    this.room.height / 2,
+                    0
+                );
+
+                addWall(
+                    this.room.width,
+                    this.room.height,
+                    0.18,
+                    0,
+                    this.room.height / 2,
+                    -this.room.length / 2 - 0.09
+                );
+
+                const glassMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0xbfe5ff,
+                    transparent: true,
+                    opacity: 0.16,
+                    roughness: 0.08,
+                    transmission: 0.5,
+                    side: THREE.DoubleSide
+                });
+
+                const frontGlass = new THREE.Mesh(
+                    new THREE.PlaneGeometry(
+                        this.room.width,
+                        this.room.height - 0.65
+                    ),
+                    glassMaterial
+                );
+
+                frontGlass.position.set(
+                    0,
+                    (this.room.height - 0.65) / 2,
+                    this.room.length / 2
+                );
+
+                this.scene.add(frontGlass);
+
+                const doorFrameMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x161616,
+                    metalness: 0.7,
+                    roughness: 0.4
+                });
+
+                const doorFrame = new THREE.Group();
+
+                const doorWidth = 0.92;
+                const doorHeight = 2.05;
+                const doorZ = this.room.length / 2 + 0.025;
+
+                [
+                    [-doorWidth / 2, doorHeight / 2, doorZ],
+                    [doorWidth / 2, doorHeight / 2, doorZ]
+                ].forEach(([x, y, z]) => {
+                    const bar = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.055, doorHeight, 0.055),
+                        doorFrameMaterial
+                    );
+
+                    bar.position.set(x, y, z);
+                    doorFrame.add(bar);
+                });
+
+                const topBar = new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        doorWidth + 0.055,
+                        0.055,
+                        0.055
+                    ),
+                    doorFrameMaterial
+                );
+
+                topBar.position.set(0, doorHeight, doorZ);
+                doorFrame.add(topBar);
+
+                const doorPanel = new THREE.Mesh(
+                    new THREE.PlaneGeometry(
+                        doorWidth - 0.08,
+                        doorHeight - 0.08
+                    ),
+                    glassMaterial
+                );
+
+                doorPanel.position.set(0, doorHeight / 2, doorZ + 0.015);
+                doorFrame.add(doorPanel);
+
+                this.addInteractable(
+                    doorFrame,
+                    "Entrada e saída",
+                    "A demonstração mantém a saída independente da decisão da IA. Divergências geram revisão, não bloqueio automático."
+                );
+
+                this.scene.add(doorFrame);
+
+                const banner = new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        this.room.width + 0.35,
+                        0.62,
+                        0.28
+                    ),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x00a859
+                    })
+                );
+
+                banner.position.set(
+                    0,
+                    this.room.height - 0.31,
+                    this.room.length / 2 + 0.1
+                );
+
+                this.scene.add(banner);
+            },
+
+            buildFurniture() {
+                const shelfMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x1d1d1d,
+                    metalness: 0.45,
+                    roughness: 0.62
+                });
+
+                const leftShelf = new THREE.Group();
+                leftShelf.position.set(
+                    -this.room.width / 2 + 0.34,
+                    0,
+                    -0.25
+                );
+
+                const backPanel = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.09, 2.2, 7.45),
+                    shelfMaterial
+                );
+
+                backPanel.position.y = 1.1;
+                leftShelf.add(backPanel);
+
+                for (let level = 0; level < 6; level += 1) {
+                    const y = 0.28 + level * 0.36;
+
+                    const deck = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.52, 0.035, 7.45),
+                        shelfMaterial
+                    );
+
+                    deck.position.set(0.22, y, 0);
+                    leftShelf.add(deck);
+
+                    addProductBlocks(
+                        leftShelf,
+                        0.31,
+                        y + 0.13,
+                        -3.55,
+                        30,
+                        0.22
+                    );
+                }
+
+                this.addInteractable(
+                    leftShelf,
+                    "Estante lateral",
+                    "Área dividida em zonas de produtos. A câmera sugerida observa o corpo, a origem do braço, a mão e a mudança visual da prateleira."
+                );
+
+                this.scene.add(leftShelf);
+
+                const backShelf = new THREE.Group();
+                backShelf.position.set(
+                    0,
+                    0,
+                    -this.room.length / 2 + 0.3
+                );
+
+                const backShelfPanel = new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        this.room.width - 0.85,
+                        2.1,
+                        0.52
+                    ),
+                    shelfMaterial
+                );
+
+                backShelfPanel.position.y = 1.05;
+                backShelf.add(backShelfPanel);
+
+                for (let level = 0; level < 5; level += 1) {
+                    const y = 0.3 + level * 0.4;
+
+                    const productRow = new THREE.Group();
+
+                    for (let index = 0; index < 9; index += 1) {
+                        const product = createProductBox(
+                            index % 3 === 0
+                                ? 0xfacc15
+                                : index % 3 === 1
+                                    ? 0xef4444
+                                    : 0x3b82f6
+                        );
+
+                        product.position.set(
+                            -1.02 + index * 0.255,
+                            y,
+                            -0.3
+                        );
+
+                        productRow.add(product);
+                    }
+
+                    backShelf.add(productRow);
+                }
+
+                this.addInteractable(
+                    backShelf,
+                    "Prateleiras do fundo",
+                    "Área traseira observada por uma câmera dedicada para reduzir bloqueios causados pelo corpo do cliente."
+                );
+
+                this.scene.add(backShelf);
+
+                const airConditioner = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.0, 0.29, 0.34),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xe5e7eb
+                    })
+                );
+
+                airConditioner.position.set(
+                    0.75,
+                    2.43,
+                    -this.room.length / 2 + 0.18
+                );
+
+                this.scene.add(airConditioner);
+
+                const fridges = new THREE.Group();
+
+                fridges.position.set(
+                    this.room.width / 2 - 0.46,
+                    0,
+                    -1.0
+                );
+
+                const fridgeBody = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.92, 2.3, 5.55),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x070707,
+                        metalness: 0.4,
+                        roughness: 0.45
+                    })
+                );
+
+                fridgeBody.position.y = 1.15;
+                fridges.add(fridgeBody);
+
+                const fridgeGlow = new THREE.MeshBasicMaterial({
+                    color: 0xdff4ff,
+                    transparent: true,
+                    opacity: 0.14,
+                    side: THREE.DoubleSide
+                });
+
+                for (let door = 0; door < 4; door += 1) {
+                    const z = -2.02 + door * 1.34;
+
+                    const glass = new THREE.Mesh(
+                        new THREE.PlaneGeometry(1.22, 1.78),
+                        new THREE.MeshPhysicalMaterial({
+                            color: 0xb8ddff,
+                            transparent: true,
+                            opacity: 0.26,
+                            transmission: 0.5,
+                            roughness: 0.08,
+                            side: THREE.DoubleSide
+                        })
+                    );
+
+                    glass.position.set(-0.47, 1.08, z);
+                    glass.rotation.y = Math.PI / 2;
+                    fridges.add(glass);
+
+                    const glow = new THREE.Mesh(
+                        new THREE.PlaneGeometry(1.2, 1.74),
+                        fridgeGlow
+                    );
+
+                    glow.position.set(-0.465, 1.08, z);
+                    glow.rotation.y = Math.PI / 2;
+                    fridges.add(glow);
+
+                    const handle = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.035, 1.34, 0.035),
+                        new THREE.MeshStandardMaterial({
+                            color: 0xcbd5e1,
+                            metalness: 0.75
+                        })
+                    );
+
+                    handle.position.set(-0.5, 1.08, z + 0.5);
+                    fridges.add(handle);
+                }
+
+                this.addInteractable(
+                    fridges,
+                    "Geladeiras",
+                    "A câmera diagonal sugerida observa abertura da porta, braço, mão e região interna acessada. Reflexos e portas abertas exigirão teste no local."
+                );
+
+                this.scene.add(fridges);
+
+                const checkout = new THREE.Group();
+                checkout.position.set(
+                    0.9,
+                    0,
+                    this.room.length / 2 - 1.55
+                );
+
+                const checkoutBody = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.94, 0.9, 0.62),
+                    shelfMaterial
+                );
+
+                checkoutBody.position.y = 0.45;
+                checkout.add(checkoutBody);
+
+                const tablet = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.36, 0.25, 0.025),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x0f172a
+                    })
+                );
+
+                tablet.position.set(-0.16, 1.04, 0);
+                tablet.rotation.x = -Math.PI / 5.5;
+                checkout.add(tablet);
+
+                const paymentMachine = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.13, 0.06, 0.19),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x1d4ed8
+                    })
+                );
+
+                paymentMachine.position.set(0.25, 0.94, 0.11);
+                checkout.add(paymentMachine);
+
+                this.addInteractable(
+                    checkout,
+                    "Autoatendimento",
+                    "O sistema real deverá receber códigos, quantidades, cancelamentos e confirmação de pagamento diretamente da integração autorizada do caixa."
+                );
+
+                this.scene.add(checkout);
+
+                const frontFreezer = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.82, 0.87, 0.72),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x171717,
+                        roughness: 0.65
+                    })
+                );
+
+                frontFreezer.position.set(
+                    this.room.width / 2 - 0.52,
+                    0.435,
+                    this.room.length / 2 - 2.7
+                );
+
+                this.addInteractable(
+                    frontFreezer,
+                    "Freezer frontal",
+                    "Equipamento próximo da área frontal observado nas fotos. O ângulo definitivo de cobertura ainda precisa ser validado."
+                );
+
+                this.scene.add(frontFreezer);
+
+                const facial = new THREE.Group();
+                facial.position.set(
+                    -0.86,
+                    0,
+                    this.room.length / 2 - 0.53
+                );
+
+                const facialBody = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.5, 1.1, 0.28),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x2b2b2b,
+                        metalness: 0.65,
+                        roughness: 0.42
+                    })
+                );
+
+                facialBody.position.y = 0.55;
+                facial.add(facialBody);
+
+                const facialScreen = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.24, 0.32, 0.025),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x22c55e
+                    })
+                );
+
+                facialScreen.position.set(0, 0.82, 0.15);
+                facial.add(facialScreen);
+
+                this.addInteractable(
+                    facial,
+                    "Acesso facial",
+                    "O controle existente identifica o cadastro e cria uma sessão temporária para o acompanhamento interno."
+                );
+
+                this.scene.add(facial);
+            },
+
+            buildProductZones() {
+                const zoneMaterialShelf = new THREE.MeshBasicMaterial({
+                    color: 0x00a859,
+                    transparent: true,
+                    opacity: 0.13,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                const zoneMaterialFridge = new THREE.MeshBasicMaterial({
+                    color: 0x3b82f6,
+                    transparent: true,
+                    opacity: 0.12,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                for (let index = 0; index < 8; index += 1) {
+                    const zone = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.62, 0.8),
+                        zoneMaterialShelf.clone()
+                    );
+
+                    zone.position.set(
+                        -1.32,
+                        1.15,
+                        -3.25 + index * 0.88
+                    );
+
+                    zone.rotation.y = Math.PI / 2;
+                    zone.userData.zoneId = `ESTANTE_ZONA_${index + 1}`;
+
+                    this.zones.push(zone);
+                    this.scene.add(zone);
+                }
+
+                for (let index = 0; index < 4; index += 1) {
+                    const zone = new THREE.Mesh(
+                        new THREE.PlaneGeometry(1.22, 1.72),
+                        zoneMaterialFridge.clone()
+                    );
+
+                    zone.position.set(
+                        1.245,
+                        1.08,
+                        -3.02 + index * 1.34
+                    );
+
+                    zone.rotation.y = -Math.PI / 2;
+                    zone.userData.zoneId = `GELADEIRA_ZONA_${index + 1}`;
+
+                    this.zones.push(zone);
+                    this.scene.add(zone);
+                }
+            },
+
+            buildCameras() {
+                CAMERA_SPECS.forEach((specification) => {
+                    const group = new THREE.Group();
+
+                    group.position.set(
+                        specification.position[0],
+                        specification.position[1],
+                        specification.position[2]
+                    );
+
+                    const target = new THREE.Vector3(
+                        specification.target[0],
+                        specification.target[1],
+                        specification.target[2]
+                    );
+
+                    const body = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.15, 0.1, 0.22),
+                        new THREE.MeshStandardMaterial({
+                            color: 0xe5e7eb,
+                            metalness: 0.35,
+                            roughness: 0.4
+                        })
+                    );
+
+                    const lens = new THREE.Mesh(
+                        new THREE.CylinderGeometry(
+                            0.035,
+                            0.035,
+                            0.06,
+                            14
+                        ),
+                        new THREE.MeshBasicMaterial({
+                            color: 0x050505
+                        })
+                    );
+
+                    lens.rotation.x = Math.PI / 2;
+                    lens.position.z = -0.13;
+                    body.add(lens);
+
+                    group.add(body);
+
+                    const direction = target
+                        .clone()
+                        .sub(group.position)
+                        .normalize();
+
+                    group.quaternion.setFromUnitVectors(
+                        new THREE.Vector3(0, 0, -1),
+                        direction
+                    );
+
+                    const cone = createCoverageCone(
+                        specification.range,
+                        specification.radius,
+                        0x3b82f6
+                    );
+
+                    cone.userData.cameraId = specification.id;
+
+                    const localTarget = target
+                        .clone()
+                        .sub(group.position);
+
+                    const coneDirection = localTarget.clone().normalize();
+
+                    cone.quaternion.setFromUnitVectors(
+                        new THREE.Vector3(0, -1, 0),
+                        coneDirection
+                    );
+
+                    group.add(cone);
+
+                    const hitbox = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.38, 0.38, 0.46),
+                        new THREE.MeshBasicMaterial({
+                            visible: false
+                        })
+                    );
+
+                    hitbox.userData = {
+                        title: `${specification.id} — ${specification.name}`,
+                        description:
+                            `${specification.description} Posição apenas sugerida e ainda sujeita à validação de campo.`
+                    };
+
+                    group.add(hitbox);
+                    this.interactables.push(hitbox);
+
+                    this.cameraObjects[specification.id] = {
+                        group,
+                        cone,
+                        body,
+                        specification,
+                        status: "online"
+                    };
+
+                    this.cones.push(cone);
+                    this.scene.add(group);
+                });
+            },
+
+            buildAvatars() {
+                const people = [
+                    {
+                        id: "P01",
+                        color: 0x00a859
+                    },
+                    {
+                        id: "P02",
+                        color: 0x3b82f6
+                    },
+                    {
+                        id: "P03",
+                        color: 0xa855f7
+                    }
+                ];
+
+                people.forEach((person) => {
+                    const avatar = createAvatar(
+                        person.id,
+                        person.color
+                    );
+
+                    avatar.visible = false;
+
+                    this.avatars[person.id] = avatar;
+                    this.scene.add(avatar);
+                });
+            },
+
+            buildPaths() {
+                const paths = [
+                    {
+                        color: 0x00a859,
+                        points: [
+                            LOCATIONS.entrance,
+                            LOCATIONS.aisleFront,
+                            LOCATIONS.shelf,
+                            LOCATIONS.fridge,
+                            LOCATIONS.checkout,
+                            LOCATIONS.exit
+                        ]
+                    },
+                    {
+                        color: 0x3b82f6,
+                        points: [
+                            [-0.25, 0.02, 4.15],
+                            [0.1, 0.02, 2.0],
+                            LOCATIONS.fridge,
+                            [1.02, 0.02, 2.55],
+                            [-0.25, 0.02, 4.9]
+                        ]
+                    },
+                    {
+                        color: 0xa855f7,
+                        points: [
+                            [0.45, 0.02, 4.05],
+                            [0.05, 0.02, 1.5],
+                            LOCATIONS.multiPass,
+                            [-0.25, 0.02, 2.2],
+                            [0.45, 0.02, 4.85]
+                        ]
+                    }
+                ];
+
+                paths.forEach((pathData) => {
+                    const curve = new THREE.CatmullRomCurve3(
+                        pathData.points.map(
+                            (point) =>
+                                new THREE.Vector3(
+                                    point[0],
+                                    point[1],
+                                    point[2]
+                                )
+                        )
+                    );
+
+                    const geometry = new THREE.BufferGeometry().setFromPoints(
+                        curve.getPoints(70)
+                    );
+
+                    const material = new THREE.LineDashedMaterial({
+                        color: pathData.color,
+                        dashSize: 0.18,
+                        gapSize: 0.13,
+                        transparent: true,
+                        opacity: 0.5
+                    });
+
+                    const line = new THREE.Line(geometry, material);
+                    line.computeLineDistances();
+
+                    this.paths.push(line);
+                    this.scene.add(line);
+                });
+            },
+
+            addInteractable(object, title, description) {
+                object.traverse((child) => {
+                    if (!child.isMesh) {
+                        return;
+                    }
+
+                    child.userData = {
+                        ...child.userData,
+                        title,
+                        description
+                    };
+
+                    this.interactables.push(child);
+                });
+            },
+
+            onPointerDown(event) {
+                if (event.target.tagName !== "CANVAS") {
+                    return;
+                }
+
+                if (
+                    window.innerWidth < 768 &&
+                    panelsVisible
+                ) {
+                    togglePanels(false);
+                    return;
+                }
+
+                this.pointer.x =
+                    (event.clientX / window.innerWidth) * 2 - 1;
+
+                this.pointer.y =
+                    -(event.clientY / window.innerHeight) * 2 + 1;
+
+                this.raycaster.setFromCamera(
+                    this.pointer,
+                    this.camera
+                );
+
+                const intersections = this.raycaster.intersectObjects(
+                    this.interactables,
+                    true
+                );
+
+                if (!intersections.length) {
+                    hideTooltip();
+                    return;
+                }
+
+                const data = intersections[0].object.userData;
+
+                if (!data.title) {
+                    return;
+                }
+
+                showTooltip(
+                    event.clientX,
+                    event.clientY,
+                    data.title,
+                    data.description
+                );
+            },
+
+            onResize() {
+                this.camera.aspect =
+                    window.innerWidth / window.innerHeight;
+
+                this.camera.updateProjectionMatrix();
+
+                this.renderer.setSize(
+                    window.innerWidth,
+                    window.innerHeight
+                );
+            },
+
+            animate() {
+                requestAnimationFrame(
+                    this.animate.bind(this)
+                );
+
+                this.controls.update();
+
+                Object.values(this.avatars).forEach((avatar) => {
+                    if (
+                        avatar.visible &&
+                        avatar.userData.ring
+                    ) {
+                        avatar.userData.ring.rotation.z += 0.012;
+                    }
+                });
+
+                this.renderer.render(
+                    this.scene,
+                    this.camera
+                );
+            }
+        };
+
+        const Runtime = {
+            scenarioId: "regular",
+            running: false,
+            token: 0,
+
+            selectedPerson: "P01",
+            sessions: {},
+            cameraStatus: {},
+            currentCamera: null,
+
+            logs: [],
+            occurrence: null,
+            ambiguousEvents: [],
+            uncertainEvents: [],
+            paymentProblem: false,
+
+            reset(scenarioId = this.scenarioId) {
+                this.token += 1;
+                this.running = false;
+                this.scenarioId = scenarioId;
+
+                this.sessions = {};
+                this.cameraStatus = {};
+                this.currentCamera = null;
+
+                this.logs = [];
+                this.occurrence = null;
+                this.ambiguousEvents = [];
+                this.uncertainEvents = [];
+                this.paymentProblem = false;
+
+                CAMERA_SPECS.forEach((camera) => {
+                    this.cameraStatus[camera.id] = "online";
+                });
+
+                const scenario = SCENARIOS[scenarioId];
+
+                scenario.people.forEach((person, index) => {
+                    this.sessions[person] = {
+                        personId: person,
+                        sessionId:
+                            `SESSION_${scenarioId.toUpperCase()}_${index + 1}`,
+                        cart: {},
+                        paymentApproved: null,
+                        reconciled: false,
+                        exited: false,
+                        result: "Aguardando fluxo"
+                    };
+                });
+
+                this.selectedPerson = scenario.people[0];
+
+                Object.entries(App3D.avatars).forEach(
+                    ([personId, avatar]) => {
+                        avatar.visible = false;
+                        avatar.position.set(0, 0, 0);
+                        setAvatarPose(personId, "idle");
+                    }
+                );
+
+                Object.values(App3D.cameraObjects).forEach(
+                    (cameraObject) => {
+                        cameraObject.status = "online";
+
+                        cameraObject.cone.material.color.setHex(
+                            0x3b82f6
+                        );
+
+                        cameraObject.cone.material.opacity = 0.1;
+                    }
+                );
+
+                updateInterface();
+
+                setCurrentEvent(
+                    `Cenário selecionado: ${scenario.title}. Pressione “Iniciar fluxo completo”.`
+                );
+            }
+        };
+
+        function selectScenario(scenarioId) {
+            if (Runtime.running) {
+                cancelCurrentSimulation();
+            }
+
+            document
+                .querySelectorAll(".scenario-button")
+                .forEach((button) => {
+                    button.classList.toggle(
+                        "active",
+                        button.dataset.scenario === scenarioId
+                    );
+                });
+
+            Runtime.reset(scenarioId);
+
+            document.getElementById("scenario-status").textContent =
+                SCENARIOS[scenarioId].title.toUpperCase();
+        }
+
+        async function startSelectedScenario() {
+            if (Runtime.running) {
+                cancelCurrentSimulation();
+                return;
+            }
+
+            const scenario = SCENARIOS[Runtime.scenarioId];
+
+            Runtime.reset(Runtime.scenarioId);
+            Runtime.running = true;
+
+            const token = Runtime.token;
+
+            const button = document.getElementById("start-button");
+
+            button.textContent = "■ PARAR DEMONSTRAÇÃO";
+            button.className =
+                "mt-3 w-full rounded bg-red-600 p-3 text-sm font-black text-white shadow-lg transition hover:bg-red-700";
+
+            if (window.innerWidth < 768) {
+                togglePanels(false);
+            }
+
+            try {
+                for (const step of scenario.steps) {
+                    if (
+                        token !== Runtime.token ||
+                        !Runtime.running
+                    ) {
+                        return;
+                    }
+
+                    await executeStep(step, token);
+                }
+            } finally {
+                if (token === Runtime.token) {
+                    Runtime.running = false;
+
+                    button.textContent =
+                        "► REINICIAR FLUXO COMPLETO";
+
+                    button.className =
+                        "mt-3 w-full rounded bg-[#00a859] p-3 text-sm font-black text-white shadow-lg shadow-green-950/50 transition hover:bg-green-600";
+
+                    if (window.innerWidth < 768) {
+                        setTimeout(() => {
+                            togglePanels(true);
+                        }, 700);
+                    }
+                }
+            }
+        }
+
+        function cancelCurrentSimulation() {
+            Runtime.token += 1;
+            Runtime.running = false;
+
+            document.getElementById("start-button").textContent =
+                "► INICIAR FLUXO COMPLETO";
+
+            document.getElementById("start-button").className =
+                "mt-3 w-full rounded bg-[#00a859] p-3 text-sm font-black text-white shadow-lg shadow-green-950/50 transition hover:bg-green-600";
+        }
+
+        function resetSimulation() {
+            cancelCurrentSimulation();
+            Runtime.reset(Runtime.scenarioId);
+        }
+
+        async function executeStep(step, token) {
+            if (token !== Runtime.token) {
+                return;
+            }
+
+            if (step.camera) {
+                highlightCamera(step.camera);
+            }
+
+            setCurrentEvent(step.message);
+            addLog(step.message, step.camera);
+
+            switch (step.type) {
+                case "enter":
+                    showAvatar(
+                        step.person,
+                        step.position
+                    );
+
+                    setAvatarPose(
+                        step.person,
+                        "idle"
+                    );
+
+                    await delay(900, token);
+                    break;
+
+                case "enterMany":
+                    step.people.forEach((person) => {
+                        showAvatar(
+                            person.id,
+                            person.position
+                        );
+                    });
+
+                    await delay(900, token);
+                    break;
+
+                case "move":
+                    setAvatarPose(
+                        step.person,
+                        "walking"
+                    );
+
+                    await moveAvatar(
+                        step.person,
+                        step.to,
+                        step.duration,
+                        token
+                    );
+
+                    setAvatarPose(
+                        step.person,
+                        "idle"
+                    );
+                    break;
+
+                case "moveMany":
+                    await Promise.all(
+                        step.moves.map((move) => {
+                            setAvatarPose(
+                                move.person,
+                                "walking"
+                            );
+
+                            return moveAvatar(
+                                move.person,
+                                move.to,
+                                step.duration,
+                                token
+                            );
+                        })
+                    );
+
+                    step.moves.forEach((move) => {
+                        setAvatarPose(
+                            move.person,
+                            "idle"
+                        );
+                    });
+                    break;
+
+                case "pickup":
+                    selectPerson(step.person);
+
+                    setAvatarPose(
+                        step.person,
+                        step.camera === "CAM-05"
+                            ? "reachRight"
+                            : "reachLeft"
+                    );
+
+                    await delay(550, token);
+
+                    updateProductState(
+                        step.person,
+                        step.sku,
+                        "picked",
+                        step.quantity
+                    );
+
+                    updateConfidence(step.confidence);
+
+                    setAvatarPose(
+                        step.person,
+                        "holding"
+                    );
+
+                    await delay(700, token);
+                    break;
+
+                case "return":
+                    selectPerson(step.person);
+
+                    setAvatarPose(
+                        step.person,
+                        "return"
+                    );
+
+                    await delay(500, token);
+
+                    updateProductState(
+                        step.person,
+                        step.sku,
+                        "returned",
+                        step.quantity
+                    );
+
+                    updateConfidence(step.confidence);
+
+                    setAvatarPose(
+                        step.person,
+                        "idle"
+                    );
+
+                    await delay(650, token);
+                    break;
+
+                case "register":
+                    selectPerson(step.person);
+
+                    updateProductState(
+                        step.person,
+                        step.sku,
+                        "registered",
+                        step.quantity
+                    );
+
+                    await delay(750, token);
+                    break;
+
+                case "payment":
+                    selectPerson(step.person);
+
+                    Runtime.sessions[step.person].paymentApproved =
+                        step.approved;
+
+                    if (step.approved) {
+                        Object.entries(step.items).forEach(
+                            ([sku, quantity]) => {
+                                updateProductState(
+                                    step.person,
+                                    sku,
+                                    "paid",
+                                    quantity,
+                                    false
+                                );
+                            }
+                        );
+                    } else {
+                        Runtime.paymentProblem = true;
+                    }
+
+                    updateInterface();
+                    await delay(900, token);
+                    break;
+
+                case "reconcile":
+                    selectPerson(step.person);
+                    reconcileSession(step.person);
+                    await delay(1000, token);
+                    break;
+
+                case "reconcileAll":
+                    Object.keys(Runtime.sessions).forEach(
+                        (personId) => {
+                            reconcileSession(
+                                personId,
+                                false
+                            );
+                        }
+                    );
+
+                    buildGlobalOccurrence();
+                    updateInterface();
+
+                    await delay(1000, token);
+                    break;
+
+                case "ambiguous":
+                    Runtime.ambiguousEvents.push({
+                        candidates: step.candidates,
+                        sku: step.sku,
+                        quantity: step.quantity,
+                        confidence: step.confidence,
+                        camera: step.camera
+                    });
+
+                    updateConfidence(step.confidence);
+                    buildGlobalOccurrence();
+                    updateInterface();
+
+                    await delay(1000, token);
+                    break;
+
+                case "cameraOffline":
+                    Runtime.cameraStatus[step.camera] = "offline";
+
+                    if (App3D.cameraObjects[step.camera]) {
+                        App3D.cameraObjects[
+                            step.camera
+                        ].status = "offline";
+
+                        App3D.cameraObjects[
+                            step.camera
+                        ].cone.material.color.setHex(
+                            0xef4444
+                        );
+
+                        App3D.cameraObjects[
+                            step.camera
+                        ].cone.material.opacity = 0.35;
+                    }
+
+                    highlightCamera(step.camera);
+
+                    await delay(1000, token);
+                    break;
+
+                case "uncertainPickup":
+                    selectPerson(step.person);
+
+                    Runtime.uncertainEvents.push({
+                        person: step.person,
+                        camera: step.camera,
+                        sku: step.sku,
+                        quantity: step.quantity,
+                        confidence: step.confidence
+                    });
+
+                    updateConfidence(step.confidence);
+                    buildGlobalOccurrence();
+                    updateInterface();
+
+                    await delay(1000, token);
+                    break;
+
+                case "exit":
+                    selectPerson(step.person);
+
+                    Runtime.sessions[step.person].exited = true;
+
+                    await moveAvatar(
+                        step.person,
+                        step.to,
+                        step.duration,
+                        token
+                    );
+
+                    Runtime.sessions[step.person].result =
+                        Runtime.sessions[step.person].result ||
+                        "Sessão encerrada";
+
+                    updateInterface();
+                    break;
+
+                case "exitMany":
+                    step.moves.forEach((move) => {
+                        Runtime.sessions[move.person].exited = true;
+                    });
+
+                    await Promise.all(
+                        step.moves.map((move) =>
+                            moveAvatar(
+                                move.person,
+                                move.to,
+                                step.duration,
+                                token
+                            )
+                        )
+                    );
+
+                    updateInterface();
+                    break;
+
+                default:
+                    await delay(500, token);
+            }
+
+            updateInterface();
+        }
+
+        function ensureProduct(personId, sku) {
+            const session = Runtime.sessions[personId];
+
+            if (!session.cart[sku]) {
+                session.cart[sku] = {
+                    sku,
+                    picked: 0,
+                    returned: 0,
+                    registered: 0,
+                    paid: 0
+                };
+            }
+
+            return session.cart[sku];
+        }
+
+        function updateProductState(
+            personId,
+            sku,
+            field,
+            quantity,
+            refresh = true
+        ) {
+            const productState = ensureProduct(
+                personId,
+                sku
+            );
+
+            productState[field] += quantity;
+
+            if (refresh) {
+                updateInterface();
+            }
+        }
+
+        function reconcileSession(
+            personId,
+            createOccurrence = true
+        ) {
+            const session = Runtime.sessions[personId];
+
+            session.reconciled = true;
+
+            let positiveDifference = 0;
+            let negativeDifference = 0;
+
+            const rows = Object.values(session.cart);
+
+            rows.forEach((item) => {
+                const expected =
+                    item.picked -
+                    item.returned;
+
+                const difference =
+                    expected -
+                    item.paid;
+
+                if (difference > 0) {
+                    positiveDifference += difference;
+                }
+
+                if (difference < 0) {
+                    negativeDifference += Math.abs(difference);
+                }
+            });
+
+            if (Runtime.paymentProblem) {
+                session.result =
+                    "Pagamento não confirmado — revisar sessão";
+            } else if (positiveDifference > 0) {
+                session.result =
+                    `Possível divergência de ${positiveDifference} unidade(s)`;
+            } else if (negativeDifference > 0) {
+                session.result =
+                    "Produto ou quantidade paga não corresponde ao esperado";
+            } else {
+                session.result =
+                    "Sem divergência por produto";
+            }
+
+            if (createOccurrence) {
+                buildGlobalOccurrence();
+            }
+
+            updateInterface();
+        }
+
+        function buildGlobalOccurrence() {
+            const reasons = [];
+            const clips = [];
+            let confidence = 1;
+
+            Object.values(Runtime.sessions).forEach(
+                (session) => {
+                    Object.values(session.cart).forEach(
+                        (item) => {
+                            const expected =
+                                item.picked -
+                                item.returned;
+
+                            const difference =
+                                expected -
+                                item.paid;
+
+                            if (difference > 0) {
+                                reasons.push(
+                                    `${PRODUCTS[item.sku].name}: esperado ${expected}, pago ${item.paid}, diferença ${difference}.`
+                                );
+
+                                clips.push(
+                                    "retirada",
+                                    "caixa",
+                                    "saída"
+                                );
+                            }
+
+                            if (difference < 0) {
+                                reasons.push(
+                                    `${PRODUCTS[item.sku].name}: quantidade paga maior ou produto diferente do esperado.`
+                                );
+
+                                clips.push(
+                                    "retirada",
+                                    "registro no caixa"
+                                );
+                            }
+                        }
+                    );
+                }
+            );
+
+            if (Runtime.paymentProblem) {
+                reasons.push(
+                    "O caixa registrou os produtos, mas o pagamento não foi aprovado."
+                );
+
+                clips.push(
+                    "caixa",
+                    "pagamento",
+                    "saída"
+                );
+            }
+
+            Runtime.ambiguousEvents.forEach((event) => {
+                reasons.push(
+                    `Interação ambígua entre ${event.candidates.join(" e ")} na ${event.camera}. O sistema não atribuiu o produto automaticamente.`
+                );
+
+                clips.push(
+                    "interação ambígua"
+                );
+
+                confidence = Math.min(
+                    confidence,
+                    event.confidence
+                );
+            });
+
+            Runtime.uncertainEvents.forEach((event) => {
+                reasons.push(
+                    `Imagem insuficiente na ${event.camera}. Possível alteração envolvendo ${PRODUCTS[event.sku].name}, sem confirmação automática.`
+                );
+
+                clips.push(
+                    "câmera indisponível",
+                    "trecho alternativo"
+                );
+
+                confidence = Math.min(
+                    confidence,
+                    event.confidence
+                );
+            });
+
+            if (!reasons.length) {
+                Runtime.occurrence = null;
+                return;
+            }
+
+            Runtime.occurrence = {
+                id:
+                    `OCC-${String(
+                        Math.floor(
+                            100000 +
+                            Math.random() * 899999
+                        )
+                    )}`,
+                reasons,
+                clips: [...new Set(clips)],
+                confidence
+            };
+        }
+
+        function updateInterface() {
+            renderSessionButtons();
+
+            const session =
+                Runtime.sessions[
+                    Runtime.selectedPerson
+                ];
+
+            document.getElementById("session-id").textContent =
+                session
+                    ? session.sessionId
+                    : "AGUARDANDO";
+
+            renderProductTable(session);
+
+            let positiveDifference = 0;
+
+            if (session) {
+                Object.values(session.cart).forEach(
+                    (item) => {
+                        const difference =
+                            item.picked -
+                            item.returned -
+                            item.paid;
+
+                        if (difference > 0) {
+                            positiveDifference += difference;
+                        }
+                    }
+                );
+            }
+
+            const positiveElement =
+                document.getElementById(
+                    "positive-divergence"
+                );
+
+            positiveElement.textContent =
+                positiveDifference;
+
+            positiveElement.className =
+                positiveDifference > 0
+                    ? "mt-1 block text-lg text-red-400"
+                    : "mt-1 block text-lg text-gray-500";
+
+            const resultBox =
+                document.getElementById(
+                    "result-box"
+                );
+
+            const resultText =
+                document.getElementById(
+                    "result-text"
+                );
+
+            resultText.textContent =
+                session
+                    ? session.result
+                    : "Aguardando fluxo";
+
+            const hasOccurrence =
+                Boolean(Runtime.occurrence);
+
+            if (hasOccurrence) {
+                resultBox.className =
+                    "mt-3 rounded-lg border border-red-700 bg-red-950/30 p-3";
+
+                resultText.className =
+                    "mt-1 block text-xs text-red-300";
+
+                document.getElementById(
+                    "audit-badge"
+                ).className =
+                    "rounded bg-red-900/50 px-2 py-1 text-[9px] font-bold uppercase text-red-400";
+
+                document.getElementById(
+                    "audit-badge"
+                ).textContent =
+                    "Revisão";
+            } else if (
+                session &&
+                session.reconciled
+            ) {
+                resultBox.className =
+                    "mt-3 rounded-lg border border-green-700 bg-green-950/30 p-3";
+
+                resultText.className =
+                    "mt-1 block text-xs text-green-300";
+
+                document.getElementById(
+                    "audit-badge"
+                ).className =
+                    "rounded bg-green-900/50 px-2 py-1 text-[9px] font-bold uppercase text-green-400";
+
+                document.getElementById(
+                    "audit-badge"
+                ).textContent =
+                    "Sem diferença";
+            } else {
+                resultBox.className =
+                    "mt-3 rounded-lg border border-gray-700 bg-gray-900 p-3";
+
+                resultText.className =
+                    "mt-1 block text-xs text-gray-400";
+            }
+
+            renderOccurrence();
+            renderLog();
+        }
+
+        function renderSessionButtons() {
+            const container =
+                document.getElementById(
+                    "session-buttons"
+                );
+
+            container.innerHTML = "";
+
+            Object.keys(Runtime.sessions).forEach(
+                (personId) => {
+                    const button =
+                        document.createElement(
+                            "button"
+                        );
+
+                    button.className =
+                        "session-button shrink-0 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-[10px] font-bold text-gray-400";
+
+                    if (
+                        Runtime.selectedPerson ===
+                        personId
+                    ) {
+                        button.classList.add("active");
+                    }
+
+                    button.textContent =
+                        personId.replace("P", "Pessoa ");
+
+                    button.onclick = () => {
+                        selectPerson(personId);
+                    };
+
+                    container.appendChild(button);
+                }
+            );
+        }
+
+        function selectPerson(personId) {
+            if (!Runtime.sessions[personId]) {
+                return;
+            }
+
+            Runtime.selectedPerson = personId;
+            updateInterface();
+        }
+
+        function renderProductTable(session) {
+            const table =
+                document.getElementById(
+                    "product-table"
+                );
+
+            table.innerHTML = "";
+
+            if (
+                !session ||
+                !Object.keys(session.cart).length
+            ) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-4 text-center text-[10px] text-gray-600">
+                            Nenhum evento de produto registrado.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            Object.values(session.cart).forEach(
+                (item) => {
+                    const expected =
+                        item.picked -
+                        item.returned;
+
+                    const difference =
+                        expected -
+                        item.paid;
+
+                    const row =
+                        document.createElement("tr");
+
+                    row.innerHTML = `
+                        <td title="${escapeHtml(PRODUCTS[item.sku].name)}">
+                            ${escapeHtml(PRODUCTS[item.sku].shortName)}
+                        </td>
+                        <td>${item.picked}</td>
+                        <td>${item.returned}</td>
+                        <td>${expected}</td>
+                        <td>${item.registered}</td>
+                        <td>${item.paid}</td>
+                        <td class="${
+                            difference > 0
+                                ? "text-red-400"
+                                : difference < 0
+                                    ? "text-yellow-300"
+                                    : "text-green-400"
+                        }">
+                            ${difference}
+                        </td>
+                    `;
+
+                    table.appendChild(row);
+                }
+            );
+        }
+
+        function renderOccurrence() {
+            const box =
+                document.getElementById(
+                    "occurrence-box"
+                );
+
+            if (!Runtime.occurrence) {
+                box.classList.add("hidden");
+                return;
+            }
+
+            box.classList.remove("hidden");
+
+            document.getElementById(
+                "occurrence-id"
+            ).textContent =
+                Runtime.occurrence.id;
+
+            document.getElementById(
+                "occurrence-reason"
+            ).innerHTML =
+                Runtime.occurrence.reasons
+                    .map(
+                        (reason) =>
+                            `• ${escapeHtml(reason)}`
+                    )
+                    .join("<br>");
+
+            document.getElementById(
+                "occurrence-clips"
+            ).innerHTML =
+                `<strong>Trechos sugeridos:</strong> ${
+                    Runtime.occurrence.clips
+                        .map(escapeHtml)
+                        .join(", ")
+                }.<br>
+                <strong>Ação:</strong> revisão humana antes de qualquer providência.`;
+        }
+
+        function renderLog() {
+            const log =
+                document.getElementById(
+                    "event-log"
+                );
+
+            if (!Runtime.logs.length) {
+                log.innerHTML = `
+                    <div class="text-[9px] text-gray-600">
+                        O histórico aparecerá durante o fluxo.
+                    </div>
+                `;
+                return;
+            }
+
+            log.innerHTML =
+                Runtime.logs
+                    .slice()
+                    .reverse()
+                    .map(
+                        (entry) => `
+                            <div class="border-b border-white/5 pb-1 text-[9px] leading-relaxed text-gray-400">
+                                <span class="font-mono text-gray-600">
+                                    ${escapeHtml(entry.time)}
+                                </span>
+                                ${
+                                    entry.camera
+                                        ? `<span class="ml-1 text-blue-400">${escapeHtml(entry.camera)}</span>`
+                                        : ""
+                                }
+                                <span class="ml-1">${escapeHtml(entry.message)}</span>
+                            </div>
+                        `
+                    )
+                    .join("");
+        }
+
+        function addLog(message, camera = null) {
+            Runtime.logs.push({
+                time: new Date().toLocaleTimeString(
+                    "pt-BR",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit"
+                    }
+                ),
+                message,
+                camera
+            });
+
+            renderLog();
+        }
+
+        function setCurrentEvent(message) {
+            document.getElementById(
+                "current-event"
+            ).textContent = message;
+        }
+
+        function updateConfidence(value) {
+            const element =
+                document.getElementById(
+                    "confidence-value"
+                );
+
+            if (
+                typeof value !== "number"
+            ) {
+                element.textContent = "-";
+                element.className =
+                    "mt-1 block text-lg text-white";
+                return;
+            }
+
+            const percentage =
+                Math.round(value * 100);
+
+            element.textContent =
+                `${percentage}%`;
+
+            element.className =
+                percentage >= 85
+                    ? "mt-1 block text-lg text-green-400"
+                    : percentage >= 60
+                        ? "mt-1 block text-lg text-yellow-300"
+                        : "mt-1 block text-lg text-red-400";
+        }
+
+        function highlightCamera(cameraId) {
+            Runtime.currentCamera = cameraId;
+
+            const cameraBox =
+                document.getElementById(
+                    "camera-box"
+                );
+
+            const cameraText =
+                document.getElementById(
+                    "active-camera"
+                );
+
+            cameraText.textContent = cameraId;
+
+            cameraBox.classList.remove(
+                "camera-active",
+                "camera-offline"
+            );
+
+            Object.values(App3D.cameraObjects).forEach(
+                (cameraObject) => {
+                    cameraObject.cone.material.opacity =
+                        0.1;
+
+                    cameraObject.cone.material.color.setHex(
+                        cameraObject.status === "offline"
+                            ? 0xef4444
+                            : 0x3b82f6
+                    );
+                }
+            );
+
+            const selectedCamera =
+                App3D.cameraObjects[cameraId];
+
+            if (!selectedCamera) {
+                return;
+            }
+
+            if (
+                Runtime.cameraStatus[cameraId] ===
+                "offline"
+            ) {
+                cameraBox.classList.add(
+                    "camera-offline"
+                );
+
+                cameraText.textContent =
+                    `${cameraId} — indisponível`;
+
+                selectedCamera.cone.material.opacity =
+                    0.4;
+
+                selectedCamera.cone.material.color.setHex(
+                    0xef4444
+                );
+            } else {
+                cameraBox.classList.add(
+                    "camera-active"
+                );
+
+                selectedCamera.cone.material.opacity =
+                    0.38;
+
+                selectedCamera.cone.material.color.setHex(
+                    0x00a859
+                );
+            }
+        }
+
+        function showAvatar(personId, position) {
+            const avatar =
+                App3D.avatars[personId];
+
+            if (!avatar) {
+                return;
+            }
+
+            avatar.visible = true;
+
+            avatar.position.set(
+                position[0],
+                position[1],
+                position[2]
+            );
+        }
+
+        function moveAvatar(
+            personId,
+            destination,
+            duration,
+            token
+        ) {
+            return new Promise((resolve) => {
+                const avatar =
+                    App3D.avatars[personId];
+
+                if (!avatar) {
+                    resolve();
+                    return;
+                }
+
+                avatar.visible = true;
+
+                const start =
+                    avatar.position.clone();
+
+                const end =
+                    new THREE.Vector3(
+                        destination[0],
+                        destination[1],
+                        destination[2]
+                    );
+
+                const startTime =
+                    performance.now();
+
+                function frame(now) {
+                    if (
+                        token !== Runtime.token ||
+                        !Runtime.running
+                    ) {
+                        resolve();
+                        return;
+                    }
+
+                    const progress =
+                        Math.min(
+                            1,
+                            (now - startTime) /
+                            duration
+                        );
+
+                    const eased =
+                        progress < 0.5
+                            ? 2 * progress * progress
+                            : 1 -
+                              Math.pow(
+                                  -2 * progress + 2,
+                                  2
+                              ) /
+                                  2;
+
+                    avatar.position.lerpVectors(
+                        start,
+                        end,
+                        eased
+                    );
+
+                    const bob =
+                        Math.sin(progress * Math.PI * 8) *
+                        0.018;
+
+                    avatar.userData.body.position.y =
+                        0.92 + bob;
+
+                    if (progress < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        avatar.userData.body.position.y =
+                            0.92;
+
+                        resolve();
+                    }
+                }
+
+                requestAnimationFrame(frame);
+            });
+        }
+
+        function setAvatarPose(personId, pose) {
+            const avatar =
+                App3D.avatars[personId];
+
+            if (!avatar) {
+                return;
+            }
+
+            const leftArm =
+                avatar.userData.leftArm;
+
+            const rightArm =
+                avatar.userData.rightArm;
+
+            leftArm.rotation.set(0, 0, 0.08);
+            rightArm.rotation.set(0, 0, -0.08);
+
+            switch (pose) {
+                case "reachLeft":
+                    leftArm.rotation.z = 1.15;
+                    leftArm.rotation.x = -0.25;
+                    break;
+
+                case "reachRight":
+                    rightArm.rotation.z = -1.15;
+                    rightArm.rotation.x = -0.25;
+                    break;
+
+                case "return":
+                    leftArm.rotation.z = 0.95;
+                    rightArm.rotation.z = -0.45;
+                    break;
+
+                case "holding":
+                    leftArm.rotation.z = 0.45;
+                    rightArm.rotation.z = -0.45;
+                    break;
+
+                case "walking":
+                    leftArm.rotation.z = 0.28;
+                    rightArm.rotation.z = -0.28;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        function delay(milliseconds, token) {
+            return new Promise((resolve) => {
+                const start =
+                    performance.now();
+
+                function check(now) {
+                    if (
+                        token !== Runtime.token ||
+                        !Runtime.running
+                    ) {
+                        resolve();
+                        return;
+                    }
+
+                    if (
+                        now - start >= milliseconds
+                    ) {
+                        resolve();
+                        return;
+                    }
+
+                    requestAnimationFrame(check);
+                }
+
+                requestAnimationFrame(check);
+            });
+        }
+
+        function createAvatar(personId, color) {
+            const avatar = new THREE.Group();
+
+            const material =
+                new THREE.MeshStandardMaterial({
+                    color,
+                    transparent: true,
+                    opacity: 0.82,
+                    roughness: 0.45
+                });
+
+            const jointMaterial =
+                new THREE.MeshBasicMaterial({
+                    color: 0xffffff
+                });
+
+            const torso = new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    0.2,
+                    0.17,
+                    0.72,
+                    12
+                ),
+                material
+            );
+
+            torso.position.y = 0.92;
+            avatar.add(torso);
+
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(
+                    0.16,
+                    16,
+                    12
+                ),
+                material
+            );
+
+            head.position.y = 1.48;
+            avatar.add(head);
+
+            const createLimb = (
+                length,
+                radius,
+                x,
+                y,
+                rotationZ
+            ) => {
+                const pivot =
+                    new THREE.Group();
+
+                pivot.position.set(x, y, 0);
+                pivot.rotation.z = rotationZ;
+
+                const limb = new THREE.Mesh(
+                    new THREE.CylinderGeometry(
+                        radius,
+                        radius,
+                        length,
+                        10
+                    ),
+                    material
+                );
+
+                limb.position.y =
+                    -length / 2;
+
+                pivot.add(limb);
+                avatar.add(pivot);
+
+                return pivot;
+            };
+
+            const leftArm = createLimb(
+                0.62,
+                0.055,
+                -0.22,
+                1.22,
+                0.08
+            );
+
+            const rightArm = createLimb(
+                0.62,
+                0.055,
+                0.22,
+                1.22,
+                -0.08
+            );
+
+            createLimb(
+                0.78,
+                0.065,
+                -0.1,
+                0.6,
+                0.04
+            );
+
+            createLimb(
+                0.78,
+                0.065,
+                0.1,
+                0.6,
+                -0.04
+            );
+
+            [
+                [-0.22, 1.22],
+                [0.22, 1.22],
+                [-0.1, 0.6],
+                [0.1, 0.6]
+            ].forEach(([x, y]) => {
+                const joint =
+                    new THREE.Mesh(
+                        new THREE.SphereGeometry(
+                            0.065,
+                            10,
+                            8
+                        ),
+                        jointMaterial
+                    );
+
+                joint.position.set(x, y, 0);
+                avatar.add(joint);
+            });
+
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(
+                    0.32,
+                    0.37,
+                    24
+                ),
+                new THREE.MeshBasicMaterial({
+                    color,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.88
+                })
+            );
+
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.015;
+            avatar.add(ring);
+
+            const labelTexture =
+                createTextTexture(personId);
+
+            const label = new THREE.Sprite(
+                new THREE.SpriteMaterial({
+                    map: labelTexture,
+                    transparent: true,
+                    depthTest: false
+                })
+            );
+
+            label.scale.set(0.75, 0.24, 1);
+            label.position.set(0, 1.82, 0);
+            avatar.add(label);
+
+            avatar.userData = {
+                personId,
+                leftArm,
+                rightArm,
+                ring,
+                body: torso
+            };
+
+            App3D.interactables.push(torso);
+
+            torso.userData = {
+                title:
+                    personId.replace(
+                        "P",
+                        "Pessoa "
+                    ),
+                description:
+                    "Identificador temporário usado durante a sessão. O protótipo não está conectado a uma facial real."
+            };
+
+            return avatar;
+        }
+
+        function createCoverageCone(
+            length,
+            radius,
+            color
+        ) {
+            const geometry =
+                new THREE.ConeGeometry(
+                    radius,
+                    length,
+                    24,
+                    1,
+                    true
+                );
+
+            geometry.translate(
+                0,
+                -length / 2,
+                0
+            );
+
+            const material =
+                new THREE.MeshBasicMaterial({
+                    color,
+                    transparent: true,
+                    opacity: 0.1,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+            return new THREE.Mesh(
+                geometry,
+                material
+            );
+        }
+
+        function createFloorTexture() {
+            const canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.width = 512;
+            canvas.height = 512;
+
+            const context =
+                canvas.getContext("2d");
+
+            context.fillStyle = "#684a35";
+            context.fillRect(
+                0,
+                0,
+                512,
+                512
+            );
+
+            for (
+                let x = 0;
+                x < 512;
+                x += 34
+            ) {
+                context.fillStyle =
+                    x % 68 === 0
+                        ? "#76543d"
+                        : "#5a3f2e";
+
+                context.fillRect(
+                    x,
+                    0,
+                    32,
+                    512
+                );
+
+                context.strokeStyle =
+                    "rgba(25,15,10,.55)";
+
+                context.beginPath();
+                context.moveTo(x, 0);
+                context.lineTo(x, 512);
+                context.stroke();
+            }
+
+            const texture =
+                new THREE.CanvasTexture(
+                    canvas
+                );
+
+            texture.wrapS =
+                THREE.RepeatWrapping;
+
+            texture.wrapT =
+                THREE.RepeatWrapping;
+
+            texture.repeat.set(4, 12);
+
+            return texture;
+        }
+
+        function createProductBox(color) {
+            const product =
+                new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        0.13,
+                        0.24,
+                        0.1
+                    ),
+                    new THREE.MeshStandardMaterial({
+                        color,
+                        roughness: 0.75
+                    })
+                );
+
+            return product;
+        }
+
+        function addProductBlocks(
+            group,
+            x,
+            y,
+            startZ,
+            count,
+            spacing
+        ) {
+            const colors = [
+                0x2563eb,
+                0xdc2626,
+                0xf8fafc,
+                0xeab308,
+                0x16a34a,
+                0x8b5cf6,
+                0xea580c
+            ];
+
+            for (
+                let index = 0;
+                index < count;
+                index += 1
+            ) {
+                const product =
+                    createProductBox(
+                        colors[
+                            index %
+                                colors.length
+                        ]
+                    );
+
+                product.position.set(
+                    x,
+                    y,
+                    startZ +
+                        index * spacing
+                );
+
+                group.add(product);
+            }
+        }
+
+        function createTextTexture(text) {
+            const canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.width = 256;
+            canvas.height = 80;
+
+            const context =
+                canvas.getContext("2d");
+
+            context.fillStyle =
+                "rgba(0,0,0,.75)";
+
+            context.beginPath();
+            context.roundRect(
+                4,
+                4,
+                248,
+                72,
+                16
+            );
+
+            context.fill();
+
+            context.fillStyle =
+                "#ffffff";
+
+            context.font =
+                "bold 32px Arial";
+
+            context.textAlign =
+                "center";
+
+            context.textBaseline =
+                "middle";
+
+            context.fillText(
+                text,
+                128,
+                42
+            );
+
+            return new THREE.CanvasTexture(
+                canvas
+            );
+        }
+
+        function setCameraView(view) {
+            if (
+                !App3D.camera ||
+                !App3D.controls
+            ) {
+                return;
+            }
+
+            const views = {
+                iso: {
+                    position: [6.8, 6.2, 9.5],
+                    target: [0, 1.05, 0]
+                },
+
+                entrance: {
+                    position: [0, 2.05, 7.1],
+                    target: [0, 1.0, 1.2]
+                },
+
+                shelf: {
+                    position: [4.6, 3.2, 0.4],
+                    target: [-0.9, 1.15, -0.2]
+                },
+
+                fridges: {
+                    position: [-4.6, 3.1, -0.8],
+                    target: [1.0, 1.15, -1.0]
+                },
+
+                top: {
+                    position: [0, 13.5, 0.01],
+                    target: [0, 0, 0]
+                }
+            };
+
+            const selected =
+                views[view] ||
+                views.iso;
+
+            animateVector(
+                App3D.camera.position,
+                new THREE.Vector3(
+                    ...selected.position
+                ),
+                850
+            );
+
+            animateVector(
+                App3D.controls.target,
+                new THREE.Vector3(
+                    ...selected.target
+                ),
+                850
+            );
+        }
+
+        function animateVector(
+            vector,
+            destination,
+            duration
+        ) {
+            const start =
+                vector.clone();
+
+            const startedAt =
+                performance.now();
+
+            function frame(now) {
+                const progress =
+                    Math.min(
+                        1,
+                        (now - startedAt) /
+                            duration
+                    );
+
+                const eased =
+                    1 -
+                    Math.pow(
+                        1 - progress,
+                        3
+                    );
+
+                vector.lerpVectors(
+                    start,
+                    destination,
+                    eased
+                );
+
+                if (progress < 1) {
+                    requestAnimationFrame(
+                        frame
+                    );
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        function toggleCones() {
+            const visible =
+                document.getElementById(
+                    "cones-toggle"
+                ).checked;
+
+            App3D.cones.forEach((cone) => {
+                cone.visible = visible;
+            });
+        }
+
+        function toggleZones() {
+            const visible =
+                document.getElementById(
+                    "zones-toggle"
+                ).checked;
+
+            App3D.zones.forEach((zone) => {
+                zone.visible = visible;
+            });
+        }
+
+        function togglePaths() {
+            const visible =
+                document.getElementById(
+                    "paths-toggle"
+                ).checked;
+
+            App3D.paths.forEach((path) => {
+                path.visible = visible;
+            });
+        }
+
+        function toggleLabels() {
+            const visible =
+                document.getElementById(
+                    "labels-toggle"
+                ).checked;
+
+            Object.values(
+                App3D.avatars
+            ).forEach((avatar) => {
+                avatar.children.forEach(
+                    (child) => {
+                        if (child.isSprite) {
+                            child.visible =
+                                visible;
+                        }
+                    }
+                );
+            });
+        }
+
+        let panelsVisible = true;
+
+        function togglePanels(forceState = null) {
+            panelsVisible =
+                forceState === null
+                    ? !panelsVisible
+                    : forceState;
+
+            const container =
+                document.getElementById(
+                    "middle-container"
+                );
+
+            const button =
+                document.getElementById(
+                    "toggle-panels-button"
+                );
+
+            container.classList.toggle(
+                "panels-hidden",
+                !panelsVisible
+            );
+
+            container.classList.toggle(
+                "panels-visible",
+                panelsVisible
+            );
+
+            button.textContent =
+                panelsVisible
+                    ? "ESCONDER PAINÉIS"
+                    : "MOSTRAR PAINÉIS";
+
+            button.className =
+                panelsVisible
+                    ? "btn-action rounded bg-[#00a859] px-3 py-2 text-[10px] font-bold text-white md:text-xs"
+                    : "btn-action rounded bg-gray-700 px-3 py-2 text-[10px] font-bold text-white md:text-xs";
+        }
+
+        function showTooltip(
+            x,
+            y,
+            title,
+            description
+        ) {
+            const tooltip =
+                document.getElementById(
+                    "tooltip"
+                );
+
+            document.getElementById(
+                "tooltip-title"
+            ).textContent = title;
+
+            document.getElementById(
+                "tooltip-description"
+            ).textContent = description;
+
+            let left = x + 14;
+            let top = y + 14;
+
+            if (
+                left + 300 >
+                window.innerWidth
+            ) {
+                left = Math.max(
+                    12,
+                    x - 300
+                );
+            }
+
+            if (
+                top + 150 >
+                window.innerHeight
+            ) {
+                top =
+                    window.innerHeight -
+                    165;
+            }
+
+            tooltip.style.left =
+                `${left}px`;
+
+            tooltip.style.top =
+                `${top}px`;
+
+            tooltip.classList.add(
+                "visible"
+            );
+
+            clearTimeout(
+                tooltip.hideTimer
+            );
+
+            tooltip.hideTimer =
+                setTimeout(() => {
+                    hideTooltip();
+                }, 4200);
+        }
+
+        function hideTooltip() {
+            document
+                .getElementById(
+                    "tooltip"
+                )
+                .classList.remove(
+                    "visible"
+                );
+        }
+
+        function toggleGallery() {
+            const gallery =
+                document.getElementById(
+                    "gallery-layer"
+                );
+
+            const opening =
+                gallery.classList.contains(
+                    "hidden"
+                );
+
+            gallery.classList.toggle(
+                "hidden"
+            );
+
+            if (opening) {
+                renderPhotoGallery();
+            }
+        }
+
+        function renderPhotoGallery(
+            items = PHOTO_REFERENCES
+        ) {
+            const grid =
+                document.getElementById(
+                    "photo-grid"
+                );
+
+            grid.innerHTML = "";
+
+            items.forEach((item) => {
+                const card =
+                    document.createElement(
+                        "article"
+                    );
+
+                card.className =
+                    "photo-card overflow-hidden rounded-xl border border-gray-800 bg-gray-900 shadow-xl";
+
+                const imageSource =
+                    item.url ||
+                    `./${item.file}`;
+
+                card.innerHTML = `
+                    <div class="flex h-52 items-center justify-center overflow-hidden bg-black">
+                        <img
+                            src="${imageSource}"
+                            alt="${escapeHtml(item.description)}"
+                            class="h-full w-full object-cover opacity-80"
+                        >
+                    </div>
+
+                    <div class="p-3">
+                        <strong class="block text-xs text-gray-200">
+                            ${escapeHtml(item.description)}
+                        </strong>
+
+                        <span class="mt-1 block font-mono text-[9px] text-gray-600">
+                            ${escapeHtml(item.file || "foto selecionada")}
+                        </span>
+                    </div>
+                `;
+
+                const image =
+                    card.querySelector("img");
+
+                image.onerror = () => {
+                    image.parentElement.innerHTML = `
+                        <div class="px-5 text-center text-[10px] text-red-400">
+                            Não foi possível carregar ${escapeHtml(item.file)}.
+                            Use o botão “Selecionar fotos”.
+                        </div>
+                    `;
+                };
+
+                grid.appendChild(card);
+            });
+        }
+
+        function loadLocalPhotos(event) {
+            const files =
+                Array.from(
+                    event.target.files
+                ).sort((a, b) =>
+                    a.name.localeCompare(
+                        b.name
+                    )
+                );
+
+            if (!files.length) {
+                return;
+            }
+
+            const items =
+                files.map(
+                    (file, index) => ({
+                        url:
+                            URL.createObjectURL(
+                                file
+                            ),
+                        file: file.name,
+                        description:
+                            PHOTO_REFERENCES[index]
+                                ? PHOTO_REFERENCES[
+                                      index
+                                  ].description
+                                : `Foto real ${
+                                      index + 1
+                                  }`
+                    })
+                );
+
+            renderPhotoGallery(items);
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        window.addEventListener(
+            "resize",
+            () => {
+                const button =
+                    document.getElementById(
+                        "toggle-panels-button"
+                    );
+
+                button.textContent =
+                    panelsVisible
+                        ? window.innerWidth <
+                          768
+                            ? "PAINÉIS"
+                            : "ESCONDER PAINÉIS"
+                        : "MOSTRAR PAINÉIS";
+            }
+        );
+
+        window.addEventListener(
+            "load",
+            () => {
+                App3D.init();
+                Runtime.reset("regular");
+            }
+        );
+    </script>
+</body>
+</html>

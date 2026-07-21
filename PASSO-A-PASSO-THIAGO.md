@@ -4,7 +4,9 @@
 
 Este arquivo foi escrito para você executar tudo pelo navegador, sem precisar usar terminal, npm ou Node.
 
-> **FAÇA SOMENTE O PASSO 1 AGORA.** Depois de concluí-lo, confirme que o projeto Firebase foi criado antes de avançar.
+> **ESTADO DESTA ENTREGA:** o arquivo operacional `firebase-config.js` já contém exatamente a configuração pública real encontrada no ZIP atual do GitHub. O UID administrativo real que já estava no arquivo de estrutura também foi preservado. Não substitua esses valores por `COLE_AQUI`.
+
+> **SE O PAINEL JÁ MOSTRA “FIREBASE CONECTADO”, NÃO REFAÇA OS PASSOS 1 A 17.** Para esta atualização, siga diretamente os Passos 18 a 22.
 
 ---
 
@@ -37,19 +39,19 @@ Não publique nenhuma senha, token, chave privada, RTSP ou conta de serviço.
 
 # PASSO 3 — Preencher o arquivo firebase-config.js
 
-1. Extraia o ZIP `smart24-fusion-mvp.zip`.
+1. Extraia o ZIP final `SMART24-pronto-QR-Yoosee-3D-chaves-reais.zip`.
 2. Abra o arquivo `firebase-config.js` em um editor de texto.
 3. Você verá:
 
 ```js
 export const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "COLE_AQUI",
-  databaseURL: "COLE_AQUI",
-  projectId: "COLE_AQUI",
-  storageBucket: "COLE_AQUI",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw",
+  authDomain: "smart24-fusion.firebaseapp.com",
+  databaseURL: "https://smart24-fusion-default-rtdb.firebaseio.com/",
+  projectId: "smart24-fusion",
+  storageBucket: "smart24-fusion.firebasestorage.app",
+  messagingSenderId: "894689077131",
+  appId: "1:894689077131:web:4524b6f3ae199b2b00718e"
 };
 ```
 
@@ -148,12 +150,13 @@ Na raiz do Realtime Database, crie os seguintes caminhos vazios conforme forem u
 - `tags`
 - `cameras`
 - `cameraBridges`
+- `integrations`
 - `sessions`
 - `events`
 - `occurrences`
 - `auditLogs`
 
-O sistema cria automaticamente os registros dentro desses caminhos. O arquivo `firebase/database.seed.example.json` mostra a estrutura, mas não deve ser importado sem substituir o UID de exemplo.
+O sistema cria automaticamente os registros dentro desses caminhos. O arquivo `firebase/database.seed.example.json` preserva o UID administrativo que já estava no ZIP real do GitHub. Não importe esse arquivo por cima de um banco que já possui dados; ele é somente uma referência de estrutura.
 
 ---
 
@@ -171,7 +174,7 @@ O sistema cria automaticamente os registros dentro desses caminhos. O arquivo `f
 # PASSO 11 — Enviar os arquivos sem terminal
 
 1. Dentro do repositório vazio, clique em **uploading an existing file** ou **Add file > Upload files**.
-2. Abra a pasta extraída `smart24-fusion-mvp`.
+2. Abra a pasta extraída `SMART24-main`.
 3. Selecione todos os arquivos e pastas internos.
 4. Arraste para a área de upload do GitHub.
 5. Confira que as pastas `assets`, `firebase`, `edge-agent` e `docs` foram incluídas.
@@ -258,47 +261,130 @@ O QR Code é para identificação quando visível. Ele não rastreia produto esc
 
 ---
 
-# PASSO 18 — Cadastrar metadados de câmera
+# PASSO 18 — Atualizar os arquivos no GitHub
 
-1. Abra **Câmeras**.
-2. Cadastre somente:
-   - ID público;
-   - nome;
-   - loja;
-   - área;
-   - protocolo conhecido ou “A confirmar”;
-   - nome do bridge/conector;
-   - observação sem segredo.
-3. Não coloque usuário, senha, token nem URL RTSP completa.
-
-As posições sugeridas no simulador ainda não são definitivas.
+1. Faça uma cópia de segurança do repositório atual.
+2. Extraia o ZIP atualizado.
+3. No GitHub, envie todos os arquivos e pastas internos da pasta `SMART24-main`.
+4. Permita a substituição dos arquivos com o mesmo nome.
+5. Confirme principalmente estes arquivos novos:
+   - `simulator-3d.html`;
+   - `assets/js/camera-qr.js`;
+   - `assets/js/yoosee.js`;
+   - `assets/js/simulator-3d.js`.
+6. A configuração Firebase já existente foi preservada no pacote gerado a partir do repositório publicado.
+7. Aguarde o GitHub Pages concluir a publicação.
+8. Atualize a página com `Ctrl + F5` no computador ou limpe o cache do site no celular.
 
 ---
 
-# PASSO 19 — Verificar o painel
+# PASSO 19 — Republicar as regras do Firebase
+
+Esta atualização cria o caminho seguro `integrations/yoosee` e bloqueia explicitamente o salvamento de senha, token, InviteCode, link de compartilhamento e QR bruto.
+
+1. Abra `firebase/database.rules.json` do ZIP atualizado.
+2. Copie todo o conteúdo.
+3. No Firebase, abra **Realtime Database > Regras**.
+4. Substitua as regras antigas pelas novas.
+5. Clique em **Publicar**.
+
+Sem esse passo, o e-mail operacional Yoosee pode não ser salvo.
+
+---
+
+# PASSO 20 — Criar a conta operacional Yoosee
+
+O SMART24 não cria uma conta externa sozinho e não armazena a senha.
+
+1. Crie um e-mail dedicado exclusivamente às câmeras, por exemplo:
+
+```text
+cameras.smart24@seudominio.com
+```
+
+2. No aplicativo Yoosee, toque em **Registro rápido**.
+3. Cadastre a nova conta usando esse e-mail.
+4. Crie uma senha forte e guarde-a fora do GitHub e fora do Firebase.
+5. Entre novamente na conta principal do proprietário da câmera.
+6. Compartilhe a câmera com a nova conta operacional.
+7. Entre na conta operacional e confirme que a câmera aparece no aplicativo Yoosee.
+8. No SMART24, abra **Câmeras > Yoosee do SMART24**.
+9. Informe apenas o e-mail e marque a etapa atual.
+10. Clique em **Salvar somente o e-mail**.
+
+Nunca digite a senha Yoosee no SMART24.
+
+---
+
+# PASSO 21 — Cadastrar uma câmera pelo QR Code
+
+1. Abra **Câmeras**.
+2. Clique em **Ler QR Code**.
+3. Escolha uma opção:
+   - **Usar câmera deste aparelho**, para apontar ao QR físico;
+   - **Escolher foto do QR**, para selecionar uma captura de tela ou fotografia.
+4. O navegador processa a imagem localmente.
+5. Para QR/link Yoosee, o sistema aproveita apenas:
+   - plataforma `YOOSEE`;
+   - ID do dispositivo;
+   - informação de que veio de QR.
+6. O sistema descarta:
+   - `InviteCode`;
+   - token;
+   - nome da conta que compartilhou;
+   - link completo;
+   - QR bruto.
+7. Confirme ou preencha:
+   - ID público;
+   - nome;
+   - loja;
+   - área física onde a câmera será instalada;
+   - protocolo como **A confirmar**;
+   - bridge/conector.
+8. Clique em **Salvar câmera**.
+
+Importante: ler o QR no SMART24 cadastra os metadados. Isso não aceita o convite dentro do Yoosee e não conecta o vídeo. O convite deve ser aceito no aplicativo Yoosee pela conta operacional.
+
+---
+
+# PASSO 22 — Abrir a loja em 3D
+
+1. Abra **Simulador**.
+2. O modo inicial será **Loja 3D completa**.
+3. Use o mouse ou toque para movimentar a visualização.
+4. Clique em **Abrir 3D em tela inteira** quando desejar uma área maior.
+5. Para gerar eventos no Firebase, mude para **Simulação operacional**.
+6. A loja 3D é demonstrativa. Medidas e posições de câmeras ainda precisam ser conferidas no local.
+
+---
+
+# VERIFICAÇÃO FINAL
 
 Confirme:
 
-- Dashboard abre sem erro.
-- Produto aparece.
-- Etiqueta aparece com QR Code.
-- Câmera aparece como `UNCONFIGURED` até o agente local existir.
-- Eventos e ocorrências podem estar vazios.
-- Simulador executa os oito cenários progressivamente.
+- Dashboard continua mostrando **Firebase conectado**.
+- Login e funções continuam funcionando.
+- Produtos e etiquetas anteriores continuam aparecendo.
+- O botão **Ler QR Code** abre o leitor.
+- Uma foto com QR Yoosee preenche plataforma e ID do dispositivo.
+- InviteCode e link completo não aparecem no Firebase.
+- O e-mail Yoosee é salvo sem campo de senha.
+- A câmera aparece como `UNCONFIGURED` até existir agente local real.
+- O modo **Loja 3D completa** abre dentro do sistema.
+- O modo **Simulação operacional** ainda executa os oito cenários.
 - Nenhuma ocorrência é tratada como acusação automática.
 
 ---
 
 # SOBRE O AGENTE LOCAL
 
-A pasta `edge-agent` é uma base técnica para a próxima etapa. Ela exige instalação no computador da loja e dados reais da câmera, como marca, modelo, RTSP/ONVIF e credenciais privadas.
+A pasta `edge-agent` continua sendo a base técnica para a próxima etapa. Ela exige instalação no computador da loja e confirmação real de RTSP, ONVIF ou mecanismo autorizado.
+
+A conta Yoosee e o leitor QR não substituem essa integração. Eles organizam o cadastro e permitem que uma conta operacional visualize a câmera pelos mecanismos oficiais do Yoosee.
 
 Não tente configurar o agente antes de confirmar:
 
-- marca e modelo da câmera;
-- funcionamento do RTSP ou ONVIF;
+- compatibilidade real da câmera com RTSP, ONVIF, NVR, CMS ou SDK;
 - computador que ficará ligado na loja;
 - acesso autorizado ao Firebase;
 - política de retenção e privacidade.
-
-Leia `edge-agent/README-EDGE-AGENT.md` somente quando a Fase 2 começar.

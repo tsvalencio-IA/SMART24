@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="stylesheet" href="./assets/css/app.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body>
   <noscript>Ative o JavaScript para usar o SMART24 Fusion.</noscript>
@@ -182,7 +183,29 @@
       </section>
 
       <section id="view-cameras" class="view" data-title="Câmeras" data-eyebrow="INFRAESTRUTURA SEGURA">
-        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token e URL RTSP completa devem permanecer somente no computador local da loja, em arquivo .env protegido.</span></div>
+        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token, código de convite e URL RTSP completa devem permanecer fora do Firebase. O leitor QR descarta esses dados e aproveita somente metadados seguros.</span></div>
+
+        <div class="camera-onboarding-grid">
+          <article class="panel camera-qr-panel">
+            <div class="panel-header"><div><span class="eyebrow">CADASTRO RÁPIDO</span><h2>Ler QR da câmera</h2></div><span class="status-badge status-badge--neutral">No navegador</span></div>
+            <p class="panel-copy">Leia a etiqueta física ou um QR/link Yoosee. O SMART24 preenche o fabricante e o ID do dispositivo, mas não salva InviteCode, token, senha ou o link completo.</p>
+            <button id="openCameraQrButton" class="btn btn--primary" type="button">⌗ Ler QR Code</button>
+            <small class="safe-note">No celular, autorize a câmera somente quando o navegador solicitar. Também é possível escolher uma foto do QR.</small>
+          </article>
+
+          <article class="panel yoosee-account-panel">
+            <div class="panel-header"><div><span class="eyebrow">CONTA OPERACIONAL</span><h2>Yoosee do SMART24</h2></div></div>
+            <form id="yooseeAccountForm" class="form-grid" novalidate>
+              <label class="field field--wide"><span>E-mail dedicado</span><input id="yooseeAccountEmail" type="email" maxlength="140" placeholder="cameras.smart24@seudominio.com" autocomplete="off"></label>
+              <label class="field field--wide"><span>Etapa atual</span><select id="yooseeAccountStatus"><option value="A_CRIAR">E-mail/conta ainda será criado</option><option value="CONTA_CRIADA">Conta criada no Yoosee</option><option value="CAMERA_COMPARTILHADA">Câmera compartilhada com a conta</option></select></label>
+              <div id="yooseeAccountSummary" class="integration-summary field--wide"><strong>Nenhuma conta informada</strong><span>Crie um e-mail dedicado e registre-o manualmente no aplicativo Yoosee.</span></div>
+              <div class="form-actions field--wide"><button class="btn btn--secondary" type="submit">Salvar somente o e-mail</button></div>
+              <p id="yooseeAccountMessage" class="form-message field--wide" role="status"></p>
+            </form>
+            <small class="safe-note">A senha não existe neste formulário. O SMART24 não faz login automático no Yoosee e não guarda a senha no Firebase.</small>
+          </article>
+        </div>
+
         <div class="split-layout">
           <article class="panel form-panel">
             <div class="panel-header"><div><span class="eyebrow">METADADOS</span><h2 id="cameraFormTitle">Cadastrar câmera</h2></div></div>
@@ -192,6 +215,8 @@
               <label class="field"><span>Nome</span><input id="cameraName" required maxlength="100" placeholder="Entrada e acesso"></label>
               <label class="field"><span>Loja</span><input id="cameraStore" required value="loja-01" maxlength="60"></label>
               <label class="field"><span>Área</span><input id="cameraArea" required maxlength="100" placeholder="Entrada"></label>
+              <label class="field"><span>Plataforma/fabricante</span><select id="cameraVendor"><option value="A_CONFIRMAR">A confirmar</option><option value="YOOSEE">Yoosee</option><option value="OUTRO">Outro</option></select></label>
+              <label class="field"><span>ID do fabricante</span><input id="cameraVendorDeviceId" inputmode="numeric" pattern="[0-9]*" maxlength="16" placeholder="Ex.: 1234567890"></label>
               <label class="field"><span>Protocolo disponível</span><select id="cameraProtocol"><option value="A_CONFIRMAR">A confirmar</option><option value="RTSP">RTSP</option><option value="ONVIF">ONVIF</option><option value="RTSP_ONVIF">RTSP + ONVIF</option><option value="SDK">SDK oficial</option></select></label>
               <label class="field"><span>Bridge/conector</span><input id="cameraBridge" maxlength="80" placeholder="bridge-loja-01"></label>
               <label class="field field--wide"><span>Observação sem segredo</span><textarea id="cameraNotes" rows="3" maxlength="300" placeholder="Modelo ainda precisa ser confirmado no local."></textarea></label>
@@ -201,7 +226,7 @@
           </article>
           <article class="panel table-panel">
             <div class="panel-header"><div><span class="eyebrow">MONITORAMENTO</span><h2>Câmeras cadastradas</h2></div></div>
-            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Área</th><th>Protocolo</th><th>Bridge</th><th>Status</th><th>Último contato</th><th></th></tr></thead><tbody id="camerasTableBody"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Área</th><th>Plataforma</th><th>Protocolo</th><th>Bridge</th><th>Status</th><th>Último contato</th><th></th></tr></thead><tbody id="camerasTableBody"></tbody></table></div>
             <div id="camerasEmpty" class="empty-state"><strong>Nenhuma câmera cadastrada</strong><span>As posições propostas são demonstrativas e precisam ser validadas no local.</span></div>
           </article>
         </div>
@@ -221,9 +246,22 @@
         <div id="occurrencesEmpty" class="empty-state"><strong>Nenhuma ocorrência</strong><span>As divergências por SKU aparecerão aqui após a reconciliação.</span></div>
       </section>
 
-      <section id="view-simulator" class="view" data-title="Simulador" data-eyebrow="DEMONSTRAÇÃO CONCEITUAL">
-        <div class="notice notice--warning"><strong>Demonstração conceitual.</strong><span>Câmeras, reconhecimento facial, caixa e porta ainda não estão conectados. Representação baseada na descrição das fotografias reais; medidas físicas ainda não aferidas no local.</span></div>
-        <div class="simulator-layout">
+      <section id="view-simulator" class="view" data-title="Simulador" data-eyebrow="LOJA 3D E AUDITORIA">
+        <div class="notice notice--warning"><strong>Demonstração conceitual.</strong><span>Câmeras, reconhecimento facial, caixa e porta ainda não estão conectados. A loja 3D preserva o arquivo enviado e a simulação operacional continua disponível para gerar eventos estruturados.</span></div>
+
+        <div class="simulator-mode-switch" role="tablist" aria-label="Modo do simulador">
+          <button class="simulator-mode-button is-active" type="button" data-simulator-mode="3d">Loja 3D completa</button>
+          <button class="simulator-mode-button" type="button" data-simulator-mode="operational">Simulação operacional</button>
+          <button id="openStore3dWindow" class="simulator-mode-button simulator-mode-button--secondary" type="button">Abrir 3D em tela inteira ↗</button>
+        </div>
+
+        <article id="simulator3dPanel" class="panel simulator-3d-panel">
+          <div class="panel-header"><div><span class="eyebrow">MODELO TRIDIMENSIONAL</span><h2>Mercadinho SMART24 em 3D</h2></div><span class="status-badge status-badge--warning">Demonstrativo</span></div>
+          <iframe id="store3dFrame" class="store-3d-frame" data-src="./simulator-3d.html" title="Loja SMART24 em 3D" loading="lazy" allow="fullscreen" allowfullscreen></iframe>
+          <small class="scene-caption">Representação demonstrativa baseada no HTML enviado. Medidas e posições definitivas das câmeras ainda dependem de aferição e teste no local.</small>
+        </article>
+
+        <div id="operationalSimulatorPanel" class="simulator-layout is-hidden">
           <article class="panel simulator-controls">
             <div class="panel-header"><div><span class="eyebrow">CENÁRIO</span><h2>Executar sessão</h2></div></div>
             <label class="field"><span>Selecione o cenário</span><select id="scenarioSelect">
@@ -279,7 +317,7 @@
           <article class="panel"><div class="panel-header"><div><span class="eyebrow">FIREBASE</span><h2>Estado da conexão</h2></div></div><div id="firebaseSettingsStatus" class="settings-status"></div></article>
           <article class="panel"><div class="panel-header"><div><span class="eyebrow">SEGURANÇA</span><h2>Regras obrigatórias</h2></div></div><ul class="check-list"><li>Banco começa bloqueado</li><li>Nenhuma leitura pública</li><li>Segredos fora do GitHub</li><li>Revisão humana obrigatória</li><li>Sem bloqueio automático da saída</li></ul></article>
           <article class="panel"><div class="panel-header"><div><span class="eyebrow">INTEGRAÇÕES</span><h2>Estado real</h2></div></div><div class="integration-list"><div><strong>Acesso facial</strong><span class="status-badge status-badge--neutral">Aguardando evento autorizado</span></div><div><strong>Câmeras IP</strong><span class="status-badge status-badge--neutral">Marca/modelo pendentes</span></div><div><strong>Caixa</strong><span class="status-badge status-badge--neutral">API/formato pendentes</span></div><div><strong>RFID</strong><span class="status-badge status-badge--neutral">Fase futura</span></div></div></article>
-          <article class="panel"><div class="panel-header"><div><span class="eyebrow">DOCUMENTAÇÃO</span><h2>Próximo passo</h2></div></div><p>Abra o arquivo <strong>PASSO-A-PASSO-THIAGO.md</strong> incluído no ZIP e execute somente o Passo 1 antes de avançar.</p></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">DOCUMENTAÇÃO</span><h2>Próximo passo</h2></div></div><p>Abra o arquivo <strong>PASSO-A-PASSO-THIAGO.md</strong> e siga os Passos 18 a 22 para publicar QR, Yoosee e Loja 3D.</p></article>
         </div>
       </section>
     </main>
@@ -291,6 +329,22 @@
       <button class="mobile-nav-item" data-view="occurrences"><span>!</span><small>Revisão</small></button>
       <button class="mobile-nav-item" data-view="simulator"><span>▶</span><small>Simular</small></button>
     </nav>
+  </div>
+
+
+  <div id="cameraQrModal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="cameraQrModalTitle">
+    <section class="modal-card qr-modal-card">
+      <div class="panel-header"><div><span class="eyebrow">LEITOR LOCAL</span><h2 id="cameraQrModalTitle">Ler QR da câmera</h2></div><button id="closeCameraQrButton" class="icon-button" type="button" aria-label="Fechar">×</button></div>
+      <div class="qr-preview"><video id="cameraQrVideo" playsinline muted></video><div class="qr-frame" aria-hidden="true"></div></div>
+      <canvas id="cameraQrCanvas" class="is-hidden"></canvas>
+      <p id="cameraQrStatus" class="form-message" role="status">Aponte para o QR da câmera.</p>
+      <div class="form-actions">
+        <button id="startCameraQrButton" class="btn btn--primary" type="button">Usar câmera deste aparelho</button>
+        <button id="chooseCameraQrFileButton" class="btn btn--secondary" type="button">Escolher foto do QR</button>
+        <input id="cameraQrFileInput" class="is-hidden" type="file" accept="image/*">
+      </div>
+      <div class="notice notice--info compact-notice"><strong>Privacidade:</strong><span>A imagem é processada no navegador. O QR completo, InviteCode e token não são enviados ao Firebase.</span></div>
+    </section>
   </div>
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>

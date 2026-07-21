@@ -5,6 +5,8 @@ import { initializeLabels, startLabelsSubscription } from "./labels.js";
 import { initializeCameras, startCamerasSubscription } from "./cameras.js";
 import { initializeEvents, startEventsSubscriptions } from "./events.js";
 import { initializeSimulator } from "./simulator.js";
+import { initializeSimulator3D } from "./simulator-3d.js";
+import { initializeYooseeIntegration, startYooseeSubscription } from "./yoosee.js";
 import { cameraStatusClass, escapeHtml, eventLabel, formatDate, formatTime, objectEntries, roleLabel, toast } from "./utils.js";
 
 let uiInitialized = false;
@@ -142,6 +144,8 @@ function initializeUi() {
   initializeCameras();
   initializeEvents();
   initializeSimulator();
+  initializeSimulator3D();
+  initializeYooseeIntegration();
   bindDashboardEvents();
 }
 
@@ -160,6 +164,7 @@ function startAuthenticatedData(session) {
   startLabelsSubscription();
   startCamerasSubscription();
   startEventsSubscriptions();
+  startYooseeSubscription();
   startDashboardSubscriptions();
 }
 

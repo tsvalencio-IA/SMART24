@@ -56,3 +56,10 @@ No console do Firebase:
 5. Clique em **Publicar**.
 
 As regras não permitem leitura ou escrita pública. O agente local futuro utilizará uma conta de serviço fora do GitHub e, por usar o Firebase Admin SDK, não depende das regras do cliente.
+
+
+## Atualização QR/Yoosee
+
+Após enviar esta versão ao GitHub, publique novamente `database.rules.json`. A nova regra permite `/integrations/yoosee` somente para usuários autenticados e gravação apenas por administrador, exigindo `passwordStored: false`.
+
+O cadastro de câmeras também bloqueia explicitamente `inviteCode`, `shareUrl`, `rawQrPayload`, `password`, `token` e `rtspUrl`.

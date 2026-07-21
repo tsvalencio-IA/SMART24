@@ -57,3 +57,30 @@ A integração definitiva deve usar API, evento, banco autorizado ou mecanismo o
 ## Evolução RFID
 
 RAIN RFID/UHF passivo é uma evolução recomendada, sujeita a testes com líquidos, metais, corpo humano, empilhamento, interferência, posição e custo.
+
+
+## Cadastro por QR Code
+
+```text
+Câmera do celular ou imagem local
+        ↓
+jsQR executado no navegador
+        ↓
+Sanitização do conteúdo
+        ↓
+Fabricante + ID do dispositivo
+        ↓
+Confirmação humana
+        ↓
+Firebase /cameras
+```
+
+Para links Yoosee, `InviteCode`, token, nome do compartilhador, URL completa e QR bruto são descartados antes do cadastro. O leitor não aceita o convite e não abre o vídeo.
+
+## Conta operacional Yoosee
+
+O sistema armazena somente o endereço de e-mail e o estado da implantação em `/integrations/yoosee`. A senha permanece exclusivamente sob controle do responsável e nunca é salva no Firebase, GitHub ou frontend. A câmera deve ser compartilhada com essa conta pelo aplicativo Yoosee.
+
+## Loja 3D
+
+O arquivo `simulator-3d.html` é incorporado ao painel por `iframe` no módulo Simulador. Ele permanece isolado do Firebase e claramente identificado como demonstração. A simulação operacional anterior continua separada para publicar sessões, eventos e ocorrências.

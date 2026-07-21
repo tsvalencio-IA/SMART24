@@ -16,5 +16,6 @@
   "sessions": {},
   "events": {},
   "occurrences": {},
-  "auditLogs": {}
+  "auditLogs": {},
+  "integrations": {}
 }

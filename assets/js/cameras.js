@@ -1,4 +1,5 @@
 import { appendAudit, pushData, subscribeData, updateData } from "./database.js";
+import { initializeCameraQr } from "./camera-qr.js";
 import { canWrite, getCurrentSession } from "./auth.js";
 import { cameraStatusClass, escapeHtml, formatDate, now, objectEntries, setMessage, toast } from "./utils.js";
 
@@ -13,6 +14,7 @@ function renderCameras() {
     <tr>
       <td><strong>${escapeHtml(camera.cameraId)}</strong><small>${escapeHtml(camera.name)}</small></td>
       <td>${escapeHtml(camera.area)}<small>${escapeHtml(camera.storeId)}</small></td>
+      <td>${escapeHtml(camera.vendor || "A_CONFIRMAR")}<small>${escapeHtml(camera.vendorDeviceId || "sem ID do fabricante")}</small></td>
       <td>${escapeHtml(camera.protocol || "A_CONFIRMAR")}</td>
       <td>${escapeHtml(camera.bridgeId || "—")}</td>
       <td><span class="status-badge ${cameraStatusClass(camera.status)}">${escapeHtml(camera.status || "UNCONFIGURED")}</span></td>
@@ -33,6 +35,8 @@ function editCamera(id) {
   document.getElementById("cameraName").value = camera.name || "";
   document.getElementById("cameraStore").value = camera.storeId || "loja-01";
   document.getElementById("cameraArea").value = camera.area || "";
+  document.getElementById("cameraVendor").value = camera.vendor || "A_CONFIRMAR";
+  document.getElementById("cameraVendorDeviceId").value = camera.vendorDeviceId || "";
   document.getElementById("cameraProtocol").value = camera.protocol || "A_CONFIRMAR";
   document.getElementById("cameraBridge").value = camera.bridgeId || "";
   document.getElementById("cameraNotes").value = camera.notes || "";
@@ -44,6 +48,8 @@ function resetForm() {
   document.getElementById("cameraForm").reset();
   document.getElementById("cameraRecordId").value = "";
   document.getElementById("cameraStore").value = "loja-01";
+  document.getElementById("cameraVendor").value = "A_CONFIRMAR";
+  document.getElementById("cameraVendorDeviceId").value = "";
   document.getElementById("cameraProtocol").value = "A_CONFIRMAR";
   document.getElementById("cameraFormTitle").textContent = "Cadastrar câmera";
   document.getElementById("cancelCameraEdit").classList.add("is-hidden");
@@ -71,6 +77,8 @@ export function initializeCameras() {
       name: document.getElementById("cameraName").value.trim(),
       storeId: document.getElementById("cameraStore").value.trim(),
       area: document.getElementById("cameraArea").value.trim(),
+      vendor: document.getElementById("cameraVendor").value,
+      vendorDeviceId: document.getElementById("cameraVendorDeviceId").value.trim(),
       protocol: document.getElementById("cameraProtocol").value,
       bridgeId: document.getElementById("cameraBridge").value.trim(),
       notes: document.getElementById("cameraNotes").value.trim(),
@@ -83,6 +91,10 @@ export function initializeCameras() {
     }
     if (containsForbiddenSecret(Object.values(payload).join(" "))) {
       setMessage(message, "Não salve RTSP, senha, token ou chave neste formulário.", "error");
+      return;
+    }
+    if (payload.vendorDeviceId && !/^\d{6,16}$/.test(payload.vendorDeviceId)) {
+      setMessage(message, "O ID do fabricante deve conter somente 6 a 16 números.", "error");
       return;
     }
     if (cameras.some(camera => camera.cameraId === payload.cameraId && camera.id !== id)) {
@@ -108,6 +120,29 @@ export function initializeCameras() {
     }
   });
   document.getElementById("cancelCameraEdit").addEventListener("click", resetForm);
+
+  initializeCameraQr(parsed => {
+    const nextNumber = cameras.reduce((highest, camera) => {
+      const match = String(camera.cameraId || "").match(/^CAM-(\d+)$/i);
+      return Math.max(highest, Number(match?.[1] || 0));
+    }, 0) + 1;
+    const publicId = `CAM-${String(nextNumber).padStart(2, "0")}`;
+    document.getElementById("cameraRecordId").value = "";
+    document.getElementById("cameraId").value = publicId;
+    document.getElementById("cameraName").value = parsed.vendor === "YOOSEE"
+      ? `Câmera Yoosee ${parsed.vendorDeviceId ? parsed.vendorDeviceId.slice(-4) : publicId}`
+      : `Câmera ${publicId}`;
+    document.getElementById("cameraVendor").value = ["YOOSEE", "A_CONFIRMAR"].includes(parsed.vendor) ? parsed.vendor : "OUTRO";
+    document.getElementById("cameraVendorDeviceId").value = parsed.vendorDeviceId || "";
+    document.getElementById("cameraProtocol").value = parsed.protocol || "A_CONFIRMAR";
+    document.getElementById("cameraBridge").value = document.getElementById("cameraBridge").value || "bridge-loja-01";
+    document.getElementById("cameraNotes").value = parsed.vendor === "YOOSEE"
+      ? "Câmera identificada por QR Yoosee. Protocolo RTSP/ONVIF ainda precisa ser confirmado. Código de convite não foi salvo."
+      : "Câmera identificada por QR. Plataforma e protocolo ainda precisam ser confirmados.";
+    document.getElementById("cameraFormTitle").textContent = "Confirmar câmera lida por QR";
+    document.getElementById("cameraArea").focus();
+    setMessage(message, `${parsed.safeSummary} Informe a área e clique em Salvar câmera.`, "success");
+  });
 }
 
 export function startCamerasSubscription() {

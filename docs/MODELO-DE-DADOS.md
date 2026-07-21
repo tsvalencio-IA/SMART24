@@ -82,3 +82,24 @@ Classificações humanas:
 - erro de quantidade;
 - imagem insuficiente;
 - outro.
+
+
+## Câmeras — campos adicionais
+
+```text
+cameras/{cameraRecordId}/vendor
+cameras/{cameraRecordId}/vendorDeviceId
+```
+
+`vendorDeviceId` identifica o equipamento no ecossistema do fabricante. Não é senha, mas continua protegido por autenticação e regras do banco. Não são permitidos `inviteCode`, `shareUrl`, `rawQrPayload`, `password`, `token` ou `rtspUrl` nesse cadastro.
+
+## Integração Yoosee
+
+```text
+integrations/yoosee/provider
+integrations/yoosee/accountEmail
+integrations/yoosee/status
+integrations/yoosee/passwordStored = false
+integrations/yoosee/updatedAt
+integrations/yoosee/updatedBy
+```

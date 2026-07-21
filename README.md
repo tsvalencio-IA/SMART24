@@ -1,4 +1,4 @@
-# SMART24 Fusion — MVP Fase 1
+# SMART24 Fusion — MVP Fase 1 + Cadastro QR/Yoosee + Loja 3D
 
 Painel estático responsivo para estruturar a primeira fase do sistema de auditoria inteligente de mercadinhos autônomos.
 
@@ -27,13 +27,17 @@ A comparação é feita por produto/SKU. Totais gerais iguais não eliminam inco
 
 ## O que este pacote contém
 
-- Login com Firebase Authentication, quando configurado.
+- Login com Firebase Authentication já apontando para o projeto real `smart24-fusion`.
 - Realtime Database com regras bloqueadas por padrão.
-- Modo demonstrativo local quando `firebase-config.js` ainda contém `COLE_AQUI`.
+- Modo demonstrativo local preservado como contingência; nesta entrega o Firebase real já está configurado.
 - Dashboard.
 - Cadastro e edição de produtos.
 - Geração, salvamento, visualização e impressão de etiquetas com serial e QR Code.
 - Cadastro seguro de metadados de câmeras.
+- Leitor de QR Code pelo navegador, com câmera ou imagem.
+- Reconhecimento de QR/link Yoosee com descarte de InviteCode, token e link completo.
+- Registro do e-mail operacional Yoosee sem armazenar senha.
+- Loja 3D integrada pelo arquivo `simulator-3d.html`.
 - Linha do tempo de eventos.
 - Ocorrências com classificação humana.
 - Simulador conceitual com oito cenários.
@@ -49,20 +53,20 @@ A comparação é feita por produto/SKU. Totais gerais iguais não eliminam inco
 - RFID;
 - visão computacional de retirada/devolução;
 - múltiplas câmeras reais;
+- login automático do painel na conta Yoosee;
+- aceitação automática de convite Yoosee;
+- API oficial Yoosee para vídeo;
 - sistema real do cliente.
 
-## Fotos e HTMLs anteriores
+## Loja 3D e fotografias
 
-Na sessão de geração deste pacote, os HTMLs anteriores e as dez fotos citadas não estavam fisicamente disponíveis. Por isso:
+O HTML 3D enviado por Thiago foi incorporado integralmente como `simulator-3d.html` e aparece dentro do módulo **Simulador**. O simulador operacional anterior foi preservado em uma segunda aba.
 
-- nenhum arquivo visual anterior foi substituído de forma silenciosa;
-- nenhuma medida foi inventada;
-- o simulador usa uma representação demonstrativa;
-- a fidelização visual às fotos permanece pendente até os arquivos originais serem anexados.
+As dez fotografias citadas não estavam anexadas fisicamente nesta atualização. O HTML 3D mantém a opção de selecionar fotografias locais e continua identificado como representação demonstrativa. Nenhuma medida foi inventada.
 
 ## Como começar
 
-Abra `PASSO-A-PASSO-THIAGO.md` e execute somente o **Passo 1**.
+Esta entrega já contém os valores públicos reais do Firebase encontrados no ZIP atual do GitHub. Abra `PASSO-A-PASSO-THIAGO.md` e siga diretamente os **Passos 18 a 22**.
 
 ## Modo demonstração
 
@@ -73,8 +77,9 @@ Quando todos os campos obrigatórios de `firebase-config.js` forem preenchidos, 
 ## Estrutura
 
 ```text
-smart24-fusion-mvp/
+SMART24-main/
 ├── index.html
+├── simulator-3d.html
 ├── firebase-config.js
 ├── firebase-config.example.js
 ├── README.md

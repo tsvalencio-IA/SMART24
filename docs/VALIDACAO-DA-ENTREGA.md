@@ -1,53 +1,51 @@
-# Validação da entrega — SMART24 Fusion MVP
+# Validação da entrega — SMART24 Fusion V2
 
-Data da geração: 21 de julho de 2026.
+Data da atualização: 21 de julho de 2026.
 
-## Fonte efetivamente disponível
+## Base efetivamente usada
 
-O arquivo consolidado `CONHECIMENTO-SMART24.md` foi lido e incluído em `docs/`.
+- Projeto completo da primeira entrega SMART24 Fusion.
+- Repositório publicado `tsvalencio-IA/SMART24`, usado para conferir a base e preservar a configuração Firebase atual.
+- Arquivo 3D enviado por Thiago, incorporado como `simulator-3d.html`.
+- Conhecimento consolidado incluído em `docs/CONHECIMENTO-SMART24.md`.
 
-O link compartilhado da conversa original não pôde ser carregado pelo mecanismo de acesso disponível durante esta execução. Além disso, nenhum HTML anterior nem as dez fotos reais estava fisicamente montado nesta sessão. Por isso a entrega não declara que comparou visualmente esses arquivos.
+As dez fotografias reais não estavam fisicamente anexadas nesta atualização. Portanto, nenhuma medida ou posição definitiva foi inventada.
 
 ## Validações concluídas
 
 - Estrutura completa de pastas e arquivos.
-- Todos os arquivos locais referenciados por `src`, `href` e imports existem.
-- `index.html` sem IDs duplicados.
-- 77 IDs usados pelo JavaScript conferidos contra o HTML.
-- Sintaxe dos módulos JavaScript validada por `node --check`.
+- Arquivos locais referenciados por imports existem.
+- `index.html` e `simulator-3d.html` sem IDs duplicados.
+- Sintaxe de todos os módulos JavaScript validada.
+- Parser QR com quatro testes aprovados.
+- Oito cenários presentes no simulador operacional.
+- Oito cenários presentes no simulador 3D.
 - JSON das regras e do exemplo de banco validado.
 - Python compilado sem erro.
-- Quatro testes unitários executados com sucesso:
-  - compra regular;
-  - totais iguais com SKUs diferentes;
-  - interação ambígua sem inventar quantidade;
-  - máscara de usuário e senha da URL RTSP.
-- Oito cenários obrigatórios presentes no simulador.
-- Termos automáticos acusatórios ausentes do JavaScript operacional.
-- Servidor HTTP estático respondeu `200` e entregou o `index.html` correto.
-- Arquivos privados previstos no `.gitignore`.
-- Nenhuma credencial real inserida.
-- `firebase-config.js` permanece com `COLE_AQUI`.
+- Quatro testes do agente local aprovados.
+- Servidor HTTP estático respondeu `200` para os arquivos principais.
+- Nenhum InviteCode, link privado ou QR real foi incluído no pacote.
+- Nenhuma senha Yoosee foi incluída ou criada.
+- Configuração Firebase publicada foi preservada.
 
-## Validação não concluída
+## Validação interativa não concluída
 
-A automação interativa com navegador Chromium foi tentada, mas o navegador fornecido pelo ambiente bloqueou navegação local com `ERR_BLOCKED_BY_ADMINISTRATOR`. Portanto, não foi declarado teste E2E completo de cliques, layout e impressão em navegador real.
+A automação com Chromium foi tentada por servidor local e por arquivo local, mas o ambiente bloqueou a navegação com `ERR_BLOCKED_BY_ADMINISTRATOR`. Por isso não é declarado teste E2E completo de cliques e renderização.
 
 ## Integrações que continuam pendentes
 
-- Firebase real do cliente.
-- Login real e domínio autorizado.
-- Câmeras IP reais.
-- Marca, modelo, RTSP, ONVIF ou SDK.
-- Reconhecimento facial atual.
-- Sistema/API do checkout.
-- Agente instalado no computador da loja.
-- Visão computacional de pessoa, mãos, retirada e devolução.
-- Fotos reais e HTML visual anterior.
-- Medidas físicas do contêiner.
-- RFID.
-- Validação jurídica e política de retenção.
+- criação manual do e-mail operacional;
+- criação manual da conta Yoosee;
+- compartilhamento da câmera com a conta operacional;
+- confirmação real de RTSP, ONVIF, NVR, CMS ou SDK;
+- agente instalado no computador da loja;
+- acesso ao vídeo real;
+- visão computacional real;
+- integração com checkout e acesso facial;
+- medidas físicas do contêiner;
+- RFID;
+- política jurídica e de retenção.
 
 ## Limite correto da entrega
 
-Este pacote é a Fase 1 funcional de painel, dados, simulação e documentação. Ele não afirma conexão com equipamentos ou sistemas externos ainda não confirmados.
+O leitor QR cadastra metadados seguros. Ele não faz login no Yoosee, não aceita convite automaticamente e não conecta o vídeo. A loja 3D é demonstrativa e a simulação operacional permanece separada para gerar eventos estruturados.

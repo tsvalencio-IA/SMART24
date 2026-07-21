@@ -48,6 +48,8 @@ function initialDemoData() {
         name: "Entrada e acesso",
         storeId: "loja-01",
         area: "Entrada",
+        vendor: "A_CONFIRMAR",
+        vendorDeviceId: "",
         protocol: "A_CONFIRMAR",
         bridgeId: "bridge-loja-01",
         status: "UNCONFIGURED",
@@ -58,6 +60,7 @@ function initialDemoData() {
       }
     },
     cameraBridges: {},
+    integrations: {},
     sessions: {},
     events: {},
     occurrences: {},

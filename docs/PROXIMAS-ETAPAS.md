@@ -46,3 +46,20 @@
 - Sistema/API do caixa não confirmados.
 - Evento do acesso facial não confirmado.
 - Medidas físicas não aferidas.
+
+
+## Concluído nesta atualização
+
+- leitura local de QR Code por câmera ou imagem;
+- extração segura de ID Yoosee;
+- cadastro do e-mail operacional sem senha;
+- loja 3D integrada ao painel;
+- preservação do simulador operacional.
+
+## Ainda pendente
+
+- criar a conta externa no Yoosee;
+- compartilhar a câmera com essa conta;
+- confirmar RTSP, ONVIF, CMS, NVR ou SDK;
+- conectar vídeo ao agente local;
+- medir a loja e validar posições de câmera.

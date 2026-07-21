@@ -31,12 +31,19 @@
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
       "$id": {
         ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
-        ".validate": "newData.hasChildren(['cameraId','name','storeId','area','protocol','status']) && !newData.child('rtspUrl').exists() && !newData.child('password').exists() && !newData.child('token').exists()"
+        ".validate": "newData.hasChildren(['cameraId','name','storeId','area','protocol','status']) && !newData.child('rtspUrl').exists() && !newData.child('password').exists() && !newData.child('token').exists() && !newData.child('inviteCode').exists() && !newData.child('shareUrl').exists() && !newData.child('rawQrPayload').exists()"
       }
     },
     "cameraBridges": {
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
       ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+    },
+    "integrations": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$provider": {
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+        ".validate": "newData.hasChildren(['provider','accountEmail','status','passwordStored']) && newData.child('accountEmail').isString() && newData.child('passwordStored').val() === false && !newData.child('password').exists() && !newData.child('token').exists() && !newData.child('inviteCode').exists()"
+      }
     },
     "sessions": {
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
