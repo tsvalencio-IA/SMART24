@@ -324,3 +324,16 @@ td small { color: var(--muted); }
   .simulator-mode-button { width: 100%; }
   .store-3d-frame { height: calc(100vh - 210px); min-height: 540px; }
 }
+
+/* V3 — conexão real e navegação móvel completa */
+.real-connection-panel { margin-bottom: 16px; }
+.real-connection-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.real-connection-steps div { display:flex; gap:10px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(13,31,52,.72); }
+.real-connection-steps strong { display:grid; place-items:center; flex:0 0 28px; height:28px; border-radius:50%; background:rgba(25,211,178,.14); color:var(--accent); }
+.real-connection-steps span { font-size:.78rem; line-height:1.45; color:var(--muted); }
+.mobile-more-menu { position:fixed; z-index:35; right:12px; bottom:82px; width:min(250px,calc(100vw - 24px)); padding:8px; border:1px solid var(--line-strong); border-radius:16px; background:rgba(9,20,36,.98); box-shadow:var(--shadow); backdrop-filter:blur(20px); }
+.mobile-more-menu button { width:100%; display:flex; align-items:center; gap:12px; padding:13px 14px; border:0; border-radius:10px; background:transparent; color:var(--text); text-align:left; font-weight:800; }
+.mobile-more-menu button:active,.mobile-more-menu button:hover { background:rgba(25,211,178,.11); color:var(--accent); }
+.mobile-more-menu button span { width:22px; text-align:center; color:var(--accent); }
+@media (max-width:980px){ .real-connection-steps{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:700px){ .real-connection-steps{grid-template-columns:1fr;} }

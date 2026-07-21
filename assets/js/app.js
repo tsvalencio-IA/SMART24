@@ -30,6 +30,19 @@ function renderDashboard() {
   setMetric("metricOccurrences", pending);
   const onlineCameras = dashboardState.cameras.filter(item => String(item.status).toUpperCase() === "ONLINE").length;
   document.getElementById("metricCamerasDetail").textContent = dashboardState.cameras.length ? `${onlineCameras} online` : "sem dados";
+  const settingsCameraStatus = document.getElementById("settingsCameraConnectionStatus");
+  if (settingsCameraStatus) {
+    if (onlineCameras > 0) {
+      settingsCameraStatus.className = "status-badge status-badge--ok";
+      settingsCameraStatus.textContent = `${onlineCameras} câmera(s) online`;
+    } else if (dashboardState.cameras.length > 0) {
+      settingsCameraStatus.className = "status-badge status-badge--warning";
+      settingsCameraStatus.textContent = "Cadastrada — aguardando conector";
+    } else {
+      settingsCameraStatus.className = "status-badge status-badge--neutral";
+      settingsCameraStatus.textContent = "Nenhuma câmera cadastrada";
+    }
+  }
   document.getElementById("metricOccurrencesDetail").textContent = pending === 1 ? "aguardando revisão" : "aguardando revisão";
 
   const eventsContainer = document.getElementById("dashboardEvents");
@@ -88,6 +101,7 @@ function startDashboardSubscriptions() {
 }
 
 function showView(viewName) {
+  closeMobileMoreMenu();
   const target = document.getElementById(`view-${viewName}`);
   if (!target) return;
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("is-active", view === target));
@@ -96,6 +110,27 @@ function showView(viewName) {
   document.getElementById("pageEyebrow").textContent = target.dataset.eyebrow || "PAINEL";
   window.scrollTo({ top: 0, behavior: "smooth" });
   history.replaceState(null, "", `#${viewName}`);
+}
+
+function closeMobileMoreMenu() {
+  const menu = document.getElementById("mobileMoreMenu");
+  const button = document.getElementById("mobileMoreButton");
+  menu?.classList.add("is-hidden");
+  button?.setAttribute("aria-expanded", "false");
+}
+
+function initializeMobileMoreMenu() {
+  const menu = document.getElementById("mobileMoreMenu");
+  const button = document.getElementById("mobileMoreButton");
+  button?.addEventListener("click", event => {
+    event.stopPropagation();
+    const willOpen = menu?.classList.contains("is-hidden");
+    menu?.classList.toggle("is-hidden", !willOpen);
+    button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+  document.addEventListener("click", event => {
+    if (!menu?.contains(event.target) && event.target !== button) closeMobileMoreMenu();
+  });
 }
 
 function initializeNavigation() {
@@ -139,6 +174,7 @@ function initializeUi() {
   if (uiInitialized) return;
   uiInitialized = true;
   initializeNavigation();
+  initializeMobileMoreMenu();
   initializeProducts();
   initializeLabels();
   initializeCameras();

@@ -1,80 +1,45 @@
-# Agente local — Fase 2
+# CONECTOR LOCAL SMART24 — WINDOWS
 
-Este agente é uma base técnica. Ele **não conecta uma câmera real sem os dados corretos** e não faz detecção de retirada, devolução, rosto ou produto.
+Este é o componente que coloca a câmera **verdadeiramente online** no painel.
+O QR e o e-mail Yoosee apenas cadastram metadados; não transportam vídeo.
 
-## O que ele faz nesta fase
+## Antes de executar
 
-- lê a URL RTSP privada do `.env`;
-- mascara usuário e senha nos logs;
-- tenta receber um frame;
-- publica heartbeat;
-- informa `ONLINE`, `OFFLINE`, `RECONNECTING` ou `STOPPED`;
-- reconecta automaticamente;
-- opcionalmente salva uma imagem de depuração somente no computador local;
-- não envia vídeo contínuo ao Firebase.
+No aplicativo Yoosee da câmera:
 
-## O que precisa ser confirmado antes
+1. abra os três pontos da câmera;
+2. entre em **Configurações**;
+3. entre em **Conexão NVR**;
+4. crie uma senha RTSP/NVR;
+5. mantenha o computador e a câmera no mesmo roteador.
 
-- marca e modelo da câmera;
-- IP local;
-- caminho RTSP correto ou suporte ONVIF;
-- usuário e senha autorizados;
-- computador que ficará ligado na loja;
-- acesso Firebase por conta de serviço;
-- política de retenção e privacidade.
+A orientação oficial da Yoosee informa usuário `administrator` e porta `5000` para a conexão NVR. O assistente tenta obter o fluxo pelo ONVIF; quando o firmware não fornece o URI, realiza sondas locais de compatibilidade sem publicar senha ou URL.
 
-## Arquivos privados
+## Instalação sem terminal
+
+Dê dois cliques em:
+
+`INSTALAR-CONNECTOR-SMART24.bat`
+
+O assistente irá:
+
+- procurar a câmera na rede;
+- testar o vídeo real;
+- pedir o arquivo `service-account.json` do Firebase;
+- salvar as credenciais somente neste computador;
+- criar início automático do Windows;
+- publicar heartbeat no Firebase.
+
+Quando funcionar, o painel passará de **0 online** para **1 online** e de **0 conectores** para **1 heartbeat ativo**.
+
+## Segurança
 
 Nunca envie ao GitHub:
 
 - `.env`;
-- `service-account.json`.
+- pasta `private/`;
+- `service-account.json`;
+- senha NVR/RTSP;
+- URL RTSP completa.
 
-O `.gitignore` do projeto já bloqueia esses arquivos, mas a conferência humana continua obrigatória.
-
-## Instalação
-
-Esta parte exige Python no computador local. Como Thiago não usa terminal, a execução deve ser feita com apoio técnico na Fase 2.
-
-Com Python instalado, o técnico deverá:
-
-```bash
-python -m venv .venv
-```
-
-No Windows:
-
-```bash
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Depois:
-
-1. copiar `.env.example` para `.env`;
-2. preencher a URL RTSP real no `.env`;
-3. manter `DRY_RUN=true` no primeiro teste;
-4. executar:
-
-```bash
-python app.py
-```
-
-## Testes unitários
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-## Ativação do Firebase Admin
-
-Somente depois do teste local:
-
-1. criar uma conta de serviço exclusiva e com acesso mínimo adequado;
-2. baixar o JSON diretamente no computador da loja;
-3. renomear localmente para `service-account.json`;
-4. confirmar que ele não aparece no GitHub;
-5. preencher `FIREBASE_DATABASE_URL`;
-6. mudar `DRY_RUN=false`.
-
-Não envie a conta de serviço por chat, mensagem ou repositório.
+O vídeo contínuo não é enviado ao Firebase. A versão atual publica heartbeat e eventos de disponibilidade. A análise de retirada/devolução é uma etapa posterior e exige calibração física das câmeras e das zonas.
