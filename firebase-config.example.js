@@ -1,9 +1,8 @@
 export const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "COLE_AQUI",
-  databaseURL: "COLE_AQUI",
-  projectId: "COLE_AQUI",
-  storageBucket: "COLE_AQUI",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw",
+  authDomain: "smart24-fusion.firebaseapp.com",
+  projectId: "smart24-fusion",
+  storageBucket: "smart24-fusion.firebasestorage.app",
+  messagingSenderId: "894689077131",
+  appId: "1:894689077131:web:4524b6f3ae199b2b00718e"
 };
