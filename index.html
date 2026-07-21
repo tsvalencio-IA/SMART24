@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="SMART24 Fusion — painel de auditoria inteligente para mercadinhos autônomos.">
+  <title>SMART24 Fusion</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="stylesheet" href="./assets/css/app.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <noscript>Ative o JavaScript para usar o SMART24 Fusion.</noscript>
+
+  <div id="bootScreen" class="boot-screen" aria-live="polite">
+    <div class="boot-logo">S24</div>
+    <strong>SMART24 Fusion</strong>
+    <span>Carregando painel seguro…</span>
+  </div>
+
+  <section id="loginScreen" class="login-screen is-hidden" aria-labelledby="loginTitle">
+    <div class="login-visual">
+      <div class="brand-lockup brand-lockup--large">
+        <span class="brand-mark">S24</span>
+        <span><strong>SMART24</strong><small>Fusion</small></span>
+      </div>
+      <div class="login-copy">
+        <span class="eyebrow">AUDITORIA INTELIGENTE</span>
+        <h1>Eventos relevantes, sem transformar hipótese em acusação.</h1>
+        <p>Reconstrua sessões, compare produtos por SKU e encaminhe somente possíveis divergências para revisão humana.</p>
+      </div>
+      <div class="principles-grid">
+        <article><strong>01</strong><span>A saída nunca é bloqueada automaticamente.</span></article>
+        <article><strong>02</strong><span>Vídeo contínuo não é enviado ao Firebase.</span></article>
+        <article><strong>03</strong><span>Toda ocorrência exige revisão humana.</span></article>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <form id="loginForm" class="auth-card" novalidate>
+        <div>
+          <span class="eyebrow">ACESSO RESTRITO</span>
+          <h2 id="loginTitle">Entrar no painel</h2>
+          <p id="backendStatus" class="muted">Verificando configuração…</p>
+        </div>
+        <label class="field">
+          <span>E-mail</span>
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="seuemail@empresa.com" required>
+        </label>
+        <label class="field">
+          <span>Senha</span>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha" minlength="6" required>
+        </label>
+        <button class="btn btn--primary btn--full" type="submit">Entrar com Firebase</button>
+        <button id="demoLoginButton" class="btn btn--ghost btn--full is-hidden" type="button">Abrir demonstração local</button>
+        <p id="loginMessage" class="form-message" role="alert"></p>
+        <div class="security-note">
+          <strong>Importante</strong>
+          <span>Não informe senha de câmera, RTSP, token ou chave neste painel.</span>
+        </div>
+      </form>
+      <footer>Powered by <strong>thIAguinho Soluções Digitais</strong></footer>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell is-hidden">
+    <aside class="sidebar">
+      <div class="brand-lockup">
+        <span class="brand-mark">S24</span>
+        <span><strong>SMART24</strong><small>Fusion</small></span>
+      </div>
+
+      <nav class="main-nav" aria-label="Navegação principal">
+        <button class="nav-item is-active" data-view="dashboard"><span>◫</span>Dashboard</button>
+        <button class="nav-item" data-view="products"><span>▦</span>Produtos</button>
+        <button class="nav-item" data-view="labels"><span>⌁</span>Etiquetas</button>
+        <button class="nav-item" data-view="cameras"><span>◉</span>Câmeras</button>
+        <button class="nav-item" data-view="events"><span>≋</span>Eventos</button>
+        <button class="nav-item" data-view="occurrences"><span>!</span>Ocorrências</button>
+        <button class="nav-item" data-view="simulator"><span>▶</span>Simulador</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>Configurações</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <span id="userInitials" class="avatar">T</span>
+          <div><strong id="userEmail">—</strong><small id="userRole">—</small></div>
+        </div>
+        <button id="logoutButton" class="icon-button" title="Sair" aria-label="Sair">↪</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span id="pageEyebrow" class="eyebrow">VISÃO GERAL</span>
+          <h1 id="pageTitle">Dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="modeBadge" class="status-badge status-badge--warning">Modo local</span>
+          <button id="refreshButton" class="icon-button" title="Atualizar" aria-label="Atualizar">↻</button>
+        </div>
+      </header>
+
+      <section id="view-dashboard" class="view is-active" data-title="Dashboard" data-eyebrow="VISÃO GERAL">
+        <div class="notice notice--info">
+          <strong>Fase 1 — painel e estrutura operacional.</strong>
+          <span>Câmeras, reconhecimento facial, caixa e porta ainda não estão conectados.</span>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="metric-card"><span>Produtos</span><strong id="metricProducts">0</strong><small>cadastrados</small></article>
+          <article class="metric-card"><span>Etiquetas</span><strong id="metricLabels">0</strong><small>geradas</small></article>
+          <article class="metric-card"><span>Câmeras</span><strong id="metricCameras">0</strong><small id="metricCamerasDetail">sem dados</small></article>
+          <article class="metric-card"><span>Conectores</span><strong id="metricBridges">0</strong><small>heartbeats ativos</small></article>
+          <article class="metric-card"><span>Sessões</span><strong id="metricSessions">0</strong><small>registradas</small></article>
+          <article class="metric-card metric-card--accent"><span>Ocorrências</span><strong id="metricOccurrences">0</strong><small id="metricOccurrencesDetail">aguardando revisão</small></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel panel--wide">
+            <div class="panel-header"><div><span class="eyebrow">ATIVIDADE</span><h2>Eventos recentes</h2></div><button class="text-button" data-go="events">Ver todos</button></div>
+            <div id="dashboardEvents" class="timeline empty-state"><strong>Nenhum evento</strong><span>Os eventos publicados pelo simulador ou pelo agente local aparecerão aqui.</span></div>
+          </article>
+          <article class="panel">
+            <div class="panel-header"><div><span class="eyebrow">REVISÃO HUMANA</span><h2>Fila de ocorrências</h2></div></div>
+            <div id="dashboardOccurrences" class="compact-list empty-state"><strong>Fila vazia</strong><span>Nenhuma possível divergência aguarda análise.</span></div>
+          </article>
+          <article class="panel">
+            <div class="panel-header"><div><span class="eyebrow">INFRAESTRUTURA</span><h2>Estado das câmeras</h2></div></div>
+            <div id="dashboardCameras" class="compact-list empty-state"><strong>Sem câmeras</strong><span>Cadastre somente metadados seguros. Credenciais ficam no agente local.</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-products" class="view" data-title="Produtos" data-eyebrow="CATÁLOGO">
+        <div class="split-layout">
+          <article class="panel form-panel">
+            <div class="panel-header"><div><span class="eyebrow">CADASTRO</span><h2 id="productFormTitle">Novo produto</h2></div></div>
+            <form id="productForm" class="form-grid" novalidate>
+              <input id="productId" type="hidden">
+              <label class="field field--wide"><span>Nome do produto</span><input id="productName" required maxlength="120" placeholder="Ex.: Água mineral 500 ml"></label>
+              <label class="field"><span>SKU</span><input id="productSku" required maxlength="60" placeholder="AGUA-500"></label>
+              <label class="field"><span>Código de barras</span><input id="productBarcode" maxlength="80" inputmode="numeric" placeholder="789…"></label>
+              <label class="field"><span>Categoria</span><input id="productCategory" maxlength="80" placeholder="Bebidas"></label>
+              <label class="field"><span>Status</span><select id="productStatus"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
+              <div class="form-actions field--wide"><button class="btn btn--primary" type="submit">Salvar produto</button><button id="cancelProductEdit" class="btn btn--ghost is-hidden" type="button">Cancelar edição</button></div>
+              <p id="productMessage" class="form-message field--wide" role="status"></p>
+            </form>
+          </article>
+          <article class="panel table-panel">
+            <div class="panel-header"><div><span class="eyebrow">BASE DE DADOS</span><h2>Produtos cadastrados</h2></div><label class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar produto, SKU ou código"></label></div>
+            <div class="table-wrap"><table><thead><tr><th>Produto</th><th>SKU</th><th>Categoria</th><th>Status</th><th>Cadastro</th><th></th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
+            <div id="productsEmpty" class="empty-state"><strong>Nenhum produto cadastrado</strong><span>Cadastre o primeiro produto para gerar etiquetas.</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-labels" class="view" data-title="Etiquetas" data-eyebrow="IDENTIFICAÇÃO DE UNIDADES">
+        <div class="notice notice--warning"><strong>Etiqueta visual não rastreia produto oculto.</strong><span>QR Code é usado para cadastro, reposição, manutenção e conferência quando estiver visível. O campo RFID EPC permanece preparado para evolução futura.</span></div>
+        <div class="split-layout split-layout--labels">
+          <article class="panel form-panel">
+            <div class="panel-header"><div><span class="eyebrow">GERADOR</span><h2>Gerar etiquetas</h2></div></div>
+            <form id="labelForm" class="form-grid" novalidate>
+              <label class="field field--wide"><span>Produto</span><select id="labelProduct" required><option value="">Selecione um produto</option></select></label>
+              <label class="field"><span>Quantidade</span><input id="labelQuantity" type="number" min="1" max="200" value="1" required></label>
+              <label class="field"><span>Loja</span><input id="labelStore" value="loja-01" required maxlength="60"></label>
+              <label class="field"><span>Zona</span><input id="labelZone" value="zona-a-definir" required maxlength="80"></label>
+              <label class="field"><span>RFID EPC</span><input disabled value="Aguardando implantação RFID"></label>
+              <div class="form-actions field--wide"><button class="btn btn--primary" type="submit">Gerar e salvar</button><button id="printLabelsButton" class="btn btn--secondary" type="button">Imprimir visíveis</button></div>
+              <p id="labelMessage" class="form-message field--wide" role="status"></p>
+            </form>
+          </article>
+          <article class="panel">
+            <div class="panel-header"><div><span class="eyebrow">PRÉ-VISUALIZAÇÃO</span><h2>Etiquetas geradas</h2></div><span id="labelCountBadge" class="count-badge">0</span></div>
+            <div id="labelsGrid" class="labels-grid"></div>
+            <div id="labelsEmpty" class="empty-state"><strong>Nenhuma etiqueta</strong><span>As etiquetas aparecem aqui após a geração.</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-cameras" class="view" data-title="Câmeras" data-eyebrow="INFRAESTRUTURA SEGURA">
+        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token e URL RTSP completa devem permanecer somente no computador local da loja, em arquivo .env protegido.</span></div>
+        <div class="split-layout">
+          <article class="panel form-panel">
+            <div class="panel-header"><div><span class="eyebrow">METADADOS</span><h2 id="cameraFormTitle">Cadastrar câmera</h2></div></div>
+            <form id="cameraForm" class="form-grid" novalidate>
+              <input id="cameraRecordId" type="hidden">
+              <label class="field"><span>ID público</span><input id="cameraId" required maxlength="40" placeholder="CAM-01"></label>
+              <label class="field"><span>Nome</span><input id="cameraName" required maxlength="100" placeholder="Entrada e acesso"></label>
+              <label class="field"><span>Loja</span><input id="cameraStore" required value="loja-01" maxlength="60"></label>
+              <label class="field"><span>Área</span><input id="cameraArea" required maxlength="100" placeholder="Entrada"></label>
+              <label class="field"><span>Protocolo disponível</span><select id="cameraProtocol"><option value="A_CONFIRMAR">A confirmar</option><option value="RTSP">RTSP</option><option value="ONVIF">ONVIF</option><option value="RTSP_ONVIF">RTSP + ONVIF</option><option value="SDK">SDK oficial</option></select></label>
+              <label class="field"><span>Bridge/conector</span><input id="cameraBridge" maxlength="80" placeholder="bridge-loja-01"></label>
+              <label class="field field--wide"><span>Observação sem segredo</span><textarea id="cameraNotes" rows="3" maxlength="300" placeholder="Modelo ainda precisa ser confirmado no local."></textarea></label>
+              <div class="form-actions field--wide"><button class="btn btn--primary" type="submit">Salvar câmera</button><button id="cancelCameraEdit" class="btn btn--ghost is-hidden" type="button">Cancelar edição</button></div>
+              <p id="cameraMessage" class="form-message field--wide" role="status"></p>
+            </form>
+          </article>
+          <article class="panel table-panel">
+            <div class="panel-header"><div><span class="eyebrow">MONITORAMENTO</span><h2>Câmeras cadastradas</h2></div></div>
+            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Área</th><th>Protocolo</th><th>Bridge</th><th>Status</th><th>Último contato</th><th></th></tr></thead><tbody id="camerasTableBody"></tbody></table></div>
+            <div id="camerasEmpty" class="empty-state"><strong>Nenhuma câmera cadastrada</strong><span>As posições propostas são demonstrativas e precisam ser validadas no local.</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-events" class="view" data-title="Eventos" data-eyebrow="LINHA DO TEMPO">
+        <article class="panel table-panel">
+          <div class="panel-header"><div><span class="eyebrow">EVENTOS ESTRUTURADOS</span><h2>Atividade das sessões</h2></div><div class="filters"><select id="eventTypeFilter"><option value="">Todos os tipos</option></select><input id="eventSearch" type="search" placeholder="Sessão, pessoa, produto…"></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Tipo</th><th>Sessão</th><th>Pessoa</th><th>Câmera</th><th>Produto/Tag</th><th>Qtd.</th><th>Confiança</th></tr></thead><tbody id="eventsTableBody"></tbody></table></div>
+          <div id="eventsEmpty" class="empty-state"><strong>Nenhum evento publicado</strong><span>O Firebase armazena eventos, não vídeo contínuo.</span></div>
+        </article>
+      </section>
+
+      <section id="view-occurrences" class="view" data-title="Ocorrências" data-eyebrow="REVISÃO HUMANA">
+        <div class="notice notice--info"><strong>Ocorrência não é acusação.</strong><span>Ela representa uma possível divergência ou evento para revisão, com confiança estimada e evidências disponíveis.</span></div>
+        <div id="occurrencesGrid" class="occurrences-grid"></div>
+        <div id="occurrencesEmpty" class="empty-state"><strong>Nenhuma ocorrência</strong><span>As divergências por SKU aparecerão aqui após a reconciliação.</span></div>
+      </section>
+
+      <section id="view-simulator" class="view" data-title="Simulador" data-eyebrow="DEMONSTRAÇÃO CONCEITUAL">
+        <div class="notice notice--warning"><strong>Demonstração conceitual.</strong><span>Câmeras, reconhecimento facial, caixa e porta ainda não estão conectados. Representação baseada na descrição das fotografias reais; medidas físicas ainda não aferidas no local.</span></div>
+        <div class="simulator-layout">
+          <article class="panel simulator-controls">
+            <div class="panel-header"><div><span class="eyebrow">CENÁRIO</span><h2>Executar sessão</h2></div></div>
+            <label class="field"><span>Selecione o cenário</span><select id="scenarioSelect">
+              <option value="regular">1. Compra regular</option>
+              <option value="returned">2. Produto devolvido</option>
+              <option value="missing">3. Item não registrado</option>
+              <option value="threePeople">4. Três usuários</option>
+              <option value="cameraOffline">5. Câmera indisponível</option>
+              <option value="wrongProduct">6. Produto diferente pago</option>
+              <option value="paymentRejected">7. Pagamento cancelado</option>
+              <option value="ambiguous">8. Interação ambígua</option>
+            </select></label>
+            <button id="runScenarioButton" class="btn btn--primary btn--full">Executar simulação</button>
+            <button id="resetScenarioButton" class="btn btn--ghost btn--full">Zerar sessão</button>
+            <div class="sim-status">
+              <span id="simStatusDot" class="pulse-dot"></span>
+              <div><strong id="simStatusTitle">Aguardando</strong><small id="simStatusText">Selecione um cenário e pressione executar.</small></div>
+            </div>
+            <div class="sim-legend"><span><i class="person-color person-color--1"></i>PERSON-01</span><span><i class="person-color person-color--2"></i>PERSON-02</span><span><i class="person-color person-color--3"></i>PERSON-03</span></div>
+          </article>
+
+          <article class="panel store-panel">
+            <div class="store-scene" id="storeScene" aria-label="Representação demonstrativa do mercadinho">
+              <div class="store-roof"></div>
+              <div class="zone zone-entry"><span>ENTRADA / FACIAL</span></div>
+              <div class="zone zone-shelf"><span>ESTANTE LATERAL</span></div>
+              <div class="zone zone-fridges"><span>GELADEIRAS</span></div>
+              <div class="zone zone-back"><span>PRATELEIRAS DO FUNDO</span></div>
+              <div class="zone zone-checkout"><span>AUTOATENDIMENTO</span></div>
+              <div class="camera camera-1" title="CAM-01">1</div><div class="camera camera-4" title="CAM-04">4</div><div class="camera camera-5" title="CAM-05">5</div><div class="camera camera-7" title="CAM-07">7</div>
+              <div id="simPerson1" class="sim-person sim-person--1"><span>P1</span></div>
+              <div id="simPerson2" class="sim-person sim-person--2"><span>P2</span></div>
+              <div id="simPerson3" class="sim-person sim-person--3"><span>P3</span></div>
+              <div id="simProduct" class="sim-product">SKU-A</div>
+            </div>
+            <small class="scene-caption">Planta ilustrativa, sem dimensões reais. Posições de câmera ainda precisam de teste de cobertura.</small>
+          </article>
+
+          <article class="panel sim-timeline-panel">
+            <div class="panel-header"><div><span class="eyebrow">SEQUÊNCIA</span><h2>Eventos da simulação</h2></div><span id="simEventCount" class="count-badge">0</span></div>
+            <div id="simTimeline" class="timeline empty-state"><strong>Sessão zerada</strong><span>Nenhum evento foi gerado.</span></div>
+          </article>
+
+          <article class="panel sim-result-panel">
+            <div class="panel-header"><div><span class="eyebrow">RECONCILIAÇÃO POR SKU</span><h2>Resultado</h2></div></div>
+            <div id="simResult" class="empty-state"><strong>Aguardando reconciliação</strong><span>O resultado só será preenchido depois dos eventos do cenário.</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view" data-title="Configurações" data-eyebrow="IMPLANTAÇÃO">
+        <div class="settings-grid">
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">FIREBASE</span><h2>Estado da conexão</h2></div></div><div id="firebaseSettingsStatus" class="settings-status"></div></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">SEGURANÇA</span><h2>Regras obrigatórias</h2></div></div><ul class="check-list"><li>Banco começa bloqueado</li><li>Nenhuma leitura pública</li><li>Segredos fora do GitHub</li><li>Revisão humana obrigatória</li><li>Sem bloqueio automático da saída</li></ul></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">INTEGRAÇÕES</span><h2>Estado real</h2></div></div><div class="integration-list"><div><strong>Acesso facial</strong><span class="status-badge status-badge--neutral">Aguardando evento autorizado</span></div><div><strong>Câmeras IP</strong><span class="status-badge status-badge--neutral">Marca/modelo pendentes</span></div><div><strong>Caixa</strong><span class="status-badge status-badge--neutral">API/formato pendentes</span></div><div><strong>RFID</strong><span class="status-badge status-badge--neutral">Fase futura</span></div></div></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">DOCUMENTAÇÃO</span><h2>Próximo passo</h2></div></div><p>Abra o arquivo <strong>PASSO-A-PASSO-THIAGO.md</strong> incluído no ZIP e execute somente o Passo 1 antes de avançar.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="Navegação móvel">
+      <button class="mobile-nav-item is-active" data-view="dashboard"><span>◫</span><small>Início</small></button>
+      <button class="mobile-nav-item" data-view="products"><span>▦</span><small>Produtos</small></button>
+      <button class="mobile-nav-item" data-view="labels"><span>⌁</span><small>Etiquetas</small></button>
+      <button class="mobile-nav-item" data-view="occurrences"><span>!</span><small>Revisão</small></button>
+      <button class="mobile-nav-item" data-view="simulator"><span>▶</span><small>Simular</small></button>
+    </nav>
+  </div>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+</html>

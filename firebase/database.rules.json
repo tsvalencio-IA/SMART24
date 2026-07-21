@@ -1,0 +1,63 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "roles": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).val() === 'admin')",
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+        ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'operator' || newData.val() === 'auditor')"
+      }
+    },
+    "stores": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+    },
+    "products": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$id": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+        ".validate": "newData.hasChildren(['name','sku','status']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('sku').isString() && newData.child('sku').val().length > 0 && (newData.child('status').val() === 'active' || newData.child('status').val() === 'inactive')"
+      }
+    },
+    "tags": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$id": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+        ".validate": "newData.hasChildren(['serial','productId','sku','storeId','zoneId','status','qrPayload','createdAt','createdBy'])"
+      }
+    },
+    "cameras": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$id": {
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+        ".validate": "newData.hasChildren(['cameraId','name','storeId','area','protocol','status']) && !newData.child('rtspUrl').exists() && !newData.child('password').exists() && !newData.child('token').exists()"
+      }
+    },
+    "cameraBridges": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+    },
+    "sessions": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')"
+    },
+    "events": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$id": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+        ".validate": "newData.hasChildren(['type','storeId','createdAt'])"
+      }
+    },
+    "occurrences": {
+      ".read": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'auditor')",
+      "$id": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'auditor' || (root.child('roles').child(auth.uid).val() === 'operator' && !data.exists() && newData.child('status').val() === 'pending'))"
+      }
+    },
+    "auditLogs": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".write": "auth != null && root.child('roles').child(auth.uid).exists()"
+    }
+  }
+}

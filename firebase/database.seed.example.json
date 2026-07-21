@@ -1,0 +1,20 @@
+{
+  "roles": {
+    "COLE_O_UID_DO_USUARIO_AQUI": "admin"
+  },
+  "stores": {
+    "loja-01": {
+      "name": "Loja piloto",
+      "status": "pilot",
+      "createdAt": 0
+    }
+  },
+  "products": {},
+  "tags": {},
+  "cameras": {},
+  "cameraBridges": {},
+  "sessions": {},
+  "events": {},
+  "occurrences": {},
+  "auditLogs": {}
+}
