@@ -77,8 +77,10 @@
         <button class="nav-item is-active" data-view="dashboard"><span>◫</span>Dashboard</button>
         <button class="nav-item" data-view="products"><span>▦</span>Produtos</button>
         <button class="nav-item" data-view="labels"><span>⌁</span>Etiquetas</button>
+        <button class="nav-item" data-view="replenishment"><span>↧</span>Reposição</button>
         <button class="nav-item" data-view="cameras"><span>◉</span>Câmeras</button>
         <button class="nav-item" data-view="events"><span>≋</span>Eventos</button>
+        <button class="nav-item" data-view="carts"><span>🛒</span>Carrinhos</button>
         <button class="nav-item" data-view="occurrences"><span>!</span>Ocorrências</button>
         <button class="nav-item" data-view="simulator"><span>▶</span>Simulador</button>
         <button class="nav-item" data-view="settings"><span>⚙</span>Configurações</button>
@@ -146,6 +148,8 @@
               <label class="field"><span>SKU</span><input id="productSku" required maxlength="60" placeholder="AGUA-500"></label>
               <label class="field"><span>Código de barras</span><input id="productBarcode" maxlength="80" inputmode="numeric" placeholder="789…"></label>
               <label class="field"><span>Categoria</span><input id="productCategory" maxlength="80" placeholder="Bebidas"></label>
+              <label class="field"><span>Tipo/embalagem</span><input id="productPackage" maxlength="80" placeholder="Long neck 355 ml"></label>
+              <label class="field"><span>Preço unitário</span><input id="productPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="6,99"></label>
               <label class="field"><span>Status</span><select id="productStatus"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
               <div class="form-actions field--wide"><button class="btn btn--primary" type="submit">Salvar produto</button><button id="cancelProductEdit" class="btn btn--ghost is-hidden" type="button">Cancelar edição</button></div>
               <p id="productMessage" class="form-message field--wide" role="status"></p>
@@ -153,7 +157,7 @@
           </article>
           <article class="panel table-panel">
             <div class="panel-header"><div><span class="eyebrow">BASE DE DADOS</span><h2>Produtos cadastrados</h2></div><label class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar produto, SKU ou código"></label></div>
-            <div class="table-wrap"><table><thead><tr><th>Produto</th><th>SKU</th><th>Categoria</th><th>Status</th><th>Cadastro</th><th></th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Produto</th><th>SKU</th><th>Tipo</th><th>Preço</th><th>Categoria</th><th>Status</th><th>Cadastro</th><th></th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
             <div id="productsEmpty" class="empty-state"><strong>Nenhum produto cadastrado</strong><span>Cadastre o primeiro produto para gerar etiquetas.</span></div>
           </article>
         </div>
@@ -182,21 +186,33 @@
         </div>
       </section>
 
-      <section id="view-cameras" class="view" data-title="Câmeras" data-eyebrow="INFRAESTRUTURA SEGURA">
-        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token, código de convite e URL RTSP completa devem permanecer fora do Firebase. O leitor QR descarta esses dados e aproveita somente metadados seguros.</span></div>
+      <section id="view-replenishment" class="view" data-title="Reposição" data-eyebrow="LOCALIZAÇÃO DAS UNIDADES">
+        <div class="notice notice--info"><strong>Bipe uma etiqueta do lote e informe a quantidade.</strong><span>O SMART24 localiza as etiquetas sequenciais do mesmo lote, associa todas à loja/zona escolhida e muda o estado para NA_PRATELEIRA.</span></div>
+        <div class="split-layout">
+          <article class="panel form-panel">
+            <div class="panel-header"><div><span class="eyebrow">ENTRADA NA PRATELEIRA</span><h2>Posicionar lote</h2></div></div>
+            <form id="replenishmentForm" class="form-grid" novalidate>
+              <label class="field field--wide"><span>Serial de uma etiqueta do lote</span><div class="inline-field"><input id="replenishmentSerial" required maxlength="120" placeholder="TAG-LOJA01-...-001"><button id="scanTagButton" class="btn btn--secondary" type="button">⌗ Bipar QR</button></div></label>
+              <label class="field"><span>Quantidade a posicionar</span><input id="replenishmentQuantity" type="number" min="1" max="200" value="1" required></label>
+              <label class="field"><span>Loja</span><input id="replenishmentStore" value="loja-01" required maxlength="60"></label>
+              <label class="field"><span>Câmera</span><input id="replenishmentCamera" value="CAM-01" required maxlength="40"></label>
+              <label class="field"><span>Zona/prateleira</span><input id="replenishmentZone" value="GELADEIRA-01-P01" required maxlength="80"></label>
+              <div class="form-actions field--wide"><button class="btn btn--primary" type="submit">Associar lote à prateleira</button></div>
+              <p id="replenishmentMessage" class="form-message field--wide" role="status"></p>
+            </form>
+          </article>
+          <article class="panel table-panel">
+            <div class="panel-header"><div><span class="eyebrow">ZONAS CALIBRADAS</span><h2>Áreas reconhecidas</h2></div></div>
+            <div id="zonesList" class="compact-list empty-state"><strong>Nenhuma zona calibrada</strong><span>O aplicativo SMART24 Vision Pilot cria a zona sobre uma imagem real da câmera.</span></div>
+          </article>
+        </div>
+      </section>
 
-        <article class="panel real-connection-panel">
-          <div class="panel-header"><div><span class="eyebrow">CONEXÃO VERDADEIRA</span><h2>Como colocar a câmera online</h2></div><span class="status-badge status-badge--warning">Requer computador local</span></div>
-          <div class="real-connection-steps">
-            <div><strong>1</strong><span>Leia o QR e salve o cadastro da câmera.</span></div>
-            <div><strong>2</strong><span>No Yoosee, abra Configurações → Conexão NVR e crie a senha RTSP.</span></div>
-            <div><strong>3</strong><span>No computador da loja, execute <b>INSTALAR-CONNECTOR-SMART24.bat</b>.</span></div>
-            <div><strong>4</strong><span>Informe o IP local, a senha NVR e selecione a conta de serviço Firebase.</span></div>
-          </div>
-          <p class="safe-note">QR e e-mail cadastram metadados. A câmera só ficará ONLINE quando o conector local receber vídeo e publicar heartbeat no Firebase.</p>
-        </article>
+      <section id="view-cameras" class="view" data-title="Câmeras" data-eyebrow="INFRAESTRUTURA SEGURA">
+        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token, código de convite e URL RTSP completa permanecem fora do Firebase. Para o piloto real, o app Android analisa digitalmente a tela do vídeo ao vivo já autenticado no Yoosee e publica somente eventos.</span></div>
 
         <div class="camera-onboarding-grid">
+          <article class="panel camera-qr-panel"><div class="panel-header"><div><span class="eyebrow">PILOTO REAL ANDROID</span><h2>SMART24 Vision Pilot</h2></div><span class="status-badge status-badge--warning">Teste controlado</span></div><p class="panel-copy">No celular Android, entre normalmente no Yoosee, inicie a captura autorizada de tela e deixe o vídeo da sua câmera aberto. O aplicativo reconhece QR das etiquetas, acompanha identificadores temporários e grava heartbeat/eventos no Firebase.</p><div class="form-actions"><a class="btn btn--primary" href="./android-vision-pilot/README-THIAGO.md" target="_blank" rel="noopener">Ver instalação do piloto</a></div><small class="safe-note">Esta ponte é real para o piloto, mas não substitui a futura ingestão direta de várias câmeras em nuvem.</small></article>
           <article class="panel camera-qr-panel">
             <div class="panel-header"><div><span class="eyebrow">CADASTRO RÁPIDO</span><h2>Ler QR da câmera</h2></div><span class="status-badge status-badge--neutral">No navegador</span></div>
             <p class="panel-copy">Leia a etiqueta física ou um QR/link Yoosee. O SMART24 preenche o fabricante e o ID do dispositivo, mas não salva InviteCode, token, senha ou o link completo.</p>
@@ -249,6 +265,12 @@
           <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Tipo</th><th>Sessão</th><th>Pessoa</th><th>Câmera</th><th>Produto/Tag</th><th>Qtd.</th><th>Confiança</th></tr></thead><tbody id="eventsTableBody"></tbody></table></div>
           <div id="eventsEmpty" class="empty-state"><strong>Nenhum evento publicado</strong><span>O Firebase armazena eventos, não vídeo contínuo.</span></div>
         </article>
+      </section>
+
+      <section id="view-carts" class="view" data-title="Carrinhos" data-eyebrow="SESSÕES EM TEMPO REAL">
+        <div class="notice notice--info"><strong>Carrinhos por pessoa temporária.</strong><span>No piloto, PERSON-XX representa o identificador visual acompanhado. A ligação com o morador real virá do evento autorizado do acesso facial.</span></div>
+        <div id="cartsGrid" class="occurrences-grid"></div>
+        <div id="cartsEmpty" class="empty-state"><strong>Nenhum carrinho ativo</strong><span>Retiradas reconhecidas pelo piloto aparecerão aqui.</span></div>
       </section>
 
       <section id="view-occurrences" class="view" data-title="Ocorrências" data-eyebrow="REVISÃO HUMANA">
@@ -327,8 +349,8 @@
         <div class="settings-grid">
           <article class="panel"><div class="panel-header"><div><span class="eyebrow">FIREBASE</span><h2>Estado da conexão</h2></div></div><div id="firebaseSettingsStatus" class="settings-status"></div></article>
           <article class="panel"><div class="panel-header"><div><span class="eyebrow">SEGURANÇA</span><h2>Regras obrigatórias</h2></div></div><ul class="check-list"><li>Banco começa bloqueado</li><li>Nenhuma leitura pública</li><li>Segredos fora do GitHub</li><li>Revisão humana obrigatória</li><li>Sem bloqueio automático da saída</li></ul></article>
-          <article class="panel"><div class="panel-header"><div><span class="eyebrow">INTEGRAÇÕES</span><h2>Estado real</h2></div></div><div class="integration-list"><div><strong>Acesso facial</strong><span class="status-badge status-badge--neutral">Aguardando evento autorizado</span></div><div><strong>Câmeras IP</strong><span id="settingsCameraConnectionStatus" class="status-badge status-badge--warning">Aguardando conector local</span></div><div><strong>Caixa</strong><span class="status-badge status-badge--neutral">API/formato pendentes</span></div><div><strong>RFID</strong><span class="status-badge status-badge--neutral">Fase futura</span></div></div></article>
-          <article class="panel"><div class="panel-header"><div><span class="eyebrow">CONECTOR WINDOWS</span><h2>Próximo passo verdadeiro</h2></div></div><p>Extraia o ZIP em um computador da loja e execute <strong>edge-agent/INSTALAR-CONNECTOR-SMART24.bat</strong>. O assistente testa a câmera e configura o início automático.</p></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">INTEGRAÇÕES</span><h2>Estado real</h2></div></div><div class="integration-list"><div><strong>Acesso facial</strong><span class="status-badge status-badge--neutral">Aguardando evento autorizado</span></div><div><strong>Câmeras IP</strong><span class="status-badge status-badge--neutral">Marca/modelo pendentes</span></div><div><strong>Caixa</strong><span class="status-badge status-badge--neutral">API/formato pendentes</span></div><div><strong>RFID</strong><span class="status-badge status-badge--neutral">Fase futura</span></div></div></article>
+          <article class="panel"><div class="panel-header"><div><span class="eyebrow">DOCUMENTAÇÃO</span><h2>Próximo passo</h2></div></div><p>Abra o arquivo <strong>PASSO-A-PASSO-THIAGO.md</strong> e siga os Passos 18 a 22 para publicar QR, Yoosee e Loja 3D.</p></article>
         </div>
       </section>
     </main>
@@ -336,16 +358,13 @@
     <nav class="mobile-nav" aria-label="Navegação móvel">
       <button class="mobile-nav-item is-active" data-view="dashboard"><span>◫</span><small>Início</small></button>
       <button class="mobile-nav-item" data-view="products"><span>▦</span><small>Produtos</small></button>
+      <button class="mobile-nav-item" data-view="labels"><span>⌁</span><small>Etiquetas</small></button>
       <button class="mobile-nav-item" data-view="cameras"><span>◉</span><small>Câmeras</small></button>
-      <button class="mobile-nav-item" data-view="occurrences"><span>!</span><small>Revisão</small></button>
-      <button id="mobileMoreButton" class="mobile-nav-item" type="button" aria-expanded="false"><span>•••</span><small>Mais</small></button>
+      <button class="mobile-nav-item" data-view="carts"><span>🛒</span><small>Carrinhos</small></button>
+      <button id="mobileMoreButton" class="mobile-nav-item" type="button"><span>•••</span><small>Mais</small></button>
     </nav>
-
-    <div id="mobileMoreMenu" class="mobile-more-menu is-hidden" role="menu" aria-label="Mais opções">
-      <button data-view="labels" role="menuitem"><span>⌁</span>Etiquetas</button>
-      <button data-view="events" role="menuitem"><span>≋</span>Eventos</button>
-      <button data-view="simulator" role="menuitem"><span>▶</span>Simulador</button>
-      <button data-view="settings" role="menuitem"><span>⚙</span>Configurações</button>
+    <div id="mobileMoreSheet" class="mobile-more-sheet is-hidden" role="dialog" aria-label="Mais opções">
+      <button data-view="replenishment">Reposição</button><button data-view="events">Eventos</button><button data-view="occurrences">Revisão</button><button data-view="simulator">Simulador 3D</button><button data-view="settings">Configurações</button><button id="closeMobileMore" type="button">Fechar</button>
     </div>
   </div>
 
@@ -363,6 +382,11 @@
       </div>
       <div class="notice notice--info compact-notice"><strong>Privacidade:</strong><span>A imagem é processada no navegador. O QR completo, InviteCode e token não são enviados ao Firebase.</span></div>
     </section>
+  </div>
+
+
+  <div id="tagQrModal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="tagQrTitle">
+    <section class="modal-card qr-modal-card"><div class="panel-header"><div><span class="eyebrow">REPOSIÇÃO</span><h2 id="tagQrTitle">Bipar etiqueta SMART24</h2></div><button id="closeTagQrButton" class="icon-button" type="button">×</button></div><div class="qr-preview"><video id="tagQrVideo" playsinline muted></video><div class="qr-frame"></div></div><canvas id="tagQrCanvas" class="is-hidden"></canvas><p id="tagQrStatus" class="form-message">Aponte para o QR da etiqueta.</p><div class="form-actions"><button id="startTagQrButton" class="btn btn--primary" type="button">Usar câmera</button><button id="chooseTagQrFileButton" class="btn btn--secondary" type="button">Escolher foto</button><input id="tagQrFileInput" class="is-hidden" type="file" accept="image/*"></div></section>
   </div>
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>

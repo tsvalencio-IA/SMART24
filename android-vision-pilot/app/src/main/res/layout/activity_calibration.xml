@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#07111F" android:padding="12dp">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Calibrar zona da prateleira" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Toque no canto superior esquerdo e depois no canto inferior direito da prateleira/geladeira." android:textColor="#AFC0D2" android:layout_marginBottom="8dp"/>
+    <br.com.thiaguinhosolucoes.smart24vision.ZoneView android:id="@+id/zoneView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="#000000"/>
+    <EditText android:id="@+id/zoneIdInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="GELADEIRA-01-P01" android:hint="ID da zona" android:textColor="#FFFFFF" android:textColorHint="#7890AA"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/resetZoneButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Refazer"/>
+        <Button android:id="@+id/saveZoneButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Salvar zona"/>
+    </LinearLayout>
+    <TextView android:id="@+id/calibrationStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#DCE7F3" android:padding="8dp"/>
+</LinearLayout>

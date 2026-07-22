@@ -92,12 +92,14 @@ export function initializeLabels() {
       const batchCode = new Date().toISOString().replace(/\D/g, "").slice(2, 14);
       for (let index = 0; index < quantity; index += 1) {
         const serial = createSerial(storeId, batchCode, index + 1);
-        const qrPayload = JSON.stringify({ v: 1, system: "SMART24", serial, productId, sku: product.sku, storeId, zoneId });
+        const qrPayload = JSON.stringify({ v: 2, system: "SMART24", serial, productId, productName: product.name, sku: product.sku, packageType: product.packageType || "", price: Number(product.price || 0), storeId, zoneId });
         await pushData("tags", {
           serial,
           productId,
           productName: product.name,
           sku: product.sku,
+          packageType: product.packageType || "",
+          price: Number(product.price || 0),
           barcode: product.barcode || "",
           storeId,
           zoneId,

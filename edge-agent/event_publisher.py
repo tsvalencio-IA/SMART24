@@ -52,22 +52,7 @@ class EventPublisher:
             credential = credentials.Certificate(str(account))
             firebase_admin.initialize_app(credential, {"databaseURL": self.database_url})
         self._db = db
-        if not self.camera_record_id:
-            self.camera_record_id = self._resolve_camera_record_id()
-        LOGGER.info("Firebase Admin inicializado. cameraRecordId=%s", self.camera_record_id or "não localizado")
-
-
-    def _resolve_camera_record_id(self) -> str:
-        if self._db is None:
-            return ""
-        try:
-            value = self._db.reference("cameras").get() or {}
-            for record_id, camera in value.items():
-                if str((camera or {}).get("cameraId", "")).upper() == self.camera_id.upper():
-                    return str(record_id)
-        except Exception as exc:
-            LOGGER.warning("Não foi possível localizar o cadastro da câmera: %s", type(exc).__name__)
-        return ""
+        LOGGER.info("Firebase Admin inicializado.")
 
     def _write(self, path: str, payload: dict[str, Any]) -> None:
         if self.dry_run:

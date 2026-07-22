@@ -7,6 +7,8 @@ import { initializeEvents, startEventsSubscriptions } from "./events.js";
 import { initializeSimulator } from "./simulator.js";
 import { initializeSimulator3D } from "./simulator-3d.js";
 import { initializeYooseeIntegration, startYooseeSubscription } from "./yoosee.js";
+import { initializeReplenishment, startReplenishmentSubscriptions } from "./replenishment.js";
+import { initializeCarts, startCartsSubscription } from "./carts.js";
 import { cameraStatusClass, escapeHtml, eventLabel, formatDate, formatTime, objectEntries, roleLabel, toast } from "./utils.js";
 
 let uiInitialized = false;
@@ -30,19 +32,6 @@ function renderDashboard() {
   setMetric("metricOccurrences", pending);
   const onlineCameras = dashboardState.cameras.filter(item => String(item.status).toUpperCase() === "ONLINE").length;
   document.getElementById("metricCamerasDetail").textContent = dashboardState.cameras.length ? `${onlineCameras} online` : "sem dados";
-  const settingsCameraStatus = document.getElementById("settingsCameraConnectionStatus");
-  if (settingsCameraStatus) {
-    if (onlineCameras > 0) {
-      settingsCameraStatus.className = "status-badge status-badge--ok";
-      settingsCameraStatus.textContent = `${onlineCameras} câmera(s) online`;
-    } else if (dashboardState.cameras.length > 0) {
-      settingsCameraStatus.className = "status-badge status-badge--warning";
-      settingsCameraStatus.textContent = "Cadastrada — aguardando conector";
-    } else {
-      settingsCameraStatus.className = "status-badge status-badge--neutral";
-      settingsCameraStatus.textContent = "Nenhuma câmera cadastrada";
-    }
-  }
   document.getElementById("metricOccurrencesDetail").textContent = pending === 1 ? "aguardando revisão" : "aguardando revisão";
 
   const eventsContainer = document.getElementById("dashboardEvents");
@@ -101,7 +90,6 @@ function startDashboardSubscriptions() {
 }
 
 function showView(viewName) {
-  closeMobileMoreMenu();
   const target = document.getElementById(`view-${viewName}`);
   if (!target) return;
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("is-active", view === target));
@@ -112,30 +100,15 @@ function showView(viewName) {
   history.replaceState(null, "", `#${viewName}`);
 }
 
-function closeMobileMoreMenu() {
-  const menu = document.getElementById("mobileMoreMenu");
-  const button = document.getElementById("mobileMoreButton");
-  menu?.classList.add("is-hidden");
-  button?.setAttribute("aria-expanded", "false");
-}
-
-function initializeMobileMoreMenu() {
-  const menu = document.getElementById("mobileMoreMenu");
-  const button = document.getElementById("mobileMoreButton");
-  button?.addEventListener("click", event => {
-    event.stopPropagation();
-    const willOpen = menu?.classList.contains("is-hidden");
-    menu?.classList.toggle("is-hidden", !willOpen);
-    button.setAttribute("aria-expanded", willOpen ? "true" : "false");
-  });
-  document.addEventListener("click", event => {
-    if (!menu?.contains(event.target) && event.target !== button) closeMobileMoreMenu();
-  });
-}
-
 function initializeNavigation() {
-  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
+  const moreSheet = document.getElementById("mobileMoreSheet");
+  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => {
+    showView(button.dataset.view);
+    moreSheet?.classList.add("is-hidden");
+  }));
   document.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => showView(button.dataset.go)));
+  document.getElementById("mobileMoreButton")?.addEventListener("click", () => moreSheet?.classList.toggle("is-hidden"));
+  document.getElementById("closeMobileMore")?.addEventListener("click", () => moreSheet?.classList.add("is-hidden"));
   const initial = location.hash.replace("#", "");
   if (document.getElementById(`view-${initial}`)) showView(initial);
   document.getElementById("refreshButton").addEventListener("click", () => {
@@ -144,6 +117,8 @@ function initializeNavigation() {
     startLabelsSubscription();
     startCamerasSubscription();
     startEventsSubscriptions();
+    startReplenishmentSubscriptions();
+    startCartsSubscription();
     toast("Dados sincronizados novamente.", "success");
   });
 }
@@ -174,7 +149,6 @@ function initializeUi() {
   if (uiInitialized) return;
   uiInitialized = true;
   initializeNavigation();
-  initializeMobileMoreMenu();
   initializeProducts();
   initializeLabels();
   initializeCameras();
@@ -182,6 +156,8 @@ function initializeUi() {
   initializeSimulator();
   initializeSimulator3D();
   initializeYooseeIntegration();
+  initializeReplenishment();
+  initializeCarts();
   bindDashboardEvents();
 }
 
@@ -201,6 +177,8 @@ function startAuthenticatedData(session) {
   startCamerasSubscription();
   startEventsSubscriptions();
   startYooseeSubscription();
+  startReplenishmentSubscriptions();
+  startCartsSubscription();
   startDashboardSubscriptions();
 }
 

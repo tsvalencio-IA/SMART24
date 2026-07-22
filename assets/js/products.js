@@ -10,13 +10,15 @@ function renderProducts(filter = "") {
   const empty = document.getElementById("productsEmpty");
   const term = filter.toLowerCase().trim();
   const visible = products
-    .filter(item => [item.name, item.sku, item.barcode, item.category].some(value => String(value || "").toLowerCase().includes(term)))
+    .filter(item => [item.name, item.sku, item.barcode, item.category, item.packageType, item.price].some(value => String(value || "").toLowerCase().includes(term)))
     .sort((a, b) => String(a.name).localeCompare(String(b.name), "pt-BR"));
 
   body.innerHTML = visible.map(item => `
     <tr>
       <td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.barcode || "Sem código de barras")}</small></td>
       <td>${escapeHtml(item.sku)}</td>
+      <td>${escapeHtml(item.packageType || "—")}</td>
+      <td>${Number(item.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
       <td>${escapeHtml(item.category || "—")}</td>
       <td><span class="status-badge ${item.status === "active" ? "status-badge--ok" : "status-badge--neutral"}">${item.status === "active" ? "Ativo" : "Inativo"}</span></td>
       <td>${formatDate(item.createdAt)}</td>
@@ -37,6 +39,8 @@ function editProduct(id) {
   document.getElementById("productSku").value = item.sku || "";
   document.getElementById("productBarcode").value = item.barcode || "";
   document.getElementById("productCategory").value = item.category || "";
+  document.getElementById("productPackage").value = item.packageType || "";
+  document.getElementById("productPrice").value = item.price ?? "";
   document.getElementById("productStatus").value = item.status || "active";
   document.getElementById("productFormTitle").textContent = "Editar produto";
   document.getElementById("cancelProductEdit").classList.remove("is-hidden");
@@ -68,6 +72,8 @@ export function initializeProducts() {
       sku: document.getElementById("productSku").value.trim().toUpperCase(),
       barcode: document.getElementById("productBarcode").value.trim(),
       category: document.getElementById("productCategory").value.trim(),
+      packageType: document.getElementById("productPackage").value.trim(),
+      price: Number(document.getElementById("productPrice").value || 0),
       status: document.getElementById("productStatus").value,
       updatedAt: now(),
       updatedBy: session.uid

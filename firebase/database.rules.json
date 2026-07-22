@@ -36,7 +36,7 @@
     },
     "cameraBridges": {
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
-      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'"
+      ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')"
     },
     "integrations": {
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
@@ -65,6 +65,43 @@
     "auditLogs": {
       ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
       ".write": "auth != null && root.child('roles').child(auth.uid).exists()"
+    },
+    "zones": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$storeId": {
+        "$cameraId": {
+          "$zoneId": {
+            ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+            ".validate": "newData.hasChildren(['zoneId','storeId','cameraId','left','top','right','bottom','updatedAt']) && newData.child('left').isNumber() && newData.child('top').isNumber() && newData.child('right').isNumber() && newData.child('bottom').isNumber()"
+          }
+        }
+      }
+    },
+    "carts": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$storeId": {
+        "$sessionId": {
+          "$personId": {
+            "$serial": {
+              ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+              ".validate": "!newData.exists() || newData.hasChildren(['serial','status','updatedAt'])"
+            }
+          }
+        }
+      }
+    },
+    "visionPilots": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$pilotId": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+        ".validate": "newData.hasChildren(['pilotId','storeId','cameraId','status','lastSeenAt'])"
+      }
+    },
+    "tagStates": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$serial": {
+        ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')"
+      }
     }
   }
 }

@@ -50,7 +50,7 @@ export function canWrite(resource = "") {
   if (!currentSession) return false;
   if (currentSession.role === "demo") return true;
   if (currentSession.role === "admin") return true;
-  if (currentSession.role === "operator") return ["products", "labels", "events"].includes(resource);
+  if (currentSession.role === "operator") return ["products", "labels", "events", "replenishment", "zones", "carts"].includes(resource);
   if (currentSession.role === "auditor") return resource === "occurrences";
   return false;
 }
