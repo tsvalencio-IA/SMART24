@@ -19,3 +19,8 @@ Esta versão usa o sistema real atual do GitHub e acrescenta um piloto Android p
 - O SMART24 não recebe nem salva a senha Yoosee.
 - O Android que iniciou a captura precisa permanecer ligado e com o vídeo sendo exibido durante o piloto.
 - A implantação final das seis lojas precisará de ingestão contínua em nuvem ou câmeras com fluxo/API compatível.
+
+
+## CORREÇÃO V4.2 — MESMO CELULAR
+
+Não tente apontar a câmera para um QR exibido no próprio aparelho. O APK possui as opções **Usar conta Yoosee que já tem a câmera**, **Colar link copiado** e **Escolher print ou imagem do QR**. Se a câmera já aparece no Yoosee, o QR não é necessário.

@@ -1,18 +1,197 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#07111F" android:fillViewport="true">
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SMART24" android:textColor="#00D79A" android:textSize="28sp" android:textStyle="bold"/>
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="VISION PILOT — câmera Yoosee real" android:textColor="#B7C7D9" android:textSize="13sp" android:layout_marginBottom="18dp"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Este piloto não recebe a senha da câmera. Você entra normalmente no Yoosee; o Android autoriza a captura digital da tela do vídeo ao vivo. O app lê etiquetas SMART24, acompanha identificadores temporários e envia eventos ao Firebase." android:textColor="#DCE7F3" android:textSize="14sp" android:lineSpacingExtra="3dp" android:background="#102239" android:padding="14dp"/>
-    <EditText android:id="@+id/emailInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="E-mail do usuário Firebase" android:inputType="textEmailAddress" android:textColor="#FFFFFF" android:textColorHint="#7890AA" android:layout_marginTop="16dp"/>
-    <EditText android:id="@+id/passwordInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Senha do Firebase (não é salva)" android:inputType="textPassword" android:textColor="#FFFFFF" android:textColorHint="#7890AA"/>
-    <EditText android:id="@+id/storeInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Loja" android:text="loja-01" android:textColor="#FFFFFF" android:textColorHint="#7890AA"/>
-    <EditText android:id="@+id/cameraInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Câmera" android:text="CAM-01" android:textColor="#FFFFFF" android:textColorHint="#7890AA"/>
-    <EditText android:id="@+id/bridgeInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Conector" android:text="pilot-android-01" android:textColor="#FFFFFF" android:textColorHint="#7890AA"/>
-    <Button android:id="@+id/loginButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1. Entrar no Firebase" android:layout_marginTop="10dp"/>
-    <Button android:id="@+id/startButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2. Autorizar captura e abrir Yoosee" android:enabled="false" android:layout_marginTop="8dp"/>
-    <Button android:id="@+id/calibrateButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="3. Calibrar prateleira na imagem" android:enabled="false" android:layout_marginTop="8dp"/>
-    <Button android:id="@+id/stopButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Parar análise" android:enabled="false" android:layout_marginTop="8dp"/>
-    <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Aguardando login." android:textColor="#DCE7F3" android:background="#102239" android:padding="14dp" android:layout_marginTop="16dp"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Fluxo: entrar no Firebase → autorizar captura → o Yoosee abrirá → abra o vídeo da câmera → deixe o vídeo em tela cheia. Para calibrar, volte ao SMART24 depois de alguns segundos e toque em Calibrar." android:textColor="#8EA5BD" android:textSize="12sp" android:layout_marginTop="14dp"/>
-</LinearLayout></ScrollView>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMART24"
+            android:textColor="#00D79A"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="18dp"
+            android:text="VISION PILOT — câmera Yoosee real"
+            android:textColor="#B7C7D9"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#102239"
+            android:lineSpacingExtra="3dp"
+            android:padding="14dp"
+            android:text="O SMART24 não precisa apontar a câmera para um QR exibido neste mesmo celular. Use a conta Yoosee que já mostra a câmera ou importe o convite por link/print. Depois autorize a captura digital do vídeo ao vivo."
+            android:textColor="#DCE7F3"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="A. PREPARAR A CÂMERA YOOSEE NESTE CELULAR"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/openExistingYooseeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Usar conta Yoosee que já tem a câmera" />
+
+        <EditText
+            android:id="@+id/yooseeShareInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Cole aqui o link de compartilhamento Yoosee"
+            android:inputType="textUri|textNoSuggestions"
+            android:maxLines="4"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/pasteYooseeLinkButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Colar link copiado" />
+
+        <Button
+            android:id="@+id/chooseYooseeQrImageButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Escolher print ou imagem do QR" />
+
+        <Button
+            android:id="@+id/openYooseeInviteButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Abrir convite no Yoosee" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="O link/QR é usado somente para abrir o convite. Ele não é salvo no Firebase nem nas preferências do aparelho."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="B. CONECTAR O PILOTO AO FIREBASE"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/emailInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="E-mail do usuário Firebase"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/passwordInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha do Firebase (não é salva)"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/storeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Loja"
+            android:text="loja-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/cameraInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Câmera"
+            android:text="CAM-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/bridgeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Conector"
+            android:text="pilot-android-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/loginButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="1. Entrar no Firebase" />
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="2. Autorizar análise e abrir Yoosee" />
+
+        <Button
+            android:id="@+id/calibrateButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="3. Calibrar prateleira na imagem" />
+
+        <Button
+            android:id="@+id/stopButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="Parar análise" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#102239"
+            android:padding="14dp"
+            android:text="Aguardando. Primeiro confirme que a câmera aparece no Yoosee deste aparelho."
+            android:textColor="#DCE7F3" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Fluxo correto: deixar a câmera disponível no Yoosee → entrar no Firebase → autorizar captura → abrir o vídeo ao vivo → tela cheia. Para calibrar, volte ao SMART24 depois de alguns segundos."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>

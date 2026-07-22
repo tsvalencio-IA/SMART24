@@ -90,3 +90,8 @@ SMART24-main/
 ├── edge-agent/
 └── docs/
 ```
+
+
+## CORREÇÃO V4.2 — MESMO CELULAR
+
+Não tente apontar a câmera para um QR exibido no próprio aparelho. O APK possui as opções **Usar conta Yoosee que já tem a câmera**, **Colar link copiado** e **Escolher print ou imagem do QR**. Se a câmera já aparece no Yoosee, o QR não é necessário.

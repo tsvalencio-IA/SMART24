@@ -2,10 +2,12 @@ package br.com.thiaguinhosolucoes.smart24vision
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -16,11 +18,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
     private val firebase = FirebaseRestClient()
@@ -28,8 +31,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var startButton: Button
     private lateinit var calibrateButton: Button
     private lateinit var stopButton: Button
+    private lateinit var yooseeShareInput: EditText
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val qrImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        setStatus("Lendo o QR da imagem selecionada…")
+        val image = runCatching { InputImage.fromFilePath(this, uri) }.getOrElse {
+            setStatus("Não foi possível abrir a imagem: ${friendly(it.message)}")
+            return@registerForActivityResult
+        }
+        BarcodeScanning.getClient().process(image)
+            .addOnSuccessListener { barcodes ->
+                val value = barcodes.firstNotNullOfOrNull { it.rawValue?.trim()?.takeIf(String::isNotBlank) }
+                if (value == null) {
+                    setStatus("Nenhum QR legível foi encontrado nessa imagem.")
+                } else {
+                    yooseeShareInput.setText(value)
+                    setStatus("QR lido da galeria. Toque em ‘Abrir convite no Yoosee’.")
+                }
+            }
+            .addOnFailureListener { error ->
+                setStatus("Falha ao ler o QR: ${friendly(error.message)}")
+            }
+    }
+
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
             setStatus("Captura de tela não autorizada.")
@@ -44,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         startButton.isEnabled = false
         calibrateButton.isEnabled = true
         stopButton.isEnabled = true
-        setStatus("Captura iniciada. Abrindo o Yoosee. Entre no vídeo ao vivo e deixe-o em tela cheia.")
+        setStatus("Captura iniciada. Abrindo o Yoosee. Toque na câmera já cadastrada e deixe o vídeo ao vivo em tela cheia.")
         openYoosee()
     }
 
@@ -55,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         startButton = findViewById(R.id.startButton)
         calibrateButton = findViewById(R.id.calibrateButton)
         stopButton = findViewById(R.id.stopButton)
+        yooseeShareInput = findViewById(R.id.yooseeShareInput)
 
         val prefs = getSharedPreferences("smart24_pilot", MODE_PRIVATE)
         findViewById<EditText>(R.id.emailInput).setText(prefs.getString("email", ""))
@@ -66,6 +94,13 @@ class MainActivity : AppCompatActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        findViewById<Button>(R.id.openExistingYooseeButton).setOnClickListener {
+            setStatus("Abrindo o Yoosee. Use a conta que já mostra sua câmera; não é necessário ler QR novamente.")
+            openYoosee()
+        }
+        findViewById<Button>(R.id.pasteYooseeLinkButton).setOnClickListener { pasteYooseeLink() }
+        findViewById<Button>(R.id.chooseYooseeQrImageButton).setOnClickListener { qrImageLauncher.launch("image/*") }
+        findViewById<Button>(R.id.openYooseeInviteButton).setOnClickListener { openYooseeInvite() }
         findViewById<Button>(R.id.loginButton).setOnClickListener { login() }
         startButton.setOnClickListener { requestProjection() }
         calibrateButton.setOnClickListener { startActivity(Intent(this, CalibrationActivity::class.java)) }
@@ -75,6 +110,56 @@ class MainActivity : AppCompatActivity() {
             calibrateButton.isEnabled = true
             stopButton.isEnabled = false
             setStatus("Análise parada. Os dados já enviados permanecem no Firebase.")
+        }
+    }
+
+    private fun pasteYooseeLink() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val value = clipboard.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()?.trim().orEmpty()
+        if (value.isBlank()) {
+            setStatus("A área de transferência está vazia. Copie primeiro o link de compartilhamento do Yoosee.")
+            return
+        }
+        yooseeShareInput.setText(value)
+        setStatus("Link colado. Toque em ‘Abrir convite no Yoosee’.")
+    }
+
+    private fun openYooseeInvite() {
+        val raw = yooseeShareInput.text.toString().trim()
+        if (raw.isBlank()) {
+            setStatus("Cole o link do convite ou escolha um print do QR primeiro.")
+            return
+        }
+        val original = runCatching { Uri.parse(raw) }.getOrNull()
+        val scheme = original?.scheme?.lowercase()
+        if (original == null || scheme !in setOf("http", "https", "yoosee")) {
+            setStatus("O conteúdo lido não é um link Yoosee válido.")
+            return
+        }
+        val candidates = buildList {
+            if (scheme == "yoosee") add(original)
+            if (!original.encodedQuery.isNullOrBlank()) add(Uri.parse("yoosee://share?${original.encodedQuery}"))
+            add(original)
+        }.distinctBy(Uri::toString)
+
+        for (uri in candidates) {
+            val direct = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage("com.yoosee")
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            if (direct.resolveActivity(packageManager) != null && runCatching { startActivity(direct) }.isSuccess) {
+                yooseeShareInput.text.clear()
+                setStatus("Convite aberto no Yoosee. Conclua o compartilhamento e confirme que a câmera aparece na conta.")
+                return
+            }
+        }
+
+        val browser = Intent(Intent.ACTION_VIEW, original)
+        if (browser.resolveActivity(packageManager) != null && runCatching { startActivity(browser) }.isSuccess) {
+            yooseeShareInput.text.clear()
+            setStatus("Convite aberto no navegador. Toque em abrir no Yoosee e conclua o compartilhamento.")
+        } else {
+            setStatus("Não foi possível abrir esse convite. Gere um novo link de compartilhamento no Yoosee.")
         }
     }
 
@@ -125,21 +210,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun openYoosee() {
         val packageName = "com.yoosee"
-
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             runCatching { startActivity(launchIntent) }
-                .onSuccess {
-                    setStatus("Captura ativa. Yoosee aberto. Abra a câmera ao vivo e use tela cheia.")
-                }
-                .onFailure { error ->
-                    setStatus("O Yoosee foi localizado, mas não abriu: ${friendly(error.message)}")
-                }
+                .onSuccess { setStatus("Yoosee aberto. Toque na câmera já cadastrada e abra o vídeo ao vivo.") }
+                .onFailure { error -> setStatus("O Yoosee foi localizado, mas não abriu: ${friendly(error.message)}") }
             return
         }
-
-        // Fallback para aparelhos que não retornam o intent padrão do pacote.
         val fallback = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
             setPackage(packageName)
@@ -149,14 +227,10 @@ class MainActivity : AppCompatActivity() {
             fallback.component = component
             fallback.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             runCatching { startActivity(fallback) }
-                .onSuccess {
-                    setStatus("Captura ativa. Yoosee aberto. Abra a câmera ao vivo e use tela cheia.")
-                }
-                .onFailure { error ->
-                    setStatus("Não foi possível abrir o Yoosee: ${friendly(error.message)}")
-                }
+                .onSuccess { setStatus("Yoosee aberto. Toque na câmera já cadastrada e abra o vídeo ao vivo.") }
+                .onFailure { error -> setStatus("Não foi possível abrir o Yoosee: ${friendly(error.message)}") }
         } else {
-            setStatus("Yoosee não foi localizado pelo Android. Abra o Yoosee manualmente; a captura continuará ativa em segundo plano.")
+            setStatus("Yoosee não foi localizado. Abra-o manualmente; a captura continuará ativa quando autorizada.")
         }
     }
 

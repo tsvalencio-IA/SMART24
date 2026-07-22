@@ -86,3 +86,8 @@ As regras novas liberam, somente para usuários autenticados e autorizados:
 - evento ambíguo quando não existe associação visual suficiente.
 
 O resultado depende de resolução, compressão do vídeo Yoosee, tamanho da etiqueta, reflexo, distância, iluminação e se o Android permite capturar a superfície de vídeo do Yoosee. Se a imagem vier preta, o painel mostrará `NO_IMAGE` em vez de fingir que está funcionando.
+
+
+## CORREÇÃO V4.2 — MESMO CELULAR
+
+Não tente apontar a câmera para um QR exibido no próprio aparelho. O APK possui as opções **Usar conta Yoosee que já tem a câmera**, **Colar link copiado** e **Escolher print ou imagem do QR**. Se a câmera já aparece no Yoosee, o QR não é necessário.
