@@ -1,5 +1,6 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
+import android.graphics.PointF
 import android.graphics.RectF
 
 data class Zone(
@@ -18,7 +19,9 @@ data class PersonObservation(
     val personId: String,
     val box: RectF,
     val confidence: Double,
-    val source: String
+    val source: String,
+    val trail: List<PointF> = emptyList(),
+    val landmarks: List<PointF> = emptyList()
 ) {
     val centerX: Float get() = box.centerX()
     val centerY: Float get() = box.centerY()

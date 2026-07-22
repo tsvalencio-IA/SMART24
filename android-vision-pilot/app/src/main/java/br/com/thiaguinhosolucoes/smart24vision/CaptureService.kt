@@ -16,16 +16,17 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
+import android.util.Base64
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -38,6 +39,7 @@ class CaptureService : Service() {
         const val EXTRA_RESULT_DATA = "result_data"
         private const val CHANNEL_ID = "smart24_vision"
         private const val NOTIFICATION_ID = 2401
+        private const val LIVE_FRAME_INTERVAL_MS = 2500L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -45,9 +47,11 @@ class CaptureService : Service() {
     private val firebase = FirebaseRestClient()
     private val vision = VisionEngine()
     private val cartEngine = CartEngine(firebase)
+    private val annotator = FrameAnnotator()
     private var zones: List<Zone> = emptyList()
     private var lastProcessedAt = 0L
     private var lastSavedFrameAt = 0L
+    private var lastLiveFrameAt = 0L
     private var lastHeartbeatAt = 0L
     private var lastZoneRefreshAt = 0L
     private var projection: MediaProjection? = null
@@ -93,7 +97,10 @@ class CaptureService : Service() {
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader?.surface, null, handler
         )
         imageReader?.setOnImageAvailableListener({ reader -> handleImage(reader) }, handler)
-        scope.launch { publishHeartbeat("WAITING_VIDEO", 0, 0, "Captura autorizada; aguardando o vídeo ao vivo do Yoosee.") }
+        scope.launch {
+            publishHeartbeat("WAITING_VIDEO", 0, 0, "Captura autorizada; aguardando o vídeo ao vivo do Yoosee.")
+            publishLiveStatus("WAITING_VIDEO", "Abra a câmera no Yoosee e deixe o vídeo ao vivo visível.")
+        }
     }
 
     private fun handleImage(reader: ImageReader) {
@@ -115,20 +122,31 @@ class CaptureService : Service() {
                 if (isMostlyBlack(bitmap)) {
                     if (now - lastHeartbeatAt > 5000L) {
                         publishHeartbeat("NO_IMAGE", 0, 0, "A captura está preta ou sem vídeo; o Yoosee pode estar fora da tela ou bloqueando captura.")
+                        publishLiveStatus("NO_IMAGE", "Sem imagem válida. Confirme o vídeo ao vivo no Yoosee.")
                         lastHeartbeatAt = now
                     }
                     return@launch
                 }
+
                 val result = vision.analyze(bitmap)
                 cartEngine.process(result, zones)
+
+                if (now - lastLiveFrameAt >= LIVE_FRAME_INTERVAL_MS) {
+                    publishLiveFrame(bitmap, result)
+                    lastLiveFrameAt = now
+                }
+
                 if (now - lastHeartbeatAt > 5000L) {
-                    publishHeartbeat("VIDEO_VISIBLE", result.persons.size, result.tags.size, "Tela do Yoosee recebida e processada; confirme que o vídeo ao vivo está aberto.")
+                    publishHeartbeat("VIDEO_VISIBLE", result.persons.size, result.tags.size, "Imagem real do Yoosee processada e publicada no painel SMART24.")
                     lastHeartbeatAt = now
                 }
             } catch (error: Throwable) {
                 Log.e("SMART24", "Erro no processamento", error)
                 if (now - lastHeartbeatAt > 5000L) {
-                    runCatching { publishHeartbeat("DEGRADED", 0, 0, error.message ?: "Falha de processamento") }
+                    runCatching {
+                        publishHeartbeat("DEGRADED", 0, 0, error.message ?: "Falha de processamento")
+                        publishLiveStatus("DEGRADED", error.message ?: "Falha de processamento")
+                    }
                     lastHeartbeatAt = now
                 }
             } finally {
@@ -136,6 +154,72 @@ class CaptureService : Service() {
                 busy.set(false)
             }
         }
+    }
+
+    private suspend fun publishLiveFrame(bitmap: Bitmap, result: VisionResult) {
+        val annotated = annotator.annotate(bitmap, result, zones)
+        val targetWidth = 480.coerceAtMost(annotated.width)
+        val targetHeight = (annotated.height * (targetWidth.toFloat() / annotated.width.toFloat())).toInt().coerceAtLeast(1)
+        val preview = if (annotated.width == targetWidth) annotated else Bitmap.createScaledBitmap(annotated, targetWidth, targetHeight, true)
+        val bytes = ByteArrayOutputStream().use { stream ->
+            preview.compress(Bitmap.CompressFormat.JPEG, 58, stream)
+            stream.toByteArray()
+        }
+        val dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+        val personsPayload = result.persons.associate { person ->
+            person.personId to mapOf(
+                "personId" to person.personId,
+                "left" to person.box.left,
+                "top" to person.box.top,
+                "right" to person.box.right,
+                "bottom" to person.box.bottom,
+                "confidence" to person.confidence,
+                "source" to person.source,
+                "trail" to person.trail.mapIndexed { index, point -> index.toString() to mapOf("x" to point.x, "y" to point.y) }.toMap()
+            )
+        }
+        val tagsPayload = result.tags.associate { tag ->
+            tag.serial to mapOf(
+                "serial" to tag.serial,
+                "productId" to tag.productId,
+                "productName" to tag.productName,
+                "sku" to tag.sku,
+                "x" to tag.centerX,
+                "y" to tag.centerY,
+                "confidence" to tag.confidence
+            )
+        }
+        firebase.put("cameraLive/${PilotSession.storeId}/${PilotSession.cameraId}", mapOf(
+            "storeId" to PilotSession.storeId,
+            "cameraId" to PilotSession.cameraId,
+            "bridgeId" to PilotSession.bridgeId,
+            "sessionId" to PilotSession.sessionId,
+            "status" to "VIDEO_VISIBLE",
+            "source" to "ANDROID_SCREEN_CAPTURE_PILOT",
+            "frameDataUrl" to dataUrl,
+            "frameWidth" to targetWidth,
+            "frameHeight" to targetHeight,
+            "personsDetected" to result.persons.size,
+            "tagsDetected" to result.tags.size,
+            "persons" to personsPayload,
+            "tags" to tagsPayload,
+            "updatedAt" to result.capturedAt
+        ))
+        if (preview !== annotated) preview.recycle()
+        annotated.recycle()
+    }
+
+    private suspend fun publishLiveStatus(status: String, note: String) {
+        firebase.patch("cameraLive/${PilotSession.storeId}/${PilotSession.cameraId}", mapOf(
+            "storeId" to PilotSession.storeId,
+            "cameraId" to PilotSession.cameraId,
+            "bridgeId" to PilotSession.bridgeId,
+            "sessionId" to PilotSession.sessionId,
+            "status" to status,
+            "source" to "ANDROID_SCREEN_CAPTURE_PILOT",
+            "note" to note,
+            "updatedAt" to System.currentTimeMillis()
+        ))
     }
 
     private suspend fun publishHeartbeat(status: String, persons: Int, tags: Int, note: String) {
@@ -164,7 +248,6 @@ class CaptureService : Service() {
         ))
     }
 
-
     private fun isMostlyBlack(bitmap: Bitmap): Boolean {
         val stepX = (bitmap.width / 24).coerceAtLeast(1)
         val stepY = (bitmap.height / 24).coerceAtLeast(1)
@@ -192,7 +275,12 @@ class CaptureService : Service() {
     }
 
     private fun stopCapture(status: String) {
-        scope.launch { if (PilotSession.authenticated) runCatching { publishHeartbeat(status, 0, 0, "Captura encerrada") } }
+        scope.launch {
+            if (PilotSession.authenticated) runCatching {
+                publishHeartbeat(status, 0, 0, "Captura encerrada")
+                publishLiveStatus(status, "Captura encerrada")
+            }
+        }
         imageReader?.setOnImageAvailableListener(null, null)
         imageReader?.close(); imageReader = null
         virtualDisplay?.release(); virtualDisplay = null

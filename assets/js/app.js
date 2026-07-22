@@ -9,6 +9,7 @@ import { initializeSimulator3D } from "./simulator-3d.js";
 import { initializeYooseeIntegration, startYooseeSubscription } from "./yoosee.js";
 import { initializeReplenishment, startReplenishmentSubscriptions } from "./replenishment.js";
 import { initializeCarts, startCartsSubscription } from "./carts.js";
+import { initializeLiveMonitor, startLiveMonitorSubscription } from "./live-monitor.js";
 import { cameraStatusClass, escapeHtml, eventLabel, formatDate, formatTime, objectEntries, roleLabel, toast } from "./utils.js";
 
 let uiInitialized = false;
@@ -26,7 +27,7 @@ function renderDashboard() {
   setMetric("metricProducts", dashboardState.products.length);
   setMetric("metricLabels", dashboardState.labels.length);
   setMetric("metricCameras", dashboardState.cameras.length);
-  setMetric("metricBridges", dashboardState.bridges.filter(item => String(item.status).toUpperCase() === "ONLINE").length);
+  setMetric("metricBridges", dashboardState.bridges.filter(item => ["ONLINE", "VIDEO_VISIBLE"].includes(String(item.status).toUpperCase())).length);
   setMetric("metricSessions", dashboardState.sessions.length);
   const pending = dashboardState.occurrences.filter(item => !["reviewed", "dismissed"].includes(item.status)).length;
   setMetric("metricOccurrences", pending);
@@ -119,6 +120,7 @@ function initializeNavigation() {
     startEventsSubscriptions();
     startReplenishmentSubscriptions();
     startCartsSubscription();
+    startLiveMonitorSubscription();
     toast("Dados sincronizados novamente.", "success");
   });
 }
@@ -142,7 +144,7 @@ function renderBackendStatus(session = null) {
     <div><span>Autenticação</span><strong>${state.mode === "firebase" ? "E-mail e senha" : "Não configurada"}</strong></div>
     <div><span>Usuário</span><strong>${escapeHtml(session?.email || "—")}</strong></div>
     <div><span>Função</span><strong>${escapeHtml(roleLabel(session?.role))}</strong></div>
-    <div><span>Vídeo no Firebase</span><strong>Não utilizado</strong></div>`;
+    <div><span>Imagem do piloto</span><strong>Quadros reduzidos em cameraLive</strong></div>`;
 }
 
 function initializeUi() {
@@ -158,6 +160,7 @@ function initializeUi() {
   initializeYooseeIntegration();
   initializeReplenishment();
   initializeCarts();
+  initializeLiveMonitor();
   bindDashboardEvents();
 }
 
@@ -179,6 +182,7 @@ function startAuthenticatedData(session) {
   startYooseeSubscription();
   startReplenishmentSubscriptions();
   startCartsSubscription();
+  startLiveMonitorSubscription();
   startDashboardSubscriptions();
 }
 

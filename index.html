@@ -78,6 +78,7 @@
         <button class="nav-item" data-view="products"><span>▦</span>Produtos</button>
         <button class="nav-item" data-view="labels"><span>⌁</span>Etiquetas</button>
         <button class="nav-item" data-view="replenishment"><span>↧</span>Reposição</button>
+        <button class="nav-item" data-view="live"><span>▣</span>Ao vivo</button>
         <button class="nav-item" data-view="cameras"><span>◉</span>Câmeras</button>
         <button class="nav-item" data-view="events"><span>≋</span>Eventos</button>
         <button class="nav-item" data-view="carts"><span>🛒</span>Carrinhos</button>
@@ -208,8 +209,17 @@
         </div>
       </section>
 
+
+      <section id="view-live" class="view" data-title="Monitoramento ao vivo" data-eyebrow="IMAGENS E DETECÇÕES REAIS">
+        <div class="notice notice--warning"><strong>Piloto com imagem real publicada pelo Android.</strong><span>O quadro exibido vem da captura autorizada do vídeo aberto no Yoosee. A imagem é reduzida e atualizada aproximadamente a cada 2,5 segundos para teste; não é ainda um streaming contínuo de produção.</span></div>
+        <div class="panel-header live-page-header"><div><span class="eyebrow">MOSAICO DAS LOJAS</span><h2>Câmeras conectadas ao Vision Pilot</h2></div><button id="refreshLiveMonitor" class="btn btn--secondary" type="button">Atualizar conexão</button></div>
+        <div id="liveCameraGrid" class="live-camera-grid is-hidden"></div>
+        <div id="liveCameraEmpty" class="empty-state"><strong>Nenhuma imagem publicada</strong><span>Entre no Firebase no APK, autorize a análise, abra a câmera no Yoosee e deixe o vídeo ao vivo visível.</span></div>
+        <article id="liveCameraDetail" class="panel live-camera-detail is-hidden"></article>
+      </section>
+
       <section id="view-cameras" class="view" data-title="Câmeras" data-eyebrow="INFRAESTRUTURA SEGURA">
-        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token, código de convite e URL RTSP completa permanecem fora do Firebase. Para o piloto real, o app Android analisa digitalmente a tela do vídeo ao vivo já autenticado no Yoosee e publica somente eventos.</span></div>
+        <div class="notice notice--danger"><strong>Nunca cadastre credenciais no painel.</strong><span>Usuário, senha, token, código de convite e URL RTSP completa permanecem fora do Firebase. Para o piloto real, o app Android analisa digitalmente a tela do vídeo ao vivo já autenticado no Yoosee e publica imagens reduzidas, detecções, carrinhos e eventos.</span></div>
 
         <div class="camera-onboarding-grid">
           <article class="panel camera-qr-panel"><div class="panel-header"><div><span class="eyebrow">PILOTO REAL ANDROID</span><h2>SMART24 Vision Pilot</h2></div><span class="status-badge status-badge--warning">Teste controlado</span></div><p class="panel-copy">No celular Android, entre normalmente no Yoosee, inicie a captura autorizada de tela e deixe o vídeo da sua câmera aberto. O aplicativo reconhece QR das etiquetas, acompanha identificadores temporários e grava heartbeat/eventos no Firebase.</p><div class="form-actions"><a class="btn btn--primary" href="./android-vision-pilot/README-THIAGO.md" target="_blank" rel="noopener">Ver instalação do piloto</a></div><small class="safe-note">Esta ponte é real para o piloto, mas não substitui a futura ingestão direta de várias câmeras em nuvem.</small></article>
@@ -263,7 +273,7 @@
         <article class="panel table-panel">
           <div class="panel-header"><div><span class="eyebrow">EVENTOS ESTRUTURADOS</span><h2>Atividade das sessões</h2></div><div class="filters"><select id="eventTypeFilter"><option value="">Todos os tipos</option></select><input id="eventSearch" type="search" placeholder="Sessão, pessoa, produto…"></div></div>
           <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Tipo</th><th>Sessão</th><th>Pessoa</th><th>Câmera</th><th>Produto/Tag</th><th>Qtd.</th><th>Confiança</th></tr></thead><tbody id="eventsTableBody"></tbody></table></div>
-          <div id="eventsEmpty" class="empty-state"><strong>Nenhum evento publicado</strong><span>O Firebase armazena eventos, não vídeo contínuo.</span></div>
+          <div id="eventsEmpty" class="empty-state"><strong>Nenhum evento publicado</strong><span>O Firebase armazena eventos e quadros reduzidos do piloto, não vídeo contínuo de produção.</span></div>
         </article>
       </section>
 
@@ -359,12 +369,12 @@
       <button class="mobile-nav-item is-active" data-view="dashboard"><span>◫</span><small>Início</small></button>
       <button class="mobile-nav-item" data-view="products"><span>▦</span><small>Produtos</small></button>
       <button class="mobile-nav-item" data-view="labels"><span>⌁</span><small>Etiquetas</small></button>
-      <button class="mobile-nav-item" data-view="cameras"><span>◉</span><small>Câmeras</small></button>
+      <button class="mobile-nav-item" data-view="live"><span>▣</span><small>Ao vivo</small></button>
       <button class="mobile-nav-item" data-view="carts"><span>🛒</span><small>Carrinhos</small></button>
       <button id="mobileMoreButton" class="mobile-nav-item" type="button"><span>•••</span><small>Mais</small></button>
     </nav>
     <div id="mobileMoreSheet" class="mobile-more-sheet is-hidden" role="dialog" aria-label="Mais opções">
-      <button data-view="replenishment">Reposição</button><button data-view="events">Eventos</button><button data-view="occurrences">Revisão</button><button data-view="simulator">Simulador 3D</button><button data-view="settings">Configurações</button><button id="closeMobileMore" type="button">Fechar</button>
+      <button data-view="cameras">Câmeras</button><button data-view="replenishment">Reposição</button><button data-view="events">Eventos</button><button data-view="occurrences">Revisão</button><button data-view="simulator">Simulador 3D</button><button data-view="settings">Configurações</button><button id="closeMobileMore" type="button">Fechar</button>
     </div>
   </div>
 

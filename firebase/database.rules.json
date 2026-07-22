@@ -102,6 +102,15 @@
       "$serial": {
         ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')"
       }
+    },
+    "cameraLive": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$storeId": {
+        "$cameraId": {
+          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+          ".validate": "newData.hasChildren(['storeId','cameraId','status','updatedAt']) && newData.child('storeId').val() === $storeId && newData.child('cameraId').val() === $cameraId && (!newData.child('frameDataUrl').exists() || (newData.child('frameDataUrl').isString() && newData.child('frameDataUrl').val().length < 900000))"
+        }
+      }
     }
   }
 }

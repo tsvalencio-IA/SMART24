@@ -1,17 +1,12 @@
-# SMART24 — ENTREGA FINAL DESTA ETAPA
+# SMART24 V5 — LIVE IA PILOT
 
-Esta pasta contém a base completa atualizada com:
+Esta versão acrescenta ao sistema atual:
 
-- configuração pública real do Firebase já existente no GitHub;
-- autenticação e Realtime Database preservados;
-- cadastro de produtos e etiquetas;
-- cadastro de câmeras;
-- leitura de QR Code;
-- identificação segura de metadados Yoosee;
-- conta operacional Yoosee sem armazenamento de senha;
-- loja 3D integrada;
-- simulador operacional preservado;
-- regras Firebase atualizadas;
-- agente local mantido para a etapa posterior.
+- publicação de quadros reais capturados do Yoosee;
+- tela Ao vivo no SMART24;
+- caixas, trilhas, pose principal, etiquetas e zonas desenhadas sobre a imagem;
+- contadores e lista de detecções;
+- caminho `cameraLive` protegido nas regras do Realtime Database;
+- adaptação da lógica de movimento encontrada no GAME-main.
 
-A integração de vídeo real continua dependendo da confirmação de RTSP, ONVIF, CMS, NVR ou SDK autorizado da câmera.
+A integração continua sendo um piloto por captura autorizada do Yoosee, não conexão direta à nuvem Cloudlink. O fluxo precisa ser validado em aparelho Android real antes de apresentação como produto de produção.

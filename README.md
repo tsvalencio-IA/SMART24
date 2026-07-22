@@ -1,4 +1,4 @@
-# SMART24 Fusion — MVP Fase 1 + Cadastro QR/Yoosee + Loja 3D
+# SMART24 Fusion V5 — Live IA Pilot
 
 Painel estático responsivo para estruturar a primeira fase do sistema de auditoria inteligente de mercadinhos autônomos.
 
@@ -20,7 +20,7 @@ A comparação é feita por produto/SKU. Totais gerais iguais não eliminam inco
 - A saída não é bloqueada automaticamente.
 - O sistema não acusa automaticamente.
 - Toda possível divergência exige revisão humana.
-- Firebase recebe eventos estruturados, não vídeo contínuo.
+- Firebase recebe eventos estruturados e quadros JPEG reduzidos do piloto; não recebe vídeo contínuo de produção.
 - Credenciais de câmera ficam fora do GitHub.
 - QR Code não é apresentado como rastreamento de item oculto.
 - RFID é uma evolução futura, ainda não implementada.
@@ -41,22 +41,19 @@ A comparação é feita por produto/SKU. Totais gerais iguais não eliminam inco
 - Linha do tempo de eventos.
 - Ocorrências com classificação humana.
 - Simulador conceitual com oito cenários.
-- Estrutura do agente local Python para a Fase 2.
-- Documentação técnica e operacional.
+- Tela **Ao vivo** com quadro real analisado, pessoas, etiquetas, zonas e estado da câmera.
+- Vision Pilot Android com pose corporal principal, trajetórias suavizadas, etiquetas e carrinhos.
+- Estrutura do agente local Python preservada.
+- Documentação técnica e operacional, incluindo auditoria do GAME-main.
 
-## O que não está conectado
+## Limites atuais do piloto
 
-- câmeras IP reais;
-- reconhecimento facial real;
-- caixa/autoatendimento real;
-- porta ou controle de saída;
-- RFID;
-- visão computacional de retirada/devolução;
-- múltiplas câmeras reais;
-- login automático do painel na conta Yoosee;
-- aceitação automática de convite Yoosee;
-- API oficial Yoosee para vídeo;
-- sistema real do cliente.
+- A imagem real vem da captura autorizada do vídeo aberto no aplicativo Yoosee; não é conexão Cloudlink direta.
+- O quadro do painel é atualizado aproximadamente a cada 2,5 segundos, não a 25/30 FPS.
+- A pose corporal, como no jogo enviado, acompanha prioritariamente uma pessoa principal.
+- Outros usuários dependem de face e rastreamento de objetos e ainda precisam de validação em loja.
+- O sistema não reconhece a identidade civil do rosto; usa PERSON-XX temporário.
+- caixa/autoatendimento, porta, RFID e múltiplas câmeras de produção ainda não estão integrados.
 
 ## Loja 3D e fotografias
 
@@ -95,3 +92,9 @@ SMART24-main/
 ## CORREÇÃO V4.2 — MESMO CELULAR
 
 Não tente apontar a câmera para um QR exibido no próprio aparelho. O APK possui as opções **Usar conta Yoosee que já tem a câmera**, **Colar link copiado** e **Escolher print ou imagem do QR**. Se a câmera já aparece no Yoosee, o QR não é necessário.
+
+## Atualização V5
+
+A V5 publica o quadro analisado em `cameraLive/{loja}/{camera}` e cria a tela **Ao vivo**. Sobre a imagem são desenhados os usuários temporários, trilhas, zonas e etiquetas reconhecidas. A lógica de pose e movimento foi adaptada do GAME-main, preservando a verdade de que o jogo utiliza MoveNet SinglePose.
+
+Leia primeiro `LEIA-PRIMEIRO-V5.md` e depois `PASSO-A-PASSO-V5.md`.

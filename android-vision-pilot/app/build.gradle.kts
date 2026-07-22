@@ -11,8 +11,8 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0-pilot"
+        versionCode = 5
+        versionName = "2.0.0-live-ia-pilot"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")
@@ -37,4 +37,5 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:object-detection:17.0.2")
+    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
 }
