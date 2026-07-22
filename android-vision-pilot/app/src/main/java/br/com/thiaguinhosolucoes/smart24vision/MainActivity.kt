@@ -124,9 +124,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openYoosee() {
-        val launch = packageManager.getLaunchIntentForPackage("com.yoosee")
-        if (launch != null) startActivity(launch)
-        else setStatus("Yoosee não encontrado. Instale ou abra o aplicativo Yoosee manualmente.")
+        val packageName = "com.yoosee"
+
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            runCatching { startActivity(launchIntent) }
+                .onSuccess {
+                    setStatus("Captura ativa. Yoosee aberto. Abra a câmera ao vivo e use tela cheia.")
+                }
+                .onFailure { error ->
+                    setStatus("O Yoosee foi localizado, mas não abriu: ${friendly(error.message)}")
+                }
+            return
+        }
+
+        // Fallback para aparelhos que não retornam o intent padrão do pacote.
+        val fallback = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            setPackage(packageName)
+        }
+        val component = fallback.resolveActivity(packageManager)
+        if (component != null) {
+            fallback.component = component
+            fallback.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            runCatching { startActivity(fallback) }
+                .onSuccess {
+                    setStatus("Captura ativa. Yoosee aberto. Abra a câmera ao vivo e use tela cheia.")
+                }
+                .onFailure { error ->
+                    setStatus("Não foi possível abrir o Yoosee: ${friendly(error.message)}")
+                }
+        } else {
+            setStatus("Yoosee não foi localizado pelo Android. Abra o Yoosee manualmente; a captura continuará ativa em segundo plano.")
+        }
     }
 
     private fun setStatus(text: String) { statusText.text = text }

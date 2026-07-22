@@ -93,7 +93,7 @@ class CaptureService : Service() {
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader?.surface, null, handler
         )
         imageReader?.setOnImageAvailableListener({ reader -> handleImage(reader) }, handler)
-        scope.launch { publishHeartbeat("ONLINE", 0, 0, "Captura autorizada; aguardando quadros.") }
+        scope.launch { publishHeartbeat("WAITING_VIDEO", 0, 0, "Captura autorizada; aguardando o vídeo ao vivo do Yoosee.") }
     }
 
     private fun handleImage(reader: ImageReader) {
@@ -122,7 +122,7 @@ class CaptureService : Service() {
                 val result = vision.analyze(bitmap)
                 cartEngine.process(result, zones)
                 if (now - lastHeartbeatAt > 5000L) {
-                    publishHeartbeat("ONLINE", result.persons.size, result.tags.size, "Quadro real processado do Yoosee")
+                    publishHeartbeat("VIDEO_VISIBLE", result.persons.size, result.tags.size, "Tela do Yoosee recebida e processada; confirme que o vídeo ao vivo está aberto.")
                     lastHeartbeatAt = now
                 }
             } catch (error: Throwable) {
