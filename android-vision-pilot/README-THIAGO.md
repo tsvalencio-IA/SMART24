@@ -1,52 +1,57 @@
-# SMART24 Vision Pilot — teste real com a câmera Yoosee
+# SMART24 Vision Pilot — demonstração assistida com câmera Yoosee
 
-Este aplicativo Android é a ponte de **piloto controlado** para testar a sua câmera residencial sem computador na loja e sem colocar senha Yoosee no GitHub/Firebase.
+Este aplicativo Android cria uma ponte de demonstração entre:
 
-## O que ele faz de verdade
+- o vídeo real aberto no aplicativo Yoosee;
+- a análise local de pessoas, pulsos, objetos genéricos e etiquetas;
+- o Firebase Realtime Database;
+- o painel SMART24 hospedado no GitHub Pages.
 
-1. você entra no SMART24 Vision com um usuário Firebase `admin` ou `operator`;
-2. o Android pede autorização de captura de tela;
-3. o aplicativo Yoosee é aberto;
-4. você abre o vídeo ao vivo da câmera e deixa em tela cheia;
-5. o SMART24 processa digitalmente os quadros mostrados pelo Yoosee;
-6. reconhece QR das etiquetas SMART24;
-7. detecta faces/objetos e cria IDs temporários `PERSON-XX`;
-8. calibra retângulos de geladeira/prateleira;
-9. registra `PRODUCT_PICKUP`, `PRODUCT_RETURN` ou `AMBIGUOUS_INTERACTION`;
-10. atualiza carrinhos, heartbeat e eventos no Firebase.
+## O que esta versão faz de verdade
+
+1. entra no Firebase com usuário `admin` ou `operator`;
+2. captura, com autorização, a tela do vídeo aberto no Yoosee;
+3. detecta pessoas e cria identificadores temporários;
+4. localiza pulsos quando a pose está visível;
+5. detecta objetos genéricos e tenta manter o ID visual;
+6. permite operar um painel flutuante sobre o Yoosee;
+7. publica eventos, carrinho, imagem e ocorrências no Firebase;
+8. mostra a demonstração no painel web em tempo real.
+
+## Controles da demonstração
+
+- **PEGOU:** o operador confirma a retirada.
+- **DEVOLVEU:** o operador confirma a devolução.
+- **ESCONDEU:** cria possível ocorrência para revisão.
+- **ALERTA:** envia um alerta manual.
+- **FINALIZAR:** encerra o acompanhamento sem conclusão.
 
 ## O que não faz ainda
 
-- não realiza reconhecimento facial nominal do morador;
-- não substitui uma conexão direta em nuvem com dezenas de câmeras;
-- não afirma que uma etiqueta escondida continua visível;
-- não conecta ao caixa automaticamente;
-- não transforma um teste de uma câmera em implantação final das seis lojas.
+- não reconhece automaticamente qualquer SKU;
+- não identifica civilmente o morador;
+- não garante que um objeto oculto continue rastreável;
+- não compara com o checkout;
+- não controla a porta;
+- não funciona como servidor 24 horas;
+- não deve ser implantado nas seis lojas como solução final.
 
-## Como gerar o APK sem terminal
+## Como gerar o APK
 
-1. envie a pasta completa do projeto para o repositório SMART24;
-2. confirme que apareceu `.github/workflows/build-smart24-vision.yml`;
-3. no GitHub, abra **Actions**;
-4. abra **Build SMART24 Vision APK**;
-5. toque em **Run workflow**;
-6. ao terminar, abra a execução e baixe o artefato `SMART24-Vision-Pilot-APK`;
-7. extraia o ZIP do artefato e instale `app-debug.apk` no Android.
+1. envie a pasta completa ao repositório;
+2. abra **Actions** no GitHub;
+3. execute **Build SMART24 Vision APK**;
+4. baixe `SMART24-Vision-Pilot-APK`;
+5. extraia e instale `app-debug.apk`.
 
-## Ordem do primeiro teste
+## Manual completo
 
-1. publique as regras novas de `web/firebase/database.rules.json`;
-2. gere 3 etiquetas de um produto de teste;
-3. use Reposição para associá-las à zona `GELADEIRA-01-P01`;
-4. instale o APK;
-5. entre com o mesmo usuário Firebase do painel;
-6. toque em **Autorizar captura e abrir Yoosee**;
-7. abra o vídeo da câmera;
-8. deixe 3 produtos etiquetados visíveis;
-9. volte ao app e calibre a zona;
-10. retorne ao Yoosee, retire uma unidade e aguarde;
-11. confira **Eventos** e **Carrinhos** no painel SMART24 em outro celular.
+Leia:
 
-## Observação técnica honesta
+[PROTOTIPO-DEMO-ASSISTIDA.md](./PROTOTIPO-DEMO-ASSISTIDA.md)
 
-O piloto usa a sessão do aplicativo oficial Yoosee para transportar o vídeo remoto. A análise é executada no Android que autorizou a captura. A versão final para seis lojas exigirá ingestão contínua em nuvem ou câmeras com fluxo/API compatível, porque nenhum código roda 24 horas no GitHub Pages quando o navegador está fechado.
+## Observação técnica
+
+O SKU demonstrado é informado previamente pelo operador. A visão associa a confirmação manual à pessoa, ao pulso e ao objeto genérico mais próximos. Quando o objeto não é detectado de forma estável, o painel informa que está usando o pulso como referência.
+
+Esse comportamento é proposital para uma apresentação verdadeira: mostramos uma demonstração assistida agora e deixamos a automação completa para a etapa do servidor.
