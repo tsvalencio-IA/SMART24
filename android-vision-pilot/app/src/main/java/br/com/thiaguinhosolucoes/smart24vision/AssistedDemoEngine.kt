@@ -56,7 +56,7 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         val person = result.persons.firstOrNull { it.personId == track.personId }
             ?: result.persons.maxByOrNull { it.box.width() * it.box.height() }
         val wrist = person?.rightWrist ?: person?.leftWrist
-        if (wrist != null) {
+        if (person != null && wrist != null) {
             track.personId = person.personId
             track.centerX = wrist.x
             track.centerY = wrist.y
