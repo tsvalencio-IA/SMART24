@@ -6,6 +6,7 @@ let events = [];
 let occurrences = [];
 let unsubscribeEvents = null;
 let unsubscribeOccurrences = null;
+let knownEventIds = null;
 
 function renderEventFilters() {
   const select = document.getElementById("eventTypeFilter");
@@ -61,6 +62,7 @@ function renderOccurrences() {
         <div><span class="eyebrow">${escapeHtml(item.storeId || "LOJA")}</span><h3>${escapeHtml(item.productName || item.sku || "Produto para revisão")}</h3></div>
         <span class="status-badge ${occurrenceStatusBadge(item.status)}">${item.status === "reviewed" ? "Revisada" : item.status === "dismissed" ? "Encerrada" : "Pendente"}</span>
       </div>
+      ${item.snapshotDataUrl ? `<img class="occurrence-snapshot" src="${item.snapshotDataUrl}" alt="Quadro da ocorrência demonstrativa">` : ""}
       <div class="occurrence-grid">
         <div class="occurrence-stat"><span>Retirado</span><strong>${escapeHtml(item.pickedUp ?? 0)}</strong></div>
         <div class="occurrence-stat"><span>Devolvido</span><strong>${escapeHtml(item.returned ?? 0)}</strong></div>
@@ -134,10 +136,46 @@ async function saveReview(event) {
   }
 }
 
+function notifyAssistedDemoAlerts(nextEvents) {
+  const nextIds = new Set(nextEvents.map(item => item.id));
+  if (knownEventIds === null) {
+    knownEventIds = nextIds;
+    return;
+  }
+
+  const alertTypes = new Set(["DEMO_POSSIBLE_CONCEALMENT", "DEMO_ALERT_SENT"]);
+  nextEvents
+    .filter(item => !knownEventIds.has(item.id) && alertTypes.has(item.type))
+    .forEach(item => {
+      const title = item.type === "DEMO_POSSIBLE_CONCEALMENT"
+        ? "SMART24 — possível ocultação"
+        : "SMART24 — alerta da demonstração";
+      const body = `${item.storeId || "Loja"} · ${item.productName || item.sku || "Item"} · ${item.personId || "pessoa não confirmada"}`;
+      toast(`${title}: ${body}`, "error");
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, { body, tag: item.id });
+      }
+    });
+  knownEventIds = nextIds;
+}
+
+async function enableBrowserAlerts() {
+  if (!("Notification" in window)) {
+    toast("Este navegador não oferece notificações.", "error");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  toast(
+    permission === "granted" ? "Alertas do navegador ativados." : "Permissão de alertas não concedida.",
+    permission === "granted" ? "success" : "error"
+  );
+}
+
 export function initializeEvents() {
   renderEventFilters();
   document.getElementById("eventTypeFilter").addEventListener("change", renderEvents);
   document.getElementById("eventSearch").addEventListener("input", renderEvents);
+  document.getElementById("enableBrowserAlerts")?.addEventListener("click", enableBrowserAlerts);
 }
 
 export function startEventsSubscriptions() {
@@ -145,6 +183,7 @@ export function startEventsSubscriptions() {
   unsubscribeOccurrences?.();
   unsubscribeEvents = subscribeData("events", value => {
     events = objectEntries(value);
+    notifyAssistedDemoAlerts(events);
     renderEvents();
     document.dispatchEvent(new CustomEvent("smart24:events", { detail: events }));
   }, error => toast(`Não foi possível carregar eventos: ${error.message}`, "error"));

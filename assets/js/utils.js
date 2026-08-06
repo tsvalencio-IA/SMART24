@@ -14,7 +14,12 @@ export const EVENT_LABELS = {
   CAMERA_ONLINE: "Câmera disponível",
   AMBIGUOUS_INTERACTION: "Interação ambígua",
   IMAGE_INSUFFICIENT: "Imagem insuficiente",
-  OCCURRENCE_CREATED: "Ocorrência criada"
+  OCCURRENCE_CREATED: "Ocorrência criada",
+  DEMO_TRACK_STARTED: "Demonstração: item marcado como retirado",
+  DEMO_ITEM_RETURNED: "Demonstração: item devolvido",
+  DEMO_POSSIBLE_CONCEALMENT: "Demonstração: possível ocultação",
+  DEMO_ALERT_SENT: "Demonstração: alerta manual",
+  DEMO_TRACK_FINISHED: "Demonstração: rastreio encerrado"
 };
 
 export function escapeHtml(value = "") {
