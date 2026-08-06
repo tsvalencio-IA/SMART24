@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private val firebase = FirebaseRestClient()
@@ -69,7 +71,8 @@ class MainActivity : AppCompatActivity() {
         }
         ContextCompat.startForegroundService(this, service)
         startButton.isEnabled = false
-        calibrateButton.isEnabled = true
+        calibrateButton.isEnabled = false
+        calibrateButton.text = "3. Calibrar (aguardando imagem)"
         stopButton.isEnabled = true
         setStatus("Captura iniciada. Abrindo o Yoosee. Toque na câmera já cadastrada e deixe o vídeo ao vivo em tela cheia.")
         openYoosee()
@@ -104,14 +107,28 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.loginButton).setOnClickListener { login() }
         findViewById<Button>(R.id.overlayPermissionButton).setOnClickListener { requestOverlayPermission() }
         startButton.setOnClickListener { prepareDemoAndRequestProjection() }
-        calibrateButton.setOnClickListener { startActivity(Intent(this, CalibrationActivity::class.java)) }
+        calibrateButton.setOnClickListener {
+            if (!hasUsableCapturedFrame()) {
+                calibrateButton.isEnabled = false
+                calibrateButton.text = "3. Calibrar (aguardando imagem)"
+                setStatus("A calibração ainda está bloqueada porque o SMART24 não recebeu uma imagem válida. Toque em ‘2. Autorizar análise e abrir Yoosee’, abra o vídeo ao vivo e depois volte ao SMART24.")
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, CalibrationActivity::class.java))
+        }
         stopButton.setOnClickListener {
             startService(Intent(this, CaptureService::class.java).apply { action = CaptureService.ACTION_STOP })
             startButton.isEnabled = PilotSession.authenticated
-            calibrateButton.isEnabled = true
+            refreshCalibrationAvailability()
             stopButton.isEnabled = false
             setStatus("Análise parada. Os dados já enviados permanecem no Firebase.")
         }
+        refreshCalibrationAvailability()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::calibrateButton.isInitialized) refreshCalibrationAvailability()
     }
 
     private fun pasteYooseeLink() {
@@ -194,7 +211,7 @@ class MainActivity : AppCompatActivity() {
             }.onSuccess { role ->
                 findViewById<EditText>(R.id.passwordInput).text.clear()
                 startButton.isEnabled = true
-                calibrateButton.isEnabled = true
+                refreshCalibrationAvailability()
                 setStatus("Firebase conectado como $role. A senha foi descartada da tela e não foi salva.")
             }.onFailure { error -> setStatus("Falha no login: ${friendly(error.message)}") }
         }
@@ -261,6 +278,27 @@ class MainActivity : AppCompatActivity() {
                 .onFailure { error -> setStatus("Não foi possível abrir o Yoosee: ${friendly(error.message)}") }
         } else {
             setStatus("Yoosee não foi localizado. Abra-o manualmente; a captura continuará ativa quando autorizada.")
+        }
+    }
+
+    private fun refreshCalibrationAvailability() {
+        val ready = hasUsableCapturedFrame()
+        calibrateButton.isEnabled = ready
+        calibrateButton.text = if (ready) {
+            "3. Calibrar prateleira na imagem"
+        } else {
+            "3. Calibrar (aguardando imagem)"
+        }
+    }
+
+    private fun hasUsableCapturedFrame(): Boolean {
+        val file = File(filesDir, "latest_frame.jpg")
+        if (!file.exists() || file.length() < 1024L) return false
+        val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() ?: return false
+        return try {
+            bitmap.width >= 32 && bitmap.height >= 32 && !BitmapUtils.isMostlyBlack(bitmap)
+        } finally {
+            if (!bitmap.isRecycled) bitmap.recycle()
         }
     }
 

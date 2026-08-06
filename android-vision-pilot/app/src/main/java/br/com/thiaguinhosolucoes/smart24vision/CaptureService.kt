@@ -108,6 +108,7 @@ class CaptureService : Service() {
     private fun startProjection(resultCode: Int, data: Intent) {
         if (projection != null) return
         stopping.set(false)
+        clearLatestFrame()
         val metrics = currentMetrics()
         handlerThread = HandlerThread("Smart24Capture").also { it.start() }
         val handler = Handler(handlerThread!!.looper)
@@ -156,21 +157,26 @@ class CaptureService : Service() {
         }
         scope.launch {
             try {
-                if (now - lastSavedFrameAt > 2500L) {
-                    saveLatestFrame(bitmap)
-                    lastSavedFrameAt = now
-                }
                 if (now - lastZoneRefreshAt > 10000L) {
                     zones = runCatching { firebase.getZones(PilotSession.storeId, PilotSession.cameraId) }.getOrDefault(zones)
                     lastZoneRefreshAt = now
                 }
-                if (isMostlyBlack(bitmap)) {
+                if (BitmapUtils.isMostlyBlack(bitmap)) {
                     if (now - lastHeartbeatAt > 5000L) {
                         publishHeartbeat("NO_IMAGE", 0, 0, 0, "A captura está preta ou sem vídeo; o Yoosee pode estar fora da tela ou bloqueando captura.")
                         publishLiveStatus("NO_IMAGE", "Sem imagem válida. Confirme o vídeo ao vivo no Yoosee.")
                         lastHeartbeatAt = now
                     }
+                    updateOverlayStatus("SEM IMAGEM: abra o vídeo ao vivo no Yoosee. Se continuar preto, o Yoosee está bloqueando a captura.")
                     return@launch
+                }
+
+                // A calibração recebe somente um quadro que passou pela
+                // validação. Nunca substituímos a última imagem por uma tela
+                // preta ou por uma superfície protegida do Yoosee.
+                if (now - lastSavedFrameAt > 2500L) {
+                    saveLatestFrame(bitmap)
+                    lastSavedFrameAt = now
                 }
 
                 val result = vision.analyze(bitmap)
@@ -496,32 +502,15 @@ class CaptureService : Service() {
         manager.notify((System.currentTimeMillis() % 100000).toInt(), notification)
     }
 
-    private fun isMostlyBlack(bitmap: Bitmap): Boolean {
-        val stepX = (bitmap.width / 24).coerceAtLeast(1)
-        val stepY = (bitmap.height / 24).coerceAtLeast(1)
-        var dark = 0
-        var total = 0
-        var y = 0
-        while (y < bitmap.height) {
-            var x = 0
-            while (x < bitmap.width) {
-                val color = bitmap.getPixel(x, y)
-                val r = (color shr 16) and 0xff
-                val g = (color shr 8) and 0xff
-                val b = color and 0xff
-                if ((r + g + b) / 3 < 12) dark++
-                total++
-                x += stepX
-            }
-            y += stepY
-        }
-        return total > 0 && dark.toDouble() / total.toDouble() > 0.96
-    }
-
     private fun saveLatestFrame(bitmap: Bitmap) {
         FileOutputStream(File(filesDir, "latest_frame.jpg")).use {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 86, it)
         }
+    }
+
+    private fun clearLatestFrame() {
+        runCatching { File(filesDir, "latest_frame.jpg").delete() }
+        lastSavedFrameAt = 0L
     }
 
     private fun stopCapture(status: String) {
