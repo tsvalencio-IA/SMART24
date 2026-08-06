@@ -24,6 +24,8 @@ A assinatura de gravação em nuvem do Yoosee não é usada pela captura do SMAR
 
 A versão 2.2.1 inclui o ícone oficial S24 em alta resolução, versões normal e circular e recursos adaptativos para os formatos aplicados pelo Android.
 
+A versão 2.2.2 corrige a validação do retorno da autorização de captura. No Android, `RESULT_OK` vale `-1`; agora esse valor é reconhecido corretamente como autorização aceita, em vez de ser tratado como erro.
+
 ## Controles da demonstração
 
 - **PEGOU:** o operador confirma a retirada.
@@ -47,7 +49,7 @@ A versão 2.2.1 inclui o ícone oficial S24 em alta resolução, versões normal
 1. envie a pasta completa ao repositório;
 2. abra **Actions** no GitHub;
 3. execute **Build SMART24 APK Completo**;
-4. baixe `SMART24-APK-COMPLETO-V2.2.1`;
+4. baixe `SMART24-APK-COMPLETO-V2.2.2`;
 5. extraia e instale `app-debug.apk`.
 
 ## Manual completo
