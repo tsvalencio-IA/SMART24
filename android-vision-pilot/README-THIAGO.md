@@ -1,6 +1,6 @@
-# SMART24 Vision Pilot — demonstração assistida com câmera Yoosee
+# SMART24 Android completo — painel, loja 3D e câmera Yoosee
 
-Este aplicativo Android cria uma ponte de demonstração entre:
+Ao abrir o APK, a primeira tela agora é o SMART24 completo hospedado no GitHub Pages: dashboard, cadastro de produtos, etiquetas, reposição, câmeras, eventos, carrinhos e loja 3D. O botão **ABRIR MÓDULO CÂMERA YOOSEE** entra na ponte de demonstração entre:
 
 - o vídeo real aberto no aplicativo Yoosee;
 - a análise local de pessoas, pulsos, objetos genéricos e etiquetas;
@@ -17,6 +17,12 @@ Este aplicativo Android cria uma ponte de demonstração entre:
 6. permite operar um painel flutuante sobre o Yoosee;
 7. publica eventos, carrinho, imagem e ocorrências no Firebase;
 8. mostra a demonstração no painel web em tempo real.
+
+O módulo da câmera atualiza o estado mesmo em tela dividida. Quando o primeiro quadro válido chega, ele mostra **Imagem recebida** e libera a calibração automaticamente. Se nenhum quadro chegar ou a captura vier preta, a mensagem informa o erro na própria tela.
+
+A assinatura de gravação em nuvem do Yoosee não é usada pela captura do SMART24. Na autorização do Android, escolha **Tela inteira**.
+
+A versão 2.2.1 inclui o ícone oficial S24 em alta resolução, versões normal e circular e recursos adaptativos para os formatos aplicados pelo Android.
 
 ## Controles da demonstração
 
@@ -40,8 +46,8 @@ Este aplicativo Android cria uma ponte de demonstração entre:
 
 1. envie a pasta completa ao repositório;
 2. abra **Actions** no GitHub;
-3. execute **Build SMART24 Vision APK**;
-4. baixe `SMART24-Vision-Pilot-APK`;
+3. execute **Build SMART24 APK Completo**;
+4. baixe `SMART24-APK-COMPLETO-V2.2.1`;
 5. extraia e instale `app-debug.apk`.
 
 ## Manual completo

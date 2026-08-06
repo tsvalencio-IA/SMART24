@@ -27,6 +27,16 @@
             android:textColor="#B7C7D9"
             android:textSize="13sp" />
 
+        <Button
+            android:id="@+id/openFullSmart24Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="#00A859"
+            android:text="VOLTAR À LOJA 3D E AO PAINEL COMPLETO"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

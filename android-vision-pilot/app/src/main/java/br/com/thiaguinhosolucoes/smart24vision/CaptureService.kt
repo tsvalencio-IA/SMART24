@@ -33,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -62,6 +63,7 @@ class CaptureService : Service() {
     private val annotator = FrameAnnotator()
     private var zones: List<Zone> = emptyList()
     private var lastProcessedAt = 0L
+    @Volatile private var lastImageReceivedAt = 0L
     private var lastSavedFrameAt = 0L
     private var lastLiveFrameAt = 0L
     private var lastHeartbeatAt = 0L
@@ -80,7 +82,10 @@ class CaptureService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopCapture("STOPPED")
+                stopCapture(
+                    CaptureStatusStore.STATE_STOPPED,
+                    "Análise parada. Os dados já enviados continuam no Firebase."
+                )
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -95,20 +100,37 @@ class CaptureService : Service() {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
                 if (resultCode < 0 || data == null || !PilotSession.authenticated) {
-                    stopCapture("ERROR")
+                    stopCapture(
+                        CaptureStatusStore.STATE_ERROR,
+                        "A captura não pôde iniciar. Entre novamente no Firebase e autorize a captura da tela."
+                    )
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                startProjection(resultCode, data)
+                runCatching { startProjection(resultCode, data) }
+                    .onFailure { error ->
+                        Log.e("SMART24", "Falha ao iniciar a captura de tela", error)
+                        stopCapture(
+                            CaptureStatusStore.STATE_ERROR,
+                            "Falha ao iniciar a captura: ${error.message ?: "erro do Android"}. Autorize ‘Tela inteira’ e tente novamente."
+                        )
+                        stopSelf()
+                    }
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startProjection(resultCode: Int, data: Intent) {
         if (projection != null) return
         stopping.set(false)
+        CaptureStatusStore.reset(this, "Autorização recebida. Preparando a captura da tela…")
         clearLatestFrame()
+        lastProcessedAt = 0L
+        lastImageReceivedAt = 0L
+        lastLiveFrameAt = 0L
+        lastHeartbeatAt = 0L
+        lastZoneRefreshAt = 0L
         val metrics = currentMetrics()
         handlerThread = HandlerThread("Smart24Capture").also { it.start() }
         val handler = Handler(handlerThread!!.looper)
@@ -117,7 +139,10 @@ class CaptureService : Service() {
         projection = manager.getMediaProjection(resultCode, data).also { mediaProjection ->
             mediaProjection.registerCallback(object : MediaProjection.Callback() {
                 override fun onStop() {
-                    stopCapture("STOPPED")
+                    stopCapture(
+                        CaptureStatusStore.STATE_STOPPED,
+                        "A autorização de captura foi encerrada pelo Android."
+                    )
                     stopSelf()
                 }
             }, handler)
@@ -134,15 +159,31 @@ class CaptureService : Service() {
         )
         imageReader?.setOnImageAvailableListener({ reader -> handleImage(reader) }, handler)
         showAssistedOverlay()
+        CaptureStatusStore.update(
+            this,
+            CaptureStatusStore.STATE_WAITING_VIDEO,
+            "Captura de tela ativa. Abra o vídeo ao vivo no Yoosee; o SMART24 está aguardando o primeiro quadro."
+        )
         scope.launch {
             publishHeartbeat("WAITING_VIDEO", 0, 0, 0, "Captura autorizada; aguardando o vídeo ao vivo do Yoosee.")
             publishLiveStatus("WAITING_VIDEO", "Abra a câmera no Yoosee e deixe o vídeo ao vivo visível.")
+        }
+        scope.launch {
+            delay(8000L)
+            if (projection != null && !stopping.get() && lastImageReceivedAt == 0L) {
+                CaptureStatusStore.update(
+                    this@CaptureService,
+                    CaptureStatusStore.STATE_WAITING_VIDEO,
+                    "Nenhum quadro chegou em 8 segundos. Pare a análise, autorize novamente e escolha ‘Tela inteira’ na janela do Android."
+                )
+            }
         }
     }
 
     private fun handleImage(reader: ImageReader) {
         val image = reader.acquireLatestImage() ?: return
         val now = System.currentTimeMillis()
+        lastImageReceivedAt = now
         if (busy.get() || now - lastProcessedAt < PROCESS_INTERVAL_MS) {
             image.close()
             return
@@ -152,6 +193,11 @@ class CaptureService : Service() {
         val bitmap = runCatching { BitmapUtils.fromRgbaImage(image) }.getOrNull()
         image.close()
         if (bitmap == null) {
+            CaptureStatusStore.update(
+                this,
+                CaptureStatusStore.STATE_ERROR,
+                "O Android enviou um quadro que o SMART24 não conseguiu converter. Pare a análise e autorize novamente."
+            )
             busy.set(false)
             return
         }
@@ -163,8 +209,15 @@ class CaptureService : Service() {
                 }
                 if (BitmapUtils.isMostlyBlack(bitmap)) {
                     if (now - lastHeartbeatAt > 5000L) {
-                        publishHeartbeat("NO_IMAGE", 0, 0, 0, "A captura está preta ou sem vídeo; o Yoosee pode estar fora da tela ou bloqueando captura.")
-                        publishLiveStatus("NO_IMAGE", "Sem imagem válida. Confirme o vídeo ao vivo no Yoosee.")
+                        CaptureStatusStore.update(
+                            this@CaptureService,
+                            CaptureStatusStore.STATE_NO_IMAGE,
+                            "A captura chegou preta. A gravação em nuvem do Yoosee não interfere: autorize ‘Tela inteira’. Se continuar preto, o Yoosee está protegendo o vídeo nesse aparelho."
+                        )
+                        runCatching {
+                            publishHeartbeat("NO_IMAGE", 0, 0, 0, "A captura está preta ou sem vídeo; o Yoosee pode estar fora da tela ou bloqueando captura.")
+                            publishLiveStatus("NO_IMAGE", "Sem imagem válida. Confirme o vídeo ao vivo no Yoosee.")
+                        }.onFailure { Log.e("SMART24", "Falha ao publicar estado sem imagem", it) }
                         lastHeartbeatAt = now
                     }
                     updateOverlayStatus("SEM IMAGEM: abra o vídeo ao vivo no Yoosee. Se continuar preto, o Yoosee está bloqueando a captura.")
@@ -177,6 +230,12 @@ class CaptureService : Service() {
                 if (now - lastSavedFrameAt > 2500L) {
                     saveLatestFrame(bitmap)
                     lastSavedFrameAt = now
+                    CaptureStatusStore.update(
+                        this@CaptureService,
+                        CaptureStatusStore.STATE_VIDEO_VISIBLE,
+                        "Imagem recebida do Android. A calibração foi liberada; você pode continuar em tela dividida ou voltar ao SMART24.",
+                        validFrame = true
+                    )
                 }
 
                 val result = vision.analyze(bitmap)
@@ -202,6 +261,16 @@ class CaptureService : Service() {
             } catch (error: Throwable) {
                 Log.e("SMART24", "Erro no processamento", error)
                 if (now - lastHeartbeatAt > 5000L) {
+                    val calibrationNote = if (CaptureStatusStore.snapshot(this@CaptureService).hasValidFrame) {
+                        "A calibração continua disponível."
+                    } else {
+                        "A calibração ainda não foi liberada."
+                    }
+                    CaptureStatusStore.update(
+                        this@CaptureService,
+                        CaptureStatusStore.STATE_DEGRADED,
+                        "Uma etapa da análise falhou: ${error.message ?: "erro de processamento"}. $calibrationNote"
+                    )
                     runCatching {
                         publishHeartbeat("DEGRADED", 0, 0, 0, error.message ?: "Falha de processamento")
                         publishLiveStatus("DEGRADED", error.message ?: "Falha de processamento")
@@ -504,7 +573,9 @@ class CaptureService : Service() {
 
     private fun saveLatestFrame(bitmap: Bitmap) {
         FileOutputStream(File(filesDir, "latest_frame.jpg")).use {
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 86, it)
+            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 86, it)) {
+                "Não foi possível salvar o quadro para calibração"
+            }
         }
     }
 
@@ -513,14 +584,15 @@ class CaptureService : Service() {
         lastSavedFrameAt = 0L
     }
 
-    private fun stopCapture(status: String) {
+    private fun stopCapture(status: String, message: String = "Captura encerrada") {
         if (!stopping.compareAndSet(false, true)) return
+        CaptureStatusStore.update(this, status, message)
         removeAssistedOverlay()
         scope.launch {
             if (PilotSession.authenticated) {
                 runCatching {
-                    publishHeartbeat(status, 0, 0, 0, "Captura encerrada")
-                    publishLiveStatus(status, "Captura encerrada")
+                    publishHeartbeat(status, 0, 0, 0, message)
+                    publishLiveStatus(status, message)
                 }
             }
         }
@@ -538,7 +610,7 @@ class CaptureService : Service() {
     }
 
     override fun onDestroy() {
-        stopCapture("STOPPED")
+        stopCapture(CaptureStatusStore.STATE_STOPPED, "Serviço de captura encerrado.")
         scope.cancel()
         super.onDestroy()
     }

@@ -11,6 +11,8 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
@@ -34,6 +36,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var calibrateButton: Button
     private lateinit var stopButton: Button
     private lateinit var yooseeShareInput: EditText
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private var lastCaptureStatusUpdatedAt = 0L
+    private var lastFrameSignature = ""
+    private var lastFrameUsable = false
+
+    private val captureStatusPoll = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed) {
+                refreshCaptureUi()
+                uiHandler.postDelayed(this, 700L)
+            }
+        }
+    }
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -69,6 +84,8 @@ class MainActivity : AppCompatActivity() {
             putExtra(CaptureService.EXTRA_RESULT_CODE, result.resultCode)
             putExtra(CaptureService.EXTRA_RESULT_DATA, result.data)
         }
+        CaptureStatusStore.reset(this, "Autorização recebida. Iniciando a captura da tela…")
+        lastCaptureStatusUpdatedAt = 0L
         ContextCompat.startForegroundService(this, service)
         startButton.isEnabled = false
         calibrateButton.isEnabled = false
@@ -97,6 +114,12 @@ class MainActivity : AppCompatActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        findViewById<Button>(R.id.openFullSmart24Button).setOnClickListener {
+            startActivity(
+                Intent(this, PortalActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            )
+        }
         findViewById<Button>(R.id.openExistingYooseeButton).setOnClickListener {
             setStatus("Abrindo o Yoosee. Use a conta que já mostra sua câmera; não é necessário ler QR novamente.")
             openYoosee()
@@ -117,18 +140,35 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, CalibrationActivity::class.java))
         }
         stopButton.setOnClickListener {
+            CaptureStatusStore.update(
+                this,
+                CaptureStatusStore.STATE_STOPPED,
+                "Análise parada. Os dados já enviados permanecem no Firebase."
+            )
             startService(Intent(this, CaptureService::class.java).apply { action = CaptureService.ACTION_STOP })
             startButton.isEnabled = PilotSession.authenticated
             refreshCalibrationAvailability()
             stopButton.isEnabled = false
             setStatus("Análise parada. Os dados já enviados permanecem no Firebase.")
         }
+        lastCaptureStatusUpdatedAt = CaptureStatusStore.snapshot(this).updatedAt
         refreshCalibrationAvailability()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        uiHandler.removeCallbacks(captureStatusPoll)
+        uiHandler.post(captureStatusPoll)
+    }
+
+    override fun onStop() {
+        uiHandler.removeCallbacks(captureStatusPoll)
+        super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::calibrateButton.isInitialized) refreshCalibrationAvailability()
+        if (::calibrateButton.isInitialized) refreshCaptureUi()
     }
 
     private fun pasteYooseeLink() {
@@ -261,7 +301,7 @@ class MainActivity : AppCompatActivity() {
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             runCatching { startActivity(launchIntent) }
-                .onSuccess { setStatus("Yoosee aberto. Toque na câmera já cadastrada e abra o vídeo ao vivo.") }
+                .onSuccess { setStatus("Yoosee aberto. Abra o vídeo ao vivo; o SMART24 continua capturando e liberará a calibração quando receber a primeira imagem.") }
                 .onFailure { error -> setStatus("O Yoosee foi localizado, mas não abriu: ${friendly(error.message)}") }
             return
         }
@@ -274,7 +314,7 @@ class MainActivity : AppCompatActivity() {
             fallback.component = component
             fallback.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             runCatching { startActivity(fallback) }
-                .onSuccess { setStatus("Yoosee aberto. Toque na câmera já cadastrada e abra o vídeo ao vivo.") }
+                .onSuccess { setStatus("Yoosee aberto. Abra o vídeo ao vivo; o SMART24 continua capturando e liberará a calibração quando receber a primeira imagem.") }
                 .onFailure { error -> setStatus("Não foi possível abrir o Yoosee: ${friendly(error.message)}") }
         } else {
             setStatus("Yoosee não foi localizado. Abra-o manualmente; a captura continuará ativa quando autorizada.")
@@ -282,7 +322,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCalibrationAvailability() {
-        val ready = hasUsableCapturedFrame()
+        val ready = PilotSession.authenticated && hasUsableCapturedFrame()
         calibrateButton.isEnabled = ready
         calibrateButton.text = if (ready) {
             "3. Calibrar prateleira na imagem"
@@ -293,12 +333,55 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasUsableCapturedFrame(): Boolean {
         val file = File(filesDir, "latest_frame.jpg")
-        if (!file.exists() || file.length() < 1024L) return false
+        val signature = if (file.exists()) {
+            "${file.length()}:${file.lastModified()}"
+        } else {
+            "missing"
+        }
+        if (signature == lastFrameSignature) return lastFrameUsable
+        lastFrameSignature = signature
+        lastFrameUsable = false
+        if (!file.exists() || file.length() < 1024L) {
+            return false
+        }
         val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() ?: return false
-        return try {
+        lastFrameUsable = try {
             bitmap.width >= 32 && bitmap.height >= 32 && !BitmapUtils.isMostlyBlack(bitmap)
         } finally {
             if (!bitmap.isRecycled) bitmap.recycle()
+        }
+        return lastFrameUsable
+    }
+
+    private fun refreshCaptureUi() {
+        if (!::calibrateButton.isInitialized) return
+        refreshCalibrationAvailability()
+        val snapshot = CaptureStatusStore.snapshot(this)
+        if (snapshot.updatedAt <= lastCaptureStatusUpdatedAt) return
+        lastCaptureStatusUpdatedAt = snapshot.updatedAt
+
+        when (snapshot.state) {
+            CaptureStatusStore.STATE_STARTING,
+            CaptureStatusStore.STATE_WAITING_VIDEO,
+            CaptureStatusStore.STATE_NO_IMAGE,
+            CaptureStatusStore.STATE_VIDEO_VISIBLE,
+            CaptureStatusStore.STATE_DEGRADED -> {
+                startButton.isEnabled = false
+                stopButton.isEnabled = true
+                if (snapshot.message.isNotBlank()) setStatus(snapshot.message)
+            }
+
+            CaptureStatusStore.STATE_ERROR -> {
+                startButton.isEnabled = PilotSession.authenticated
+                stopButton.isEnabled = false
+                if (snapshot.message.isNotBlank()) setStatus(snapshot.message)
+            }
+
+            CaptureStatusStore.STATE_STOPPED -> {
+                startButton.isEnabled = PilotSession.authenticated
+                stopButton.isEnabled = false
+                if (snapshot.message.isNotBlank()) setStatus(snapshot.message)
+            }
         }
     }
 
