@@ -11,8 +11,8 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "2.2.1-full-app-icon-live-status"
+        versionCode = 10
+        versionName = "2.2.2-media-projection-result-fix"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")
