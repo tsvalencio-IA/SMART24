@@ -1,5 +1,6 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -92,17 +93,25 @@ class CaptureService : Service() {
             ACTION_START -> {
                 createChannels()
                 startForeground(NOTIFICATION_ID, notification("Analisando vídeo da câmera Yoosee"))
-                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
                 val data = if (Build.VERSION.SDK_INT >= 33) {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
-                if (resultCode < 0 || data == null || !PilotSession.authenticated) {
+                if (resultCode != Activity.RESULT_OK || data == null) {
                     stopCapture(
                         CaptureStatusStore.STATE_ERROR,
-                        "A captura não pôde iniciar. Entre novamente no Firebase e autorize a captura da tela."
+                        "O Android não devolveu uma autorização válida de captura. Autorize ‘Tela inteira’ e tente novamente."
+                    )
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                if (!PilotSession.authenticated) {
+                    stopCapture(
+                        CaptureStatusStore.STATE_ERROR,
+                        "A sessão do Firebase expirou. Entre novamente e depois autorize a captura da tela."
                     )
                     stopSelf()
                     return START_NOT_STICKY
