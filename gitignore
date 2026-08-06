@@ -1,0 +1,26 @@
+# Segredos e credenciais
+.env
+.env.*
+!.env.example
+service-account.json
+**/service-account.json
+*.pem
+*.key
+
+# Arquivos locais do agente
+edge-agent/debug/
+edge-agent/*.log
+edge-agent/__pycache__/
+edge-agent/tests/__pycache__/
+.pytest_cache/
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Pacotes e builds locais
+node_modules/
+dist/
+build/
