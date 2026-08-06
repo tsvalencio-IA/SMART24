@@ -102,7 +102,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.chooseYooseeQrImageButton).setOnClickListener { qrImageLauncher.launch("image/*") }
         findViewById<Button>(R.id.openYooseeInviteButton).setOnClickListener { openYooseeInvite() }
         findViewById<Button>(R.id.loginButton).setOnClickListener { login() }
-        startButton.setOnClickListener { requestProjection() }
+        findViewById<Button>(R.id.overlayPermissionButton).setOnClickListener { requestOverlayPermission() }
+        startButton.setOnClickListener { prepareDemoAndRequestProjection() }
         calibrateButton.setOnClickListener { startActivity(Intent(this, CalibrationActivity::class.java)) }
         stopButton.setOnClickListener {
             startService(Intent(this, CaptureService::class.java).apply { action = CaptureService.ACTION_STOP })
@@ -197,6 +198,35 @@ class MainActivity : AppCompatActivity() {
                 setStatus("Firebase conectado como $role. A senha foi descartada da tela e não foi salva.")
             }.onFailure { error -> setStatus("Falha no login: ${friendly(error.message)}") }
         }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Settings.canDrawOverlays(this)) {
+            setStatus("Controle flutuante já está autorizado. Você poderá usar PEGOU, DEVOLVEU, ESCONDEU e ALERTA sobre o Yoosee.")
+            return
+        }
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
+        runCatching { startActivity(intent) }
+            .onSuccess { setStatus("Autorize 'Exibir sobre outros apps' e volte ao SMART24.") }
+            .onFailure { setStatus("Não foi possível abrir a permissão de sobreposição: ${friendly(it.message)}") }
+    }
+
+    private fun prepareDemoAndRequestProjection() {
+        if (!Settings.canDrawOverlays(this)) {
+            setStatus("Antes da demonstração, autorize o controle flutuante para operar sobre o Yoosee.")
+            requestOverlayPermission()
+            return
+        }
+        PilotSession.demoProductName = findViewById<EditText>(R.id.demoProductNameInput).text.toString().trim()
+            .ifBlank { "Produto de demonstração" }
+        PilotSession.demoSku = findViewById<EditText>(R.id.demoSkuInput).text.toString().trim()
+            .ifBlank { "DEMO-001" }
+        PilotSession.demoZoneId = findViewById<EditText>(R.id.demoZoneInput).text.toString().trim()
+            .ifBlank { "PRATELEIRA-DEMO" }
+        requestProjection()
     }
 
     private fun requestProjection() {

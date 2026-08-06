@@ -21,7 +21,19 @@ data class PersonObservation(
     val confidence: Double,
     val source: String,
     val trail: List<PointF> = emptyList(),
-    val landmarks: List<PointF> = emptyList()
+    val landmarks: List<PointF> = emptyList(),
+    val leftWrist: PointF? = null,
+    val rightWrist: PointF? = null
+) {
+    val centerX: Float get() = box.centerX()
+    val centerY: Float get() = box.centerY()
+}
+
+data class ObjectObservation(
+    val objectId: String,
+    val box: RectF,
+    val confidence: Double,
+    val labels: List<String> = emptyList()
 ) {
     val centerX: Float get() = box.centerX()
     val centerY: Float get() = box.centerY()
@@ -44,6 +56,24 @@ data class VisionResult(
     val width: Int,
     val height: Int,
     val persons: List<PersonObservation>,
+    val objects: List<ObjectObservation>,
     val tags: List<TagObservation>,
     val capturedAt: Long
+)
+
+data class AssistedTrackSnapshot(
+    val trackId: String,
+    val status: String,
+    val productName: String,
+    val sku: String,
+    val zoneId: String,
+    val personId: String,
+    val visualObjectId: String?,
+    val visualMode: String,
+    val centerX: Float?,
+    val centerY: Float?,
+    val confidence: Double,
+    val startedAt: Long,
+    val lastSeenAt: Long,
+    val note: String
 )

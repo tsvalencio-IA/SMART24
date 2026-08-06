@@ -10,5 +10,11 @@ object PilotSession {
     @Volatile var pilotId: String = ""
     @Volatile var sessionId: String = ""
 
+    // Dados escolhidos pelo operador para a demonstração assistida.
+    // Eles não são reconhecimento automático do SKU.
+    @Volatile var demoProductName: String = "Produto de demonstração"
+    @Volatile var demoSku: String = "DEMO-001"
+    @Volatile var demoZoneId: String = "PRATELEIRA-DEMO"
+
     val authenticated: Boolean get() = idToken.isNotBlank() && uid.isNotBlank()
 }

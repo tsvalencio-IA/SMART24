@@ -14,6 +14,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -37,6 +38,7 @@ class VisionEngine {
         ObjectDetectorOptions.Builder()
             .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
             .enableMultipleObjects()
+            .enableClassification()
             .build()
     )
     private val poseDetector = PoseDetection.getClient(
@@ -51,8 +53,9 @@ class VisionEngine {
         val fullInput = InputImage.fromBitmap(bitmap, 0)
         val candidates = mutableListOf<PersonObservation>()
 
-        // O GAME usa MoveNet SinglePose. Aqui a mesma ideia é aplicada aos quadros
-        // recebidos do Yoosee, usando o detector corporal Android para a pessoa principal.
+        // O detector de pose identifica a pessoa principal e expõe os pulsos.
+        // Na demonstração assistida, o operador confirma o evento; o pulso serve
+        // somente para escolher o objeto visual mais próximo.
         val pose = runCatching { Tasks.await(poseDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrNull()
         val poseLandmarks = pose?.allPoseLandmarks.orEmpty().filter { it.inFrameLikelihood >= 0.45f }
         if (poseLandmarks.size >= 8) {
@@ -74,12 +77,21 @@ class VisionEngine {
                     (it.position.y / bitmap.height).coerceIn(0f, 1f)
                 )
             }
+            val leftWrist = pose?.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+                ?.takeIf { it.inFrameLikelihood >= 0.35f }
+                ?.let { PointF((it.position.x / bitmap.width).coerceIn(0f, 1f), (it.position.y / bitmap.height).coerceIn(0f, 1f)) }
+            val rightWrist = pose?.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+                ?.takeIf { it.inFrameLikelihood >= 0.35f }
+                ?.let { PointF((it.position.x / bitmap.width).coerceIn(0f, 1f), (it.position.y / bitmap.height).coerceIn(0f, 1f)) }
+
             candidates += PersonObservation(
                 personId = "POSE-PRIMARY",
                 box = rect,
                 confidence = poseLandmarks.map { it.inFrameLikelihood.toDouble() }.average().coerceIn(0.45, 0.98),
                 source = "POSE_TRACK_GAME_DERIVED",
-                landmarks = landmarks
+                landmarks = landmarks,
+                leftWrist = leftWrist,
+                rightWrist = rightWrist
             )
         }
 
@@ -96,8 +108,9 @@ class VisionEngine {
             }
         }
 
-        val objects = runCatching { Tasks.await(objectDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrDefault(emptyList())
-        objects.forEachIndexed { index, obj ->
+        val genericObjects = mutableListOf<ObjectObservation>()
+        val detectedObjects = runCatching { Tasks.await(objectDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrDefault(emptyList())
+        detectedObjects.forEachIndexed { index, obj ->
             val rect = normalized(obj.boundingBox, bitmap.width, bitmap.height)
             val aspect = if (rect.height() > 0) rect.width() / rect.height() else 2f
             val area = rect.width() * rect.height()
@@ -110,12 +123,21 @@ class VisionEngine {
                     confidence = 0.52,
                     source = "OBJECT_TRACK_HEURISTIC"
                 )
+            } else if (!looksHuman && area >= 0.0005f) {
+                val labels = obj.labels.map { it.text }.filter { it.isNotBlank() }
+                val confidence = obj.labels.maxOfOrNull { it.confidence.toDouble() } ?: 0.50
+                genericObjects += ObjectObservation(
+                    objectId = obj.trackingId?.let { "OBJ-$it" } ?: "OBJ-FRAME-$capturedAt-${index + 1}",
+                    box = rect,
+                    confidence = confidence.coerceIn(0.30, 0.99),
+                    labels = labels
+                )
             }
         }
 
         val persons = personTracker.update(candidates, capturedAt)
         val tags = detectTags(bitmap)
-        VisionResult(bitmap.width, bitmap.height, persons, tags, capturedAt)
+        VisionResult(bitmap.width, bitmap.height, persons, genericObjects, tags, capturedAt)
     }
 
     private fun expandFaceBox(face: RectF): RectF {
