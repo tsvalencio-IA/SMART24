@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMART24"
+            android:textColor="#00D79A"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="18dp"
+            android:text="VISION PILOT — câmera Yoosee real"
+            android:textColor="#B7C7D9"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/openFullSmart24Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="#00A859"
+            android:text="VOLTAR À LOJA 3D E AO PAINEL COMPLETO"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#102239"
+            android:lineSpacingExtra="3dp"
+            android:padding="14dp"
+            android:text="O SMART24 não precisa apontar a câmera para um QR exibido neste mesmo celular. Use a conta Yoosee que já mostra a câmera ou importe o convite por link/print. Depois autorize a captura digital do vídeo ao vivo."
+            android:textColor="#DCE7F3"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="A. PREPARAR A CÂMERA YOOSEE NESTE CELULAR"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/openExistingYooseeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Usar conta Yoosee que já tem a câmera" />
+
+        <EditText
+            android:id="@+id/yooseeShareInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Cole aqui o link de compartilhamento Yoosee"
+            android:inputType="textUri|textNoSuggestions"
+            android:maxLines="4"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/pasteYooseeLinkButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Colar link copiado" />
+
+        <Button
+            android:id="@+id/chooseYooseeQrImageButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Escolher print ou imagem do QR" />
+
+        <Button
+            android:id="@+id/openYooseeInviteButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Abrir convite no Yoosee" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="O link/QR é usado somente para abrir o convite. Ele não é salvo no Firebase nem nas preferências do aparelho."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="B. CONECTAR O PILOTO AO FIREBASE"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/emailInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="E-mail do usuário Firebase"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/passwordInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha do Firebase (não é salva)"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/storeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Loja"
+            android:text="loja-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/cameraInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Câmera"
+            android:text="CAM-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/bridgeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Conector"
+            android:text="pilot-android-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="C. CONFIGURAR DEMONSTRAÇÃO ASSISTIDA"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/demoProductNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Nome do item demonstrado"
+            android:text="Produto de demonstração"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/demoSkuInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="SKU demonstrativo"
+            android:text="DEMO-001"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/demoZoneInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Zona/prateleira"
+            android:text="PRATELEIRA-DEMO"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/overlayPermissionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Autorizar controle flutuante (opcional)" />
+
+        <CheckBox
+            android:id="@+id/useOverlayControlsInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:buttonTint="#00D79A"
+            android:checked="false"
+            android:text="Mostrar botões flutuantes sobre o Yoosee"
+            android:textColor="#DCE7F3" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Na demonstração, o operador confirma PEGOU, DEVOLVEU ou ESCONDEU. A visão associa a ação à pessoa, ao pulso e ao objeto genérico mais próximos. Isso não é reconhecimento automático do SKU."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/loginButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="1. Entrar no Firebase" />
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="2. Autorizar análise e abrir Yoosee" />
+
+        <Button
+            android:id="@+id/viewportButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="3. Delimitar vídeo (aguardando captura)" />
+
+        <Button
+            android:id="@+id/calibrateButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="4. Calibrar prateleira (aguardando recorte)" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="D. CONTROLE MANUAL — FUNCIONA EM TELA DIVIDIDA"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Use estes botões com o Yoosee na outra metade da tela. Eles só ficam ativos depois que o vídeo recortado começa a ser analisado."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/manualPickupButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="PEGOU" />
+
+            <Button
+                android:id="@+id/manualReturnButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="DEVOLVEU" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/manualConcealButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="ESCONDEU" />
+
+            <Button
+                android:id="@+id/manualAlertButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="ALERTA" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/manualFinishButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:enabled="false"
+            android:text="FINALIZAR ACOMPANHAMENTO" />
+
+        <Button
+            android:id="@+id/stopButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="Parar análise" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#102239"
+            android:padding="14dp"
+            android:text="Aguardando. Primeiro confirme que a câmera aparece no Yoosee deste aparelho."
+            android:textColor="#DCE7F3" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Fluxo de visão: abrir o vídeo ao vivo → delimitar somente a imagem da câmera → voltar ao Yoosee → calibrar a prateleira na imagem recortada. Assim menus, botões e miniaturas não entram na detecção."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
