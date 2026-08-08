@@ -15,6 +15,7 @@ object PilotSession {
     @Volatile var demoProductName: String = "Produto de demonstração"
     @Volatile var demoSku: String = "DEMO-001"
     @Volatile var demoZoneId: String = "PRATELEIRA-DEMO"
+    @Volatile var overlayControlsEnabled: Boolean = false
 
     val authenticated: Boolean get() = idToken.isNotBlank() && uid.isNotBlank()
 }

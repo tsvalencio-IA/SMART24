@@ -24,6 +24,10 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         var personId: String,
         var visualObjectId: String?,
         var visualMode: String,
+        var handSide: String,
+        var associationStatus: String,
+        var associationConfidence: Double,
+        var associationStableFrames: Int,
         var centerX: Float?,
         var centerY: Float?,
         var confidence: Double,
@@ -42,11 +46,47 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         val track = active ?: return@withLock
         val now = result.capturedAt
 
+        val heldAssociation = result.heldObjects
+            .filter { it.objectId == track.visualObjectId || it.personId == track.personId }
+            .maxWithOrNull(
+                compareBy<HeldObjectObservation> { it.status == "HELD_STABLE" }
+                    .thenBy { it.confidence }
+            )
+        if (heldAssociation != null) {
+            track.personId = heldAssociation.personId
+            track.visualObjectId = heldAssociation.objectId
+            track.handSide = heldAssociation.handSide
+            track.associationStatus = heldAssociation.status
+            track.associationConfidence = heldAssociation.confidence
+            track.associationStableFrames = heldAssociation.stableFrames
+            track.centerX = heldAssociation.objectX
+            track.centerY = heldAssociation.objectY
+            track.visualMode = if (heldAssociation.status == "HELD_STABLE") {
+                "HAND_OBJECT_STABLE"
+            } else {
+                "HAND_OBJECT_CANDIDATE"
+            }
+            track.confidence = heldAssociation.confidence
+            track.lastSeenAt = now
+            if (!track.status.startsWith("ALERT")) {
+                track.status = if (heldAssociation.status == "HELD_STABLE") "TRACKING_HELD" else "TRACKING_NEAR_HAND"
+            }
+            track.note = if (heldAssociation.status == "HELD_STABLE") {
+                "Objeto associado à ${heldAssociation.handSide.lowercase()} por ${heldAssociation.stableFrames} quadros."
+            } else {
+                "Objeto próximo da mão; ainda acumulando evidência visual."
+            }
+            return@withLock
+        }
+
         val trackedObject = track.visualObjectId?.let { id -> result.objects.firstOrNull { it.objectId == id } }
         if (trackedObject != null) {
             track.centerX = trackedObject.centerX
             track.centerY = trackedObject.centerY
             track.confidence = trackedObject.confidence
+            track.associationStatus = "OBJECT_VISIBLE_HAND_NOT_CONFIRMED"
+            track.associationConfidence = 0.0
+            track.associationStableFrames = 0
             track.lastSeenAt = now
             track.status = if (track.status.startsWith("ALERT")) track.status else "TRACKING"
             track.note = "Objeto visual ainda acompanhado."
@@ -62,6 +102,10 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
             track.centerY = wrist.y
             track.visualMode = if (track.visualObjectId == null) "WRIST_FALLBACK" else "OBJECT_LOST_WRIST_VISIBLE"
             track.confidence = (person.confidence * 0.62).coerceIn(0.28, 0.72)
+            track.handSide = if (person.rightWrist != null) "RIGHT" else "LEFT"
+            track.associationStatus = "WRIST_ONLY"
+            track.associationConfidence = 0.0
+            track.associationStableFrames = 0
             track.lastSeenAt = now
             if (!track.status.startsWith("ALERT")) track.status = "WRIST_TRACKING"
             track.note = if (track.visualObjectId == null) {
@@ -76,7 +120,11 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         }
     }
 
-    suspend fun markPickup(snapshotDataUrl: String?): ActionResult = mutex.withLock {
+    suspend fun markPickup(
+        snapshotDataUrl: String?,
+        objectCropDataUrl: String? = null,
+        objectCropId: String? = null
+    ): ActionResult = mutex.withLock {
         val existing = active
         if (existing != null && existing.status !in setOf("RETURNED", "FINISHED")) {
             return@withLock ActionResult(false, "Já existe um item em acompanhamento. Devolva ou finalize antes.")
@@ -95,9 +143,15 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         val objectId = candidate.objectObservation?.objectId
         val center = candidate.objectObservation?.let { PointF(it.centerX, it.centerY) }
             ?: candidate.anchor
-        val mode = if (objectId != null) "GENERIC_OBJECT_TRACK" else "WRIST_FALLBACK"
+        val association = candidate.heldObject
+        val mode = when (association?.status) {
+            "HELD_STABLE" -> "HAND_OBJECT_STABLE"
+            "HAND_NEAR_OBJECT" -> "HAND_OBJECT_CANDIDATE"
+            else -> if (objectId != null) "GENERIC_OBJECT_TRACK" else "WRIST_FALLBACK"
+        }
         val confidence = when {
-            candidate.objectObservation != null && candidate.person != null -> 0.78
+            association != null -> association.confidence
+            candidate.objectObservation != null && candidate.person != null -> 0.66
             candidate.person != null -> 0.55
             else -> 0.32
         }
@@ -111,16 +165,24 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
             personId = personId,
             visualObjectId = objectId,
             visualMode = mode,
+            handSide = association?.handSide.orEmpty(),
+            associationStatus = association?.status ?: "NOT_CONFIRMED",
+            associationConfidence = association?.confidence ?: 0.0,
+            associationStableFrames = association?.stableFrames ?: 0,
             centerX = center?.x,
             centerY = center?.y,
             confidence = confidence,
             startedAt = now,
             lastSeenAt = now,
             status = "TRACKING",
-            note = if (objectId != null) {
-                "Operador confirmou a retirada; objeto genérico associado à pessoa."
-            } else {
-                "Operador confirmou a retirada; acompanhamento visual pelo pulso/pessoa."
+            note = when (association?.status) {
+                "HELD_STABLE" -> "Operador confirmou a retirada; objeto já estava estável junto à mão."
+                "HAND_NEAR_OBJECT" -> "Operador confirmou a retirada; objeto estava próximo da mão, ainda sem estabilidade completa."
+                else -> if (objectId != null) {
+                    "Operador confirmou a retirada; objeto genérico associado à pessoa sem prova suficiente de contato com a mão."
+                } else {
+                    "Operador confirmou a retirada; acompanhamento visual pelo pulso/pessoa."
+                }
             }
         )
         active = track
@@ -143,10 +205,44 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
                 "confidence" to track.confidence,
                 "operatorConfirmed" to true,
                 "visualMode" to track.visualMode,
+                "handSide" to track.handSide,
+                "associationStatus" to track.associationStatus,
+                "associationConfidence" to track.associationConfidence,
+                "associationStableFrames" to track.associationStableFrames,
                 "updatedAt" to now
             )
         )
-        ActionResult(true, "Item marcado. Pessoa: ${track.personId}. Modo: ${track.visualMode}.")
+        if (!objectCropDataUrl.isNullOrBlank()) {
+            val cropMatches = objectCropId.isNullOrBlank() || objectCropId == track.visualObjectId
+            val eligible = cropMatches && track.associationStatus == "HELD_STABLE"
+            firebase.post(
+                "visionSamples/${PilotSession.storeId}/${PilotSession.cameraId}",
+                mapOf(
+                    "sampleId" to "SAMPLE-$now",
+                    "storeId" to PilotSession.storeId,
+                    "cameraId" to PilotSession.cameraId,
+                    "sessionId" to PilotSession.sessionId,
+                    "personId" to track.personId,
+                    "objectId" to (track.visualObjectId ?: ""),
+                    "handSide" to track.handSide,
+                    "productName" to track.productName,
+                    "sku" to track.sku,
+                    "imageDataUrl" to objectCropDataUrl,
+                    "associationStatus" to track.associationStatus,
+                    "associationConfidence" to track.associationConfidence,
+                    "operatorConfirmed" to true,
+                    "eligibleForTraining" to eligible,
+                    "reviewStatus" to if (eligible) "READY_FOR_DATASET_REVIEW" else "MANUAL_REVIEW_REQUIRED",
+                    "createdAt" to now
+                )
+            )
+        }
+        val evidence = when (track.associationStatus) {
+            "HELD_STABLE" -> "objeto confirmado visualmente na mão"
+            "HAND_NEAR_OBJECT" -> "objeto próximo da mão; revisão recomendada"
+            else -> "retirada confirmada pelo operador"
+        }
+        ActionResult(true, "Item marcado para ${track.personId}: $evidence.")
     }
 
     suspend fun markReturn(snapshotDataUrl: String?): ActionResult = mutex.withLock {
@@ -240,7 +336,8 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         val result = latestResult
         val track = active
         if (track == null) {
-            "Pessoas ${result?.persons?.size ?: 0} • objetos ${result?.objects?.size ?: 0} • aguardando PEGOU"
+            val stableHeld = result?.heldObjects?.count { it.status == "HELD_STABLE" } ?: 0
+            "Pessoas ${result?.persons?.size ?: 0} • objetos ${result?.objects?.size ?: 0} • na mão $stableHeld • aguardando PEGOU"
         } else {
             "${track.productName} • ${track.personId} • ${track.status}"
         }
@@ -267,6 +364,10 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         "confidence" to track.confidence,
         "visualObjectId" to (track.visualObjectId ?: ""),
         "visualMode" to track.visualMode,
+        "handSide" to track.handSide,
+        "associationStatus" to track.associationStatus,
+        "associationConfidence" to track.associationConfidence,
+        "associationStableFrames" to track.associationStableFrames,
         "operatorConfirmed" to true,
         "reason" to reason,
         "snapshotDataUrl" to snapshotDataUrl.orEmpty(),
@@ -277,10 +378,21 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
     private data class Candidate(
         val person: PersonObservation?,
         val objectObservation: ObjectObservation?,
-        val anchor: PointF?
+        val anchor: PointF?,
+        val heldObject: HeldObjectObservation?
     )
 
     private fun chooseCandidate(result: VisionResult): Candidate {
+        val held = result.heldObjects.maxWithOrNull(
+            compareBy<HeldObjectObservation> { it.status == "HELD_STABLE" }
+                .thenBy { it.confidence }
+        )
+        if (held != null) {
+            val person = result.persons.firstOrNull { it.personId == held.personId }
+            val obj = result.objects.firstOrNull { it.objectId == held.objectId }
+            return Candidate(person, obj, PointF(held.handX, held.handY), held)
+        }
+
         var bestPerson: PersonObservation? = null
         var bestObject: ObjectObservation? = null
         var bestAnchor: PointF? = null
@@ -306,7 +418,7 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         }
 
         if (bestPerson != null && bestObject != null && bestDistance <= 0.42) {
-            return Candidate(bestPerson, bestObject, bestAnchor)
+            return Candidate(bestPerson, bestObject, bestAnchor, null)
         }
 
         val person = result.persons.maxByOrNull { it.box.width() * it.box.height() }
@@ -319,7 +431,7 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
                 hypot((anchor.x - it.centerX).toDouble(), (anchor.y - it.centerY).toDouble())
             }
         }
-        return Candidate(person, nearestObject, anchor)
+        return Candidate(person, nearestObject, anchor, null)
     }
 
     private fun ActiveTrack.toSnapshot() = AssistedTrackSnapshot(
@@ -331,6 +443,10 @@ class AssistedDemoEngine(private val firebase: FirebaseRestClient) {
         personId = personId,
         visualObjectId = visualObjectId,
         visualMode = visualMode,
+        handSide = handSide,
+        associationStatus = associationStatus,
+        associationConfidence = associationConfidence,
+        associationStableFrames = associationStableFrames,
         centerX = centerX,
         centerY = centerY,
         confidence = confidence,

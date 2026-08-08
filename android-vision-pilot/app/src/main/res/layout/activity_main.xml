@@ -196,7 +196,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Autorizar controle flutuante sobre o Yoosee" />
+            android:text="Autorizar controle flutuante (opcional)" />
+
+        <CheckBox
+            android:id="@+id/useOverlayControlsInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:buttonTint="#00D79A"
+            android:checked="false"
+            android:text="Mostrar botões flutuantes sobre o Yoosee"
+            android:textColor="#DCE7F3" />
 
         <TextView
             android:layout_width="match_parent"
@@ -222,12 +232,96 @@
             android:text="2. Autorizar análise e abrir Yoosee" />
 
         <Button
+            android:id="@+id/viewportButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="3. Delimitar vídeo (aguardando captura)" />
+
+        <Button
             android:id="@+id/calibrateButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:enabled="false"
-            android:text="3. Calibrar prateleira na imagem" />
+            android:text="4. Calibrar prateleira (aguardando recorte)" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="D. CONTROLE MANUAL — FUNCIONA EM TELA DIVIDIDA"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Use estes botões com o Yoosee na outra metade da tela. Eles só ficam ativos depois que o vídeo recortado começa a ser analisado."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/manualPickupButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="PEGOU" />
+
+            <Button
+                android:id="@+id/manualReturnButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="DEVOLVEU" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/manualConcealButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="ESCONDEU" />
+
+            <Button
+                android:id="@+id/manualAlertButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:enabled="false"
+                android:minWidth="0dp"
+                android:text="ALERTA" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/manualFinishButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:enabled="false"
+            android:text="FINALIZAR ACOMPANHAMENTO" />
 
         <Button
             android:id="@+id/stopButton"
@@ -251,7 +345,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:text="Fluxo correto: deixar a câmera disponível no Yoosee → entrar no Firebase → autorizar captura → abrir o vídeo ao vivo → tela cheia. Para calibrar, volte ao SMART24 depois de alguns segundos."
+            android:text="Fluxo de visão: abrir o vídeo ao vivo → delimitar somente a imagem da câmera → voltar ao Yoosee → calibrar a prateleira na imagem recortada. Assim menus, botões e miniaturas não entram na detecção."
             android:textColor="#8EA5BD"
             android:textSize="12sp" />
     </LinearLayout>

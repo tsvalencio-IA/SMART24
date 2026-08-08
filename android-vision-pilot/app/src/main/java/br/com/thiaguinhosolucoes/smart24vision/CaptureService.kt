@@ -45,6 +45,11 @@ class CaptureService : Service() {
     companion object {
         const val ACTION_START = "SMART24_START_CAPTURE"
         const val ACTION_STOP = "SMART24_STOP_CAPTURE"
+        const val ACTION_DEMO_PICKUP = "SMART24_DEMO_PICKUP"
+        const val ACTION_DEMO_RETURN = "SMART24_DEMO_RETURN"
+        const val ACTION_DEMO_CONCEAL = "SMART24_DEMO_CONCEAL"
+        const val ACTION_DEMO_ALERT = "SMART24_DEMO_ALERT"
+        const val ACTION_DEMO_FINISH = "SMART24_DEMO_FINISH"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         private const val CHANNEL_ID = "smart24_vision"
@@ -63,12 +68,15 @@ class CaptureService : Service() {
     private val demoEngine = AssistedDemoEngine(firebase)
     private val annotator = FrameAnnotator()
     private var zones: List<Zone> = emptyList()
+    private var cameraViewport: CameraViewport? = null
     private var lastProcessedAt = 0L
     @Volatile private var lastImageReceivedAt = 0L
     private var lastSavedFrameAt = 0L
+    private var lastScreenSavedFrameAt = 0L
     private var lastLiveFrameAt = 0L
     private var lastHeartbeatAt = 0L
     private var lastZoneRefreshAt = 0L
+    private var lastViewportRefreshAt = 0L
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -77,6 +85,8 @@ class CaptureService : Service() {
     private var overlayStatus: TextView? = null
     private var windowManager: WindowManager? = null
     @Volatile private var latestSnapshotDataUrl: String? = null
+    @Volatile private var latestObjectCropDataUrl: String? = null
+    @Volatile private var latestObjectCropId: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -88,6 +98,14 @@ class CaptureService : Service() {
                     "Análise parada. Os dados já enviados continuam no Firebase."
                 )
                 stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_DEMO_PICKUP,
+            ACTION_DEMO_RETURN,
+            ACTION_DEMO_CONCEAL,
+            ACTION_DEMO_ALERT,
+            ACTION_DEMO_FINISH -> {
+                handleManualControl(intent.action.orEmpty())
                 return START_NOT_STICKY
             }
             ACTION_START -> {
@@ -140,6 +158,11 @@ class CaptureService : Service() {
         lastLiveFrameAt = 0L
         lastHeartbeatAt = 0L
         lastZoneRefreshAt = 0L
+        lastViewportRefreshAt = 0L
+        cameraViewport = CameraViewportStore.load(this, PilotSession.storeId, PilotSession.cameraId)
+        latestSnapshotDataUrl = null
+        latestObjectCropDataUrl = null
+        latestObjectCropId = null
         val metrics = currentMetrics()
         handlerThread = HandlerThread("Smart24Capture").also { it.start() }
         val handler = Handler(handlerThread!!.looper)
@@ -167,7 +190,7 @@ class CaptureService : Service() {
             handler
         )
         imageReader?.setOnImageAvailableListener({ reader -> handleImage(reader) }, handler)
-        showAssistedOverlay()
+        if (PilotSession.overlayControlsEnabled) showAssistedOverlay()
         CaptureStatusStore.update(
             this,
             CaptureStatusStore.STATE_WAITING_VIDEO,
@@ -211,11 +234,8 @@ class CaptureService : Service() {
             return
         }
         scope.launch {
+            var cameraBitmap: Bitmap? = null
             try {
-                if (now - lastZoneRefreshAt > 10000L) {
-                    zones = runCatching { firebase.getZones(PilotSession.storeId, PilotSession.cameraId) }.getOrDefault(zones)
-                    lastZoneRefreshAt = now
-                }
                 if (BitmapUtils.isMostlyBlack(bitmap)) {
                     if (now - lastHeartbeatAt > 5000L) {
                         CaptureStatusStore.update(
@@ -233,27 +253,103 @@ class CaptureService : Service() {
                     return@launch
                 }
 
-                // A calibração recebe somente um quadro que passou pela
-                // validação. Nunca substituímos a última imagem por uma tela
-                // preta ou por uma superfície protegida do Yoosee.
+                // Guardamos a tela inteira apenas para o operador delimitar o
+                // vídeo. Ela nunca é enviada ao detector de pessoas/objetos.
+                if (now - lastScreenSavedFrameAt > 2500L) {
+                    saveLatestScreenFrame(bitmap)
+                    lastScreenSavedFrameAt = now
+                }
+
+                if (now - lastViewportRefreshAt > 5000L) {
+                    val remoteViewport = runCatching {
+                        firebase.getCameraViewport(PilotSession.storeId, PilotSession.cameraId)
+                    }.getOrNull()
+                    if (remoteViewport != null) {
+                        cameraViewport = remoteViewport
+                        CameraViewportStore.save(this@CaptureService, remoteViewport)
+                    } else if (cameraViewport == null) {
+                        cameraViewport = CameraViewportStore.load(
+                            this@CaptureService,
+                            PilotSession.storeId,
+                            PilotSession.cameraId
+                        )
+                    }
+                    lastViewportRefreshAt = now
+                }
+
+                val viewport = cameraViewport
+                if (viewport == null || !viewport.valid) {
+                    if (now - lastHeartbeatAt > 5000L) {
+                        CaptureStatusStore.update(
+                            this@CaptureService,
+                            CaptureStatusStore.STATE_WAITING_VIEWPORT,
+                            "Tela recebida. Volte ao SMART24 e use ‘3. Delimitar somente o vídeo da câmera’ para excluir menus e miniaturas da análise.",
+                            validFrame = true
+                        )
+                        runCatching {
+                            publishHeartbeat(
+                                "WAITING_VIEWPORT",
+                                0,
+                                0,
+                                0,
+                                "Tela real recebida; aguardando delimitação da área do vídeo."
+                            )
+                            publishLiveStatus(
+                                "WAITING_VIEWPORT",
+                                "Delimite no APK somente a imagem ao vivo da câmera antes de iniciar a visão."
+                            )
+                        }
+                        lastHeartbeatAt = now
+                    }
+                    updateOverlayStatus("DEFINA A ÁREA DO VÍDEO: volte ao SMART24 e conclua o passo 3.")
+                    return@launch
+                }
+
+                val analysisFrame = BitmapUtils.cropViewport(bitmap, viewport)
+                cameraBitmap = analysisFrame
+                if (BitmapUtils.isMostlyBlack(analysisFrame)) {
+                    if (now - lastHeartbeatAt > 5000L) {
+                        CaptureStatusStore.update(
+                            this@CaptureService,
+                            CaptureStatusStore.STATE_DEGRADED,
+                            "A área delimitada está preta ou não contém o vídeo. Ajuste novamente os limites no passo 3."
+                        )
+                        publishLiveStatus("DEGRADED", "Área delimitada sem imagem útil; recalibre o vídeo.")
+                        lastHeartbeatAt = now
+                    }
+                    updateOverlayStatus("RECORTE SEM VÍDEO: ajuste novamente a área da câmera.")
+                    return@launch
+                }
+
+                if (now - lastZoneRefreshAt > 10000L) {
+                    zones = runCatching {
+                        firebase.getZones(PilotSession.storeId, PilotSession.cameraId)
+                            .filter { it.coordinateSpace == CoordinateSpaces.CAMERA_VIEWPORT_V1 }
+                    }.getOrDefault(zones)
+                    lastZoneRefreshAt = now
+                }
+
+                // latest_frame.jpg contém somente pixels da câmera e serve à
+                // calibração da prateleira. A interface do celular não entra.
                 if (now - lastSavedFrameAt > 2500L) {
-                    saveLatestFrame(bitmap)
+                    saveLatestFrame(analysisFrame)
                     lastSavedFrameAt = now
                     CaptureStatusStore.update(
                         this@CaptureService,
                         CaptureStatusStore.STATE_VIDEO_VISIBLE,
-                        "Imagem recebida do Android. A calibração foi liberada; você pode continuar em tela dividida ou voltar ao SMART24.",
+                        "Vídeo da câmera isolado. Pessoas, mãos e objetos agora são analisados somente dentro do recorte; a calibração da prateleira foi liberada.",
                         validFrame = true
                     )
                 }
 
-                val result = vision.analyze(bitmap)
+                val result = vision.analyze(analysisFrame)
+                updateLatestObjectCrop(analysisFrame, result)
                 demoEngine.update(result)
                 cartEngine.process(result, zones)
                 updateOverlayStatus(demoEngine.statusLine())
 
                 if (now - lastLiveFrameAt >= LIVE_FRAME_INTERVAL_MS) {
-                    publishLiveFrame(bitmap, result)
+                    publishLiveFrame(analysisFrame, result)
                     lastLiveFrameAt = now
                 }
 
@@ -263,7 +359,8 @@ class CaptureService : Service() {
                         result.persons.size,
                         result.objects.size,
                         result.tags.size,
-                        "Imagem real do Yoosee processada; demonstração assistida disponível."
+                        "Vídeo isolado processado; ${result.heldObjects.count { it.status == "HELD_STABLE" }} objeto(s) estável(is) na mão.",
+                        heldObjects = result.heldObjects.count { it.status == "HELD_STABLE" }
                     )
                     lastHeartbeatAt = now
                 }
@@ -288,9 +385,56 @@ class CaptureService : Service() {
                     lastHeartbeatAt = now
                 }
             } finally {
+                cameraBitmap?.let { frame ->
+                    if (frame !== bitmap && !frame.isRecycled) frame.recycle()
+                }
                 bitmap.recycle()
                 busy.set(false)
             }
+        }
+    }
+
+    private fun updateLatestObjectCrop(bitmap: Bitmap, result: VisionResult) {
+        val association = result.heldObjects.maxWithOrNull(
+            compareBy<HeldObjectObservation> { it.status == "HELD_STABLE" }
+                .thenBy { it.confidence }
+        )
+        val obj = association?.let { held -> result.objects.firstOrNull { it.objectId == held.objectId } }
+        if (association == null || obj == null) {
+            latestObjectCropDataUrl = null
+            latestObjectCropId = null
+            return
+        }
+
+        val padding = (maxOf(obj.box.width(), obj.box.height()) * 0.28f).coerceIn(0.012f, 0.06f)
+        val crop = runCatching { BitmapUtils.cropNormalized(bitmap, obj.box, padding) }.getOrNull()
+        if (crop == null) {
+            latestObjectCropDataUrl = null
+            latestObjectCropId = null
+            return
+        }
+        var preview: Bitmap = crop
+        try {
+            val maxSide = maxOf(crop.width, crop.height)
+            if (maxSide > 320) {
+                val scale = 320f / maxSide.toFloat()
+                preview = Bitmap.createScaledBitmap(
+                    crop,
+                    (crop.width * scale).toInt().coerceAtLeast(1),
+                    (crop.height * scale).toInt().coerceAtLeast(1),
+                    true
+                )
+            }
+            val bytes = ByteArrayOutputStream().use { stream ->
+                preview.compress(Bitmap.CompressFormat.JPEG, 82, stream)
+                stream.toByteArray()
+            }
+            latestObjectCropDataUrl = "data:image/jpeg;base64," +
+                Base64.encodeToString(bytes, Base64.NO_WRAP)
+            latestObjectCropId = association.objectId
+        } finally {
+            if (preview !== crop && !preview.isRecycled) preview.recycle()
+            if (!crop.isRecycled) crop.recycle()
         }
     }
 
@@ -322,6 +466,22 @@ class CaptureService : Service() {
                 "source" to person.source,
                 "leftWrist" to person.leftWrist?.let { mapOf("x" to it.x, "y" to it.y) },
                 "rightWrist" to person.rightWrist?.let { mapOf("x" to it.x, "y" to it.y) },
+                "leftHand" to person.leftHand?.let { hand ->
+                    mapOf(
+                        "side" to hand.side,
+                        "x" to hand.anchor.x,
+                        "y" to hand.anchor.y,
+                        "confidence" to hand.confidence
+                    )
+                },
+                "rightHand" to person.rightHand?.let { hand ->
+                    mapOf(
+                        "side" to hand.side,
+                        "x" to hand.anchor.x,
+                        "y" to hand.anchor.y,
+                        "confidence" to hand.confidence
+                    )
+                },
                 "trail" to person.trail.mapIndexed { index, point ->
                     index.toString() to mapOf("x" to point.x, "y" to point.y)
                 }.toMap()
@@ -338,6 +498,23 @@ class CaptureService : Service() {
                 "y" to obj.centerY,
                 "confidence" to obj.confidence,
                 "labels" to obj.labels
+            )
+        }
+        val heldObjectsPayload = result.heldObjects.associate { held ->
+            held.associationId to mapOf(
+                "associationId" to held.associationId,
+                "personId" to held.personId,
+                "objectId" to held.objectId,
+                "handSide" to held.handSide,
+                "status" to held.status,
+                "confidence" to held.confidence,
+                "stableFrames" to held.stableFrames,
+                "handX" to held.handX,
+                "handY" to held.handY,
+                "objectX" to held.objectX,
+                "objectY" to held.objectY,
+                "distanceToObject" to held.distanceToObject,
+                "evidence" to held.evidence
             )
         }
         val tagsPayload = result.tags.associate { tag ->
@@ -361,6 +538,10 @@ class CaptureService : Service() {
                 "personId" to it.personId,
                 "visualObjectId" to (it.visualObjectId ?: ""),
                 "visualMode" to it.visualMode,
+                "handSide" to it.handSide,
+                "associationStatus" to it.associationStatus,
+                "associationConfidence" to it.associationConfidence,
+                "associationStableFrames" to it.associationStableFrames,
                 "x" to it.centerX,
                 "y" to it.centerY,
                 "confidence" to it.confidence,
@@ -379,14 +560,19 @@ class CaptureService : Service() {
                 "sessionId" to PilotSession.sessionId,
                 "status" to "VIDEO_VISIBLE",
                 "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
+                "analysisSpace" to CoordinateSpaces.CAMERA_VIEWPORT_V1,
+                "viewportConfigured" to true,
                 "frameDataUrl" to dataUrl,
                 "frameWidth" to targetWidth,
                 "frameHeight" to targetHeight,
                 "personsDetected" to result.persons.size,
                 "objectsDetected" to result.objects.size,
+                "heldObjectsDetected" to result.heldObjects.count { it.status == "HELD_STABLE" },
+                "handObjectCandidates" to result.heldObjects.size,
                 "tagsDetected" to result.tags.size,
                 "persons" to personsPayload,
                 "objects" to objectsPayload,
+                "heldObjects" to heldObjectsPayload,
                 "tags" to tagsPayload,
                 "assistedDemo" to assistedPayload,
                 "updatedAt" to result.capturedAt
@@ -406,13 +592,26 @@ class CaptureService : Service() {
                 "sessionId" to PilotSession.sessionId,
                 "status" to status,
                 "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
+                "viewportConfigured" to (cameraViewport?.valid == true),
+                "analysisSpace" to if (cameraViewport?.valid == true) {
+                    CoordinateSpaces.CAMERA_VIEWPORT_V1
+                } else {
+                    CoordinateSpaces.FULL_SCREEN_LEGACY
+                },
                 "note" to note,
                 "updatedAt" to System.currentTimeMillis()
             )
         )
     }
 
-    private suspend fun publishHeartbeat(status: String, persons: Int, objects: Int, tags: Int, note: String) {
+    private suspend fun publishHeartbeat(
+        status: String,
+        persons: Int,
+        objects: Int,
+        tags: Int,
+        note: String,
+        heldObjects: Int = 0
+    ) {
         val timestamp = System.currentTimeMillis()
         val payload = mapOf(
             "pilotId" to PilotSession.pilotId,
@@ -423,7 +622,9 @@ class CaptureService : Service() {
             "status" to status,
             "personsDetected" to persons,
             "objectsDetected" to objects,
+            "heldObjectsDetected" to heldObjects,
             "tagsDetected" to tags,
+            "viewportConfigured" to (cameraViewport?.valid == true),
             "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
             "note" to note,
             "lastSeenAt" to timestamp
@@ -479,7 +680,13 @@ class CaptureService : Service() {
 
             val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             row1.addView(actionButton("PEGOU", Color.rgb(0, 121, 107)) {
-                runDemoAction { demoEngine.markPickup(latestSnapshotDataUrl) }
+                runDemoAction {
+                    demoEngine.markPickup(
+                        snapshotDataUrl = latestSnapshotDataUrl,
+                        objectCropDataUrl = latestObjectCropDataUrl,
+                        objectCropId = latestObjectCropId
+                    )
+                }
             })
             row1.addView(actionButton("DEVOLVEU", Color.rgb(30, 136, 229)) {
                 runDemoAction { demoEngine.markReturn(latestSnapshotDataUrl) }
@@ -550,9 +757,53 @@ class CaptureService : Service() {
             val result = runCatching { action() }
                 .getOrElse { AssistedDemoEngine.ActionResult(false, it.message ?: "Falha ao registrar ação.") }
             updateOverlayStatus(result.message)
+            val current = CaptureStatusStore.snapshot(this@CaptureService)
+            val state = if (current.state in setOf(
+                    CaptureStatusStore.STATE_VIDEO_VISIBLE,
+                    CaptureStatusStore.STATE_DEGRADED
+                )
+            ) {
+                current.state
+            } else {
+                CaptureStatusStore.STATE_VIDEO_VISIBLE
+            }
+            CaptureStatusStore.update(
+                this@CaptureService,
+                state,
+                result.message,
+                validFrame = current.hasValidFrame
+            )
             if (result.ok && alert) {
                 showLocalAlert(result.message)
             }
+        }
+    }
+
+    private fun handleManualControl(action: String) {
+        if (projection == null || stopping.get()) {
+            CaptureStatusStore.update(
+                this,
+                CaptureStatusStore.STATE_ERROR,
+                "A análise não está ativa. Inicie a captura e aguarde o vídeo recortado antes de usar os controles."
+            )
+            return
+        }
+        when (action) {
+            ACTION_DEMO_PICKUP -> runDemoAction {
+                demoEngine.markPickup(
+                    snapshotDataUrl = latestSnapshotDataUrl,
+                    objectCropDataUrl = latestObjectCropDataUrl,
+                    objectCropId = latestObjectCropId
+                )
+            }
+            ACTION_DEMO_RETURN -> runDemoAction { demoEngine.markReturn(latestSnapshotDataUrl) }
+            ACTION_DEMO_CONCEAL -> runDemoAction(alert = true) {
+                demoEngine.markConcealment(latestSnapshotDataUrl)
+            }
+            ACTION_DEMO_ALERT -> runDemoAction(alert = true) {
+                demoEngine.sendManualAlert(latestSnapshotDataUrl)
+            }
+            ACTION_DEMO_FINISH -> runDemoAction { demoEngine.finish() }
         }
     }
 
@@ -588,9 +839,19 @@ class CaptureService : Service() {
         }
     }
 
+    private fun saveLatestScreenFrame(bitmap: Bitmap) {
+        FileOutputStream(File(filesDir, "latest_screen_frame.jpg")).use {
+            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 82, it)) {
+                "Não foi possível salvar a tela para delimitar o vídeo"
+            }
+        }
+    }
+
     private fun clearLatestFrame() {
         runCatching { File(filesDir, "latest_frame.jpg").delete() }
+        runCatching { File(filesDir, "latest_screen_frame.jpg").delete() }
         lastSavedFrameAt = 0L
+        lastScreenSavedFrameAt = 0L
     }
 
     private fun stopCapture(status: String, message: String = "Captura encerrada") {

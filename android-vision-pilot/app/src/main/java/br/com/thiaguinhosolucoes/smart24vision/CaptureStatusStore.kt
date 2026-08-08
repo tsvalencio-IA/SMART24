@@ -24,6 +24,7 @@ object CaptureStatusStore {
     const val STATE_IDLE = "IDLE"
     const val STATE_STARTING = "STARTING"
     const val STATE_WAITING_VIDEO = "WAITING_VIDEO"
+    const val STATE_WAITING_VIEWPORT = "WAITING_VIEWPORT"
     const val STATE_VIDEO_VISIBLE = "VIDEO_VISIBLE"
     const val STATE_NO_IMAGE = "NO_IMAGE"
     const val STATE_DEGRADED = "DEGRADED"

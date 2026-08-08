@@ -23,13 +23,13 @@ function flatten(value) {
 function statusClass(status) {
   const value = String(status || "").toUpperCase();
   if (["VIDEO_VISIBLE", "ONLINE"].includes(value)) return "status-badge--ok";
-  if (["WAITING_VIDEO", "DEGRADED"].includes(value)) return "status-badge--warning";
+  if (["WAITING_VIDEO", "WAITING_VIEWPORT", "DEGRADED"].includes(value)) return "status-badge--warning";
   return "status-badge--danger";
 }
 
 function assistedStatusClass(status) {
   const value = String(status || "").toUpperCase();
-  if (["TRACKING", "WRIST_TRACKING"].includes(value)) return "status-badge--ok";
+  if (["TRACKING", "TRACKING_HELD", "TRACKING_NEAR_HAND", "WRIST_TRACKING"].includes(value)) return "status-badge--ok";
   if (value.startsWith("ALERT") || value === "VISUAL_LOST") return "status-badge--danger";
   return "status-badge--warning";
 }
@@ -72,6 +72,7 @@ function render() {
       <div class="live-camera-metrics">
         <span>👤 ${Number(item.personsDetected || 0)}</span>
         <span>◫ ${Number(item.objectsDetected || 0)}</span>
+        <span>✋ ${Number(item.heldObjectsDetected || 0)}</span>
         <span>⌗ ${Number(item.tagsDetected || 0)}</span>
       </div>
       ${assisted ? `<div class="live-camera-metrics"><span>Demo: ${escapeHtml(assisted.status || "—")}</span></div>` : ""}
@@ -88,6 +89,7 @@ function render() {
   detail.classList.remove("is-hidden");
   const people = objectEntries(selected.persons || {});
   const objects = objectEntries(selected.objects || {});
+  const heldObjects = objectEntries(selected.heldObjects || {});
   const tags = objectEntries(selected.tags || {});
   const assisted = selected.assistedDemo || null;
 
@@ -102,6 +104,7 @@ function render() {
         <div class="metric-strip">
           <div><span>Pessoas</span><strong>${people.length}</strong></div>
           <div><span>Objetos</span><strong>${objects.length}</strong></div>
+          <div><span>Na mão</span><strong>${heldObjects.filter(item => item.status === "HELD_STABLE").length}</strong></div>
           <div><span>Etiquetas</span><strong>${tags.length}</strong></div>
           <div><span>Último quadro</span><strong>${selected.updatedAt ? formatDate(selected.updatedAt) : "—"}</strong></div>
         </div>
@@ -114,6 +117,8 @@ function render() {
             </div>
             <div><strong>Pessoa</strong><span>${escapeHtml(assisted.personId || "não confirmada")}</span></div>
             <div><strong>Modo visual</strong><span>${escapeHtml(assisted.visualMode || "—")}</span></div>
+            <div><strong>Mão</strong><span>${escapeHtml(assisted.handSide || "não confirmada")}</span></div>
+            <div><strong>Evidência mão/objeto</strong><span>${escapeHtml(assisted.associationStatus || "não confirmada")} · ${Math.round(Number(assisted.associationConfidence || 0) * 100)}%</span></div>
             <div><strong>Observação</strong><span>${escapeHtml(assisted.note || "—")}</span></div>
           </div>` : `
           <div class="live-detection-list">
@@ -123,6 +128,10 @@ function render() {
         <div class="live-detection-list">
           <h3>Usuários acompanhados</h3>
           ${people.length ? people.map(person => `<div><strong>${escapeHtml(person.personId || person.id)}</strong><span>${Math.round(Number(person.confidence || 0) * 100)}% · ${escapeHtml(person.source || "rastreamento")}</span></div>`).join("") : `<p>Nenhuma pessoa reconhecida no quadro atual.</p>`}
+        </div>
+        <div class="live-detection-list">
+          <h3>Objetos associados às mãos</h3>
+          ${heldObjects.length ? heldObjects.map(held => `<div><strong>${escapeHtml(held.status === "HELD_STABLE" ? "Objeto na mão" : "Próximo da mão")}</strong><span>${escapeHtml(held.personId || "pessoa não confirmada")} · ${escapeHtml(held.handSide || "mão")} · ${Math.round(Number(held.confidence || 0) * 100)}% · ${Number(held.stableFrames || 0)} quadro(s)</span></div>`).join("") : `<p>Nenhuma associação mão/objeto com evidência suficiente no quadro atual.</p>`}
         </div>
         <div class="live-detection-list">
           <h3>Objetos genéricos visíveis</h3>

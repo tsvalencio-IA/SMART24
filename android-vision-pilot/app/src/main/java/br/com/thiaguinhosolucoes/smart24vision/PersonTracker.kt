@@ -21,7 +21,9 @@ class PersonTracker {
         val trail: ArrayDeque<PointF> = ArrayDeque(),
         var landmarks: List<PointF> = emptyList(),
         var leftWrist: PointF? = null,
-        var rightWrist: PointF? = null
+        var rightWrist: PointF? = null,
+        var leftHand: HandObservation? = null,
+        var rightHand: HandObservation? = null
     )
 
     private val tracks = linkedMapOf<String, Track>()
@@ -48,6 +50,8 @@ class PersonTracker {
                 match.landmarks = observation.landmarks
                 match.leftWrist = observation.leftWrist
                 match.rightWrist = observation.rightWrist
+                match.leftHand = observation.leftHand
+                match.rightHand = observation.rightHand
                 match
             } else {
                 val id = "PERSON-${nextId.toString().padStart(2, '0')}"
@@ -60,7 +64,9 @@ class PersonTracker {
                     lastSeenAt = timestamp,
                     landmarks = observation.landmarks,
                     leftWrist = observation.leftWrist,
-                    rightWrist = observation.rightWrist
+                    rightWrist = observation.rightWrist,
+                    leftHand = observation.leftHand,
+                    rightHand = observation.rightHand
                 ).also { tracks[id] = it }
             }
 
@@ -78,7 +84,9 @@ class PersonTracker {
                 trail = track.trail.toList(),
                 landmarks = track.landmarks,
                 leftWrist = track.leftWrist,
-                rightWrist = track.rightWrist
+                rightWrist = track.rightWrist,
+                leftHand = track.leftHand,
+                rightHand = track.rightHand
             )
         }
         return output

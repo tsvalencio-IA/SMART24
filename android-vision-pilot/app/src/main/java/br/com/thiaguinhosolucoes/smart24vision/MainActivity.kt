@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,13 +34,17 @@ class MainActivity : AppCompatActivity() {
     private val firebase = FirebaseRestClient()
     private lateinit var statusText: TextView
     private lateinit var startButton: Button
+    private lateinit var viewportButton: Button
     private lateinit var calibrateButton: Button
     private lateinit var stopButton: Button
     private lateinit var yooseeShareInput: EditText
+    private val manualControlButtons = mutableListOf<Button>()
     private val uiHandler = Handler(Looper.getMainLooper())
     private var lastCaptureStatusUpdatedAt = 0L
     private var lastFrameSignature = ""
     private var lastFrameUsable = false
+    private var lastScreenFrameSignature = ""
+    private var lastScreenFrameUsable = false
 
     private val captureStatusPoll = object : Runnable {
         override fun run() {
@@ -88,8 +93,10 @@ class MainActivity : AppCompatActivity() {
         lastCaptureStatusUpdatedAt = 0L
         ContextCompat.startForegroundService(this, service)
         startButton.isEnabled = false
+        viewportButton.isEnabled = false
         calibrateButton.isEnabled = false
-        calibrateButton.text = "3. Calibrar (aguardando imagem)"
+        viewportButton.text = "3. Delimitar vídeo (aguardando captura)"
+        calibrateButton.text = "4. Calibrar prateleira (aguardando recorte)"
         stopButton.isEnabled = true
         setStatus("Captura iniciada. Abrindo o Yoosee. Toque na câmera já cadastrada e deixe o vídeo ao vivo em tela cheia.")
         openYoosee()
@@ -100,9 +107,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         statusText = findViewById(R.id.statusText)
         startButton = findViewById(R.id.startButton)
+        viewportButton = findViewById(R.id.viewportButton)
         calibrateButton = findViewById(R.id.calibrateButton)
         stopButton = findViewById(R.id.stopButton)
         yooseeShareInput = findViewById(R.id.yooseeShareInput)
+        val manualPickupButton = findViewById<Button>(R.id.manualPickupButton)
+        val manualReturnButton = findViewById<Button>(R.id.manualReturnButton)
+        val manualConcealButton = findViewById<Button>(R.id.manualConcealButton)
+        val manualAlertButton = findViewById<Button>(R.id.manualAlertButton)
+        val manualFinishButton = findViewById<Button>(R.id.manualFinishButton)
+        manualControlButtons += listOf(
+            manualPickupButton,
+            manualReturnButton,
+            manualConcealButton,
+            manualAlertButton,
+            manualFinishButton
+        )
 
         val prefs = getSharedPreferences("smart24_pilot", MODE_PRIVATE)
         findViewById<EditText>(R.id.emailInput).setText(prefs.getString("email", ""))
@@ -130,15 +150,34 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.loginButton).setOnClickListener { login() }
         findViewById<Button>(R.id.overlayPermissionButton).setOnClickListener { requestOverlayPermission() }
         startButton.setOnClickListener { prepareDemoAndRequestProjection() }
+        viewportButton.setOnClickListener {
+            if (!hasUsableScreenFrame()) {
+                viewportButton.isEnabled = false
+                setStatus("A tela ainda não foi capturada. Abra o vídeo ao vivo no Yoosee, aguarde alguns segundos e volte ao SMART24.")
+                return@setOnClickListener
+            }
+            startActivity(
+                Intent(this, CalibrationActivity::class.java)
+                    .putExtra(CalibrationActivity.EXTRA_MODE, CalibrationActivity.MODE_VIEWPORT)
+            )
+        }
         calibrateButton.setOnClickListener {
             if (!hasUsableCapturedFrame()) {
                 calibrateButton.isEnabled = false
-                calibrateButton.text = "3. Calibrar (aguardando imagem)"
-                setStatus("A calibração ainda está bloqueada porque o SMART24 não recebeu uma imagem válida. Toque em ‘2. Autorizar análise e abrir Yoosee’, abra o vídeo ao vivo e depois volte ao SMART24.")
+                calibrateButton.text = "4. Calibrar prateleira (aguardando recorte)"
+                setStatus("A imagem recortada ainda não foi gerada. Primeiro delimite o vídeo da câmera e depois deixe o Yoosee visível por alguns segundos.")
                 return@setOnClickListener
             }
-            startActivity(Intent(this, CalibrationActivity::class.java))
+            startActivity(
+                Intent(this, CalibrationActivity::class.java)
+                    .putExtra(CalibrationActivity.EXTRA_MODE, CalibrationActivity.MODE_ZONE)
+            )
         }
+        manualPickupButton.setOnClickListener { sendManualControl(CaptureService.ACTION_DEMO_PICKUP) }
+        manualReturnButton.setOnClickListener { sendManualControl(CaptureService.ACTION_DEMO_RETURN) }
+        manualConcealButton.setOnClickListener { sendManualControl(CaptureService.ACTION_DEMO_CONCEAL) }
+        manualAlertButton.setOnClickListener { sendManualControl(CaptureService.ACTION_DEMO_ALERT) }
+        manualFinishButton.setOnClickListener { sendManualControl(CaptureService.ACTION_DEMO_FINISH) }
         stopButton.setOnClickListener {
             CaptureStatusStore.update(
                 this,
@@ -149,6 +188,7 @@ class MainActivity : AppCompatActivity() {
             startButton.isEnabled = PilotSession.authenticated
             refreshCalibrationAvailability()
             stopButton.isEnabled = false
+            setManualControlsEnabled(false)
             setStatus("Análise parada. Os dados já enviados permanecem no Firebase.")
         }
         lastCaptureStatusUpdatedAt = CaptureStatusStore.snapshot(this).updatedAt
@@ -272,11 +312,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareDemoAndRequestProjection() {
-        if (!Settings.canDrawOverlays(this)) {
-            setStatus("Antes da demonstração, autorize o controle flutuante para operar sobre o Yoosee.")
+        val wantsOverlay = findViewById<CheckBox>(R.id.useOverlayControlsInput).isChecked
+        if (wantsOverlay && !Settings.canDrawOverlays(this)) {
+            setStatus("Você marcou os botões flutuantes. Autorize ‘Exibir sobre outros apps’ ou desmarque essa opção e use os controles em tela dividida.")
             requestOverlayPermission()
             return
         }
+        PilotSession.overlayControlsEnabled = wantsOverlay
         PilotSession.demoProductName = findViewById<EditText>(R.id.demoProductNameInput).text.toString().trim()
             .ifBlank { "Produto de demonstração" }
         PilotSession.demoSku = findViewById<EditText>(R.id.demoSkuInput).text.toString().trim()
@@ -284,6 +326,21 @@ class MainActivity : AppCompatActivity() {
         PilotSession.demoZoneId = findViewById<EditText>(R.id.demoZoneInput).text.toString().trim()
             .ifBlank { "PRATELEIRA-DEMO" }
         requestProjection()
+    }
+
+    private fun sendManualControl(action: String) {
+        val capture = CaptureStatusStore.snapshot(this)
+        if (capture.state !in setOf(
+                CaptureStatusStore.STATE_VIDEO_VISIBLE,
+                CaptureStatusStore.STATE_DEGRADED
+            )
+        ) {
+            setStatus("Os controles serão liberados quando o SMART24 estiver analisando o vídeo recortado da câmera.")
+            setManualControlsEnabled(false)
+            return
+        }
+        setStatus("Registrando ação manual…")
+        startService(Intent(this, CaptureService::class.java).apply { this.action = action })
     }
 
     private fun requestProjection() {
@@ -322,47 +379,90 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCalibrationAvailability() {
-        val ready = PilotSession.authenticated && hasUsableCapturedFrame()
-        calibrateButton.isEnabled = ready
-        calibrateButton.text = if (ready) {
-            "3. Calibrar prateleira na imagem"
+        val authenticated = PilotSession.authenticated
+        val screenReady = authenticated && hasUsableScreenFrame()
+        val viewportConfigured = authenticated &&
+            CameraViewportStore.load(this, PilotSession.storeId, PilotSession.cameraId) != null
+        val cameraFrameReady = viewportConfigured && hasUsableCapturedFrame()
+
+        viewportButton.isEnabled = screenReady
+        viewportButton.text = when {
+            !screenReady -> "3. Delimitar vídeo (aguardando captura)"
+            viewportConfigured -> "3. Ajustar novamente a área do vídeo"
+            else -> "3. Delimitar somente o vídeo da câmera"
+        }
+        calibrateButton.isEnabled = cameraFrameReady
+        calibrateButton.text = if (cameraFrameReady) {
+            "4. Calibrar prateleira na imagem recortada"
         } else {
-            "3. Calibrar (aguardando imagem)"
+            "4. Calibrar prateleira (aguardando recorte)"
         }
     }
 
+    private fun hasUsableScreenFrame(): Boolean {
+        val result = inspectCapturedFrame(
+            fileName = "latest_screen_frame.jpg",
+            previousSignature = lastScreenFrameSignature,
+            previousResult = lastScreenFrameUsable
+        )
+        lastScreenFrameSignature = result.first
+        lastScreenFrameUsable = result.second
+        return result.second
+    }
+
     private fun hasUsableCapturedFrame(): Boolean {
-        val file = File(filesDir, "latest_frame.jpg")
+        val result = inspectCapturedFrame(
+            fileName = "latest_frame.jpg",
+            previousSignature = lastFrameSignature,
+            previousResult = lastFrameUsable
+        )
+        lastFrameSignature = result.first
+        lastFrameUsable = result.second
+        return result.second
+    }
+
+    private fun inspectCapturedFrame(
+        fileName: String,
+        previousSignature: String,
+        previousResult: Boolean
+    ): Pair<String, Boolean> {
+        val file = File(filesDir, fileName)
         val signature = if (file.exists()) {
             "${file.length()}:${file.lastModified()}"
         } else {
             "missing"
         }
-        if (signature == lastFrameSignature) return lastFrameUsable
-        lastFrameSignature = signature
-        lastFrameUsable = false
+        if (signature == previousSignature) return signature to previousResult
         if (!file.exists() || file.length() < 1024L) {
-            return false
+            return signature to false
         }
-        val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() ?: return false
-        lastFrameUsable = try {
+        val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
+            ?: return signature to false
+        val usable = try {
             bitmap.width >= 32 && bitmap.height >= 32 && !BitmapUtils.isMostlyBlack(bitmap)
         } finally {
             if (!bitmap.isRecycled) bitmap.recycle()
         }
-        return lastFrameUsable
+        return signature to usable
     }
 
     private fun refreshCaptureUi() {
         if (!::calibrateButton.isInitialized) return
         refreshCalibrationAvailability()
         val snapshot = CaptureStatusStore.snapshot(this)
+        setManualControlsEnabled(
+            snapshot.state in setOf(
+                CaptureStatusStore.STATE_VIDEO_VISIBLE,
+                CaptureStatusStore.STATE_DEGRADED
+            )
+        )
         if (snapshot.updatedAt <= lastCaptureStatusUpdatedAt) return
         lastCaptureStatusUpdatedAt = snapshot.updatedAt
 
         when (snapshot.state) {
             CaptureStatusStore.STATE_STARTING,
             CaptureStatusStore.STATE_WAITING_VIDEO,
+            CaptureStatusStore.STATE_WAITING_VIEWPORT,
             CaptureStatusStore.STATE_NO_IMAGE,
             CaptureStatusStore.STATE_VIDEO_VISIBLE,
             CaptureStatusStore.STATE_DEGRADED -> {
@@ -374,15 +474,21 @@ class MainActivity : AppCompatActivity() {
             CaptureStatusStore.STATE_ERROR -> {
                 startButton.isEnabled = PilotSession.authenticated
                 stopButton.isEnabled = false
+                setManualControlsEnabled(false)
                 if (snapshot.message.isNotBlank()) setStatus(snapshot.message)
             }
 
             CaptureStatusStore.STATE_STOPPED -> {
                 startButton.isEnabled = PilotSession.authenticated
                 stopButton.isEnabled = false
+                setManualControlsEnabled(false)
                 if (snapshot.message.isNotBlank()) setStatus(snapshot.message)
             }
         }
+    }
+
+    private fun setManualControlsEnabled(enabled: Boolean) {
+        manualControlButtons.forEach { it.isEnabled = enabled }
     }
 
     private fun setStatus(text: String) { statusText.text = text }

@@ -6,13 +6,14 @@ plugins {
 android {
     namespace = "br.com.thiaguinhosolucoes.smart24vision"
     compileSdk = 35
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "2.2.2-media-projection-result-fix"
+        versionCode = 11
+        versionName = "2.3.0-person-hand-object-evidence"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")

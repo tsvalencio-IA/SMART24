@@ -13,6 +13,7 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
@@ -47,15 +48,17 @@ class VisionEngine {
             .build()
     )
     private val personTracker = PersonTracker()
+    private val objectTracker = ObjectTracker()
+    private val handObjectAssociator = HandObjectAssociator()
 
     suspend fun analyze(bitmap: Bitmap): VisionResult = withContext(Dispatchers.Default) {
         val capturedAt = System.currentTimeMillis()
         val fullInput = InputImage.fromBitmap(bitmap, 0)
         val candidates = mutableListOf<PersonObservation>()
 
-        // O detector de pose identifica a pessoa principal e expõe os pulsos.
-        // Na demonstração assistida, o operador confirma o evento; o pulso serve
-        // somente para escolher o objeto visual mais próximo.
+        // O ML Kit Pose identifica a pessoa principal. Além dos pulsos, usamos
+        // polegar, indicador e mindinho para calcular uma âncora de cada mão.
+        // A identidade continua anônima: PERSON-XX é apenas um ID de sessão.
         val pose = runCatching { Tasks.await(poseDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrNull()
         val poseLandmarks = pose?.allPoseLandmarks.orEmpty().filter { it.inFrameLikelihood >= 0.45f }
         if (poseLandmarks.size >= 8) {
@@ -83,6 +86,22 @@ class VisionEngine {
             val rightWrist = pose?.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
                 ?.takeIf { it.inFrameLikelihood >= 0.35f }
                 ?.let { PointF((it.position.x / bitmap.width).coerceIn(0f, 1f), (it.position.y / bitmap.height).coerceIn(0f, 1f)) }
+            val leftHand = buildHand(
+                pose = pose,
+                side = "LEFT",
+                wristType = PoseLandmark.LEFT_WRIST,
+                fingertipTypes = intArrayOf(PoseLandmark.LEFT_THUMB, PoseLandmark.LEFT_INDEX, PoseLandmark.LEFT_PINKY),
+                width = bitmap.width,
+                height = bitmap.height
+            )
+            val rightHand = buildHand(
+                pose = pose,
+                side = "RIGHT",
+                wristType = PoseLandmark.RIGHT_WRIST,
+                fingertipTypes = intArrayOf(PoseLandmark.RIGHT_THUMB, PoseLandmark.RIGHT_INDEX, PoseLandmark.RIGHT_PINKY),
+                width = bitmap.width,
+                height = bitmap.height
+            )
 
             candidates += PersonObservation(
                 personId = "POSE-PRIMARY",
@@ -91,7 +110,9 @@ class VisionEngine {
                 source = "POSE_TRACK_GAME_DERIVED",
                 landmarks = landmarks,
                 leftWrist = leftWrist,
-                rightWrist = rightWrist
+                rightWrist = rightWrist,
+                leftHand = leftHand,
+                rightHand = rightHand
             )
         }
 
@@ -136,8 +157,68 @@ class VisionEngine {
         }
 
         val persons = personTracker.update(candidates, capturedAt)
+        val objects = objectTracker.update(genericObjects, capturedAt)
+        val heldObjects = handObjectAssociator.update(persons, objects, capturedAt)
         val tags = detectTags(bitmap)
-        VisionResult(bitmap.width, bitmap.height, persons, genericObjects, tags, capturedAt)
+        VisionResult(
+            width = bitmap.width,
+            height = bitmap.height,
+            persons = persons,
+            objects = objects,
+            heldObjects = heldObjects,
+            tags = tags,
+            capturedAt = capturedAt
+        )
+    }
+
+    private fun buildHand(
+        pose: Pose?,
+        side: String,
+        wristType: Int,
+        fingertipTypes: IntArray,
+        width: Int,
+        height: Int
+    ): HandObservation? {
+        val detectedPose = pose ?: return null
+        val wristLandmark = detectedPose.getPoseLandmark(wristType)
+            ?.takeIf { it.inFrameLikelihood >= 0.35f }
+            ?: return null
+        val wrist = PointF(
+            (wristLandmark.position.x / width).coerceIn(0f, 1f),
+            (wristLandmark.position.y / height).coerceIn(0f, 1f)
+        )
+        val fingertipsWithConfidence = fingertipTypes.toList().mapNotNull { type ->
+            detectedPose.getPoseLandmark(type)
+                ?.takeIf { it.inFrameLikelihood >= 0.25f }
+                ?.let { landmark ->
+                    PointF(
+                        (landmark.position.x / width).coerceIn(0f, 1f),
+                        (landmark.position.y / height).coerceIn(0f, 1f)
+                    ) to landmark.inFrameLikelihood.toDouble()
+                }
+        }
+        val fingertips = fingertipsWithConfidence.map { it.first }
+        val anchor = if (fingertips.isEmpty()) {
+            wrist
+        } else {
+            val tipX = fingertips.map { it.x }.average().toFloat()
+            val tipY = fingertips.map { it.y }.average().toFloat()
+            PointF(
+                wrist.x * 0.32f + tipX * 0.68f,
+                wrist.y * 0.32f + tipY * 0.68f
+            )
+        }
+        val confidenceValues = buildList {
+            add(wristLandmark.inFrameLikelihood.toDouble())
+            addAll(fingertipsWithConfidence.map { it.second })
+        }
+        return HandObservation(
+            side = side,
+            wrist = wrist,
+            anchor = anchor,
+            fingertips = fingertips,
+            confidence = confidenceValues.average().coerceIn(0.25, 0.99)
+        )
     }
 
     private fun expandFaceBox(face: RectF): RectF {

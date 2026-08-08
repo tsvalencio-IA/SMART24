@@ -5,7 +5,9 @@
 Demonstrar ao proprietário, com uma câmera Yoosee real, que o SMART24 consegue:
 
 - capturar o vídeo exibido pelo aplicativo nativo;
-- detectar pessoas, pulsos e objetos genéricos;
+- isolar somente a imagem da câmera, removendo a interface capturada do celular;
+- detectar pessoas anônimas, mãos e objetos genéricos;
+- exigir persistência em vários quadros antes de informar `objeto na mão`;
 - permitir que o operador confirme o momento em que alguém pegou, devolveu ou possivelmente ocultou um item;
 - associar a confirmação à pessoa e ao objeto visual mais próximos;
 - publicar o evento, o carrinho demonstrativo, a imagem e a ocorrência no Firebase;
@@ -43,8 +45,8 @@ Painel GitHub Pages + alerta do navegador
 
 1. Envie esta versão do projeto ao repositório.
 2. Abra a aba **Actions**.
-3. Execute **Build SMART24 Vision APK**.
-4. Baixe o artefato `SMART24-Vision-Pilot-APK`.
+3. Execute **Build SMART24 APK Completo**.
+4. Baixe o artefato `SMART24-APK-COMPLETO-V2.3.0`.
 5. Extraia e instale `app-debug.apk`.
 
 O workflow usa Gradle no próprio GitHub. Não é necessário ter Android Studio no celular.
@@ -80,15 +82,20 @@ Não coloque senha da câmera no Firebase, no GitHub ou no formulário.
    - nome do item demonstrado;
    - SKU demonstrativo;
    - zona ou prateleira.
-5. Toque em **Autorizar controle flutuante sobre o Yoosee**.
-6. Autorize **Exibir sobre outros apps**.
-7. Volte ao SMART24.
-8. Toque em **Entrar no Firebase**.
-9. Toque em **Autorizar análise e abrir Yoosee**.
-10. Autorize a captura de tela.
-11. Abra a câmera e deixe o vídeo ao vivo em tela cheia.
+5. Para tela dividida, deixe **Mostrar botões flutuantes** desmarcado. Para Yoosee em tela cheia, marque a opção e autorize **Exibir sobre outros apps**.
+6. Toque em **Entrar no Firebase**.
+7. Toque em **Autorizar análise e abrir Yoosee**.
+8. Autorize a captura de tela.
+9. Abra a câmera e deixe o vídeo ao vivo visível.
+10. Volte ao SMART24 e toque em **3. Delimitar somente o vídeo da câmera**.
+11. Marque os dois cantos da imagem ao vivo sem incluir menus, botões ou o painel flutuante.
+12. Volte ao Yoosee e aguarde o SMART24 gerar o quadro recortado.
+13. Use **4. Calibrar prateleira** sobre o vídeo já isolado.
+14. Em tela dividida, opere PEGOU, DEVOLVEU, ESCONDEU e ALERTA na seção **D. Controle manual** do módulo.
 
 ## Controles flutuantes
+
+Os mesmos comandos também ficam dentro do módulo nativo para uso em tela dividida. O painel flutuante é opcional e deve permanecer fora da área de vídeo delimitada.
 
 ### PEGOU
 
@@ -97,9 +104,11 @@ Use no momento em que a pessoa pega o item.
 O sistema:
 
 - usa a última pessoa detectada;
-- procura o objeto genérico mais próximo dos pulsos;
+- prioriza uma associação mão/objeto já estável em vários quadros;
+- se ainda não houver estabilidade, registra explicitamente a evidência inferior;
 - cria um identificador demonstrativo;
 - adiciona o item ao carrinho;
+- guarda um recorte do objeto confirmado para revisão do futuro conjunto de treinamento;
 - publica `DEMO_TRACK_STARTED`.
 
 ### DEVOLVEU
@@ -142,6 +151,8 @@ Encerra o rastreio atual sem dizer que houve devolução ou irregularidade.
 5. Observe:
    - pessoas detectadas;
    - objetos genéricos;
+   - objetos próximos das mãos;
+   - objetos estáveis nas mãos;
    - item acompanhado;
    - modo visual;
    - eventos;
@@ -167,6 +178,7 @@ Encerra o rastreio atual sem dizer que houve devolução ou irregularidade.
 - a captura depende do Yoosee permanecer visível;
 - o sistema pode perder objetos cobertos pela mão ou pelo corpo;
 - o detector genérico não reconhece necessariamente o SKU;
+- nesta fase, o ML Kit de pose entrega mãos detalhadas apenas para a pessoa principal de maior confiança;
 - o operador confirma o evento;
 - não há integração com pagamento ou porta;
 - não é operação 24 horas;

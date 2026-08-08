@@ -1,7 +1,10 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.media.Image
+import kotlin.math.ceil
+import kotlin.math.floor
 
 object BitmapUtils {
     fun fromRgbaImage(image: Image): Bitmap {
@@ -45,5 +48,30 @@ object BitmapUtils {
             y += stepY
         }
         return total > 0 && dark.toDouble() / total.toDouble() > 0.96
+    }
+
+    fun cropViewport(bitmap: Bitmap, viewport: CameraViewport): Bitmap {
+        require(viewport.valid) { "Área do vídeo inválida." }
+        return cropNormalized(
+            bitmap,
+            RectF(viewport.left, viewport.top, viewport.right, viewport.bottom)
+        )
+    }
+
+    fun cropNormalized(bitmap: Bitmap, rect: RectF, padding: Float = 0f): Bitmap {
+        val left = (rect.left - padding).coerceIn(0f, 1f)
+        val top = (rect.top - padding).coerceIn(0f, 1f)
+        val right = (rect.right + padding).coerceIn(0f, 1f)
+        val bottom = (rect.bottom + padding).coerceIn(0f, 1f)
+        require(right > left && bottom > top) { "Recorte normalizado inválido." }
+
+        val x = floor(left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+        val y = floor(top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+        val endX = ceil(right * bitmap.width).toInt().coerceIn(x + 1, bitmap.width)
+        val endY = ceil(bottom * bitmap.height).toInt().coerceIn(y + 1, bitmap.height)
+        val width = endX - x
+        val height = endY - y
+        require(width >= 16 && height >= 16) { "Recorte pequeno demais para análise." }
+        return Bitmap.createBitmap(bitmap, x, y, width, height)
     }
 }

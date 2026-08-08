@@ -64,6 +64,13 @@ class FrameAnnotator {
             }
             person.leftWrist?.let { canvas.drawCircle(it.x * w, it.y * h, 11f * scale, stroke) }
             person.rightWrist?.let { canvas.drawCircle(it.x * w, it.y * h, 11f * scale, stroke) }
+            listOfNotNull(person.leftHand, person.rightHand).forEach { hand ->
+                fill.color = Color.rgb(255, 214, 0)
+                canvas.drawCircle(hand.anchor.x * w, hand.anchor.y * h, 8f * scale, fill)
+                hand.fingertips.forEach { fingertip ->
+                    canvas.drawCircle(fingertip.x * w, fingertip.y * h, 5f * scale, fill)
+                }
+            }
         }
 
         result.objects.forEach { obj ->
@@ -74,6 +81,29 @@ class FrameAnnotator {
             canvas.drawRect(rect, stroke)
             val label = if (active) "ITEM ACOMPANHADO" else obj.labels.firstOrNull() ?: obj.objectId
             drawLabel(canvas, label, rect.left, (rect.bottom + 4f * scale).coerceAtMost(h - 50f * scale), stroke.color, scale)
+        }
+        stroke.strokeWidth = 4f * scale
+
+        result.heldObjects.forEach { held ->
+            val stable = held.status == "HELD_STABLE"
+            val color = if (stable) Color.rgb(255, 64, 129) else Color.rgb(255, 179, 0)
+            stroke.color = color
+            stroke.strokeWidth = (if (stable) 7f else 4f) * scale
+            canvas.drawLine(held.handX * w, held.handY * h, held.objectX * w, held.objectY * h, stroke)
+            canvas.drawCircle(held.handX * w, held.handY * h, (if (stable) 18f else 13f) * scale, stroke)
+            val label = if (stable) {
+                "NA MÃO ${Math.round(held.confidence * 100)}%"
+            } else {
+                "PRÓXIMO DA MÃO ${Math.round(held.confidence * 100)}%"
+            }
+            drawLabel(
+                canvas,
+                label,
+                (held.objectX * w + 12f * scale).coerceAtMost(w * 0.66f),
+                (held.objectY * h - 34f * scale).coerceAtLeast(58f * scale),
+                color,
+                scale
+            )
         }
         stroke.strokeWidth = 4f * scale
 
@@ -108,8 +138,9 @@ class FrameAnnotator {
         canvas.drawRect(0f, 0f, w, 54f * scale, fill)
         text.color = Color.WHITE
         val demoText = assisted?.let { " • demo ${it.status}" } ?: ""
+        val stableHeldCount = result.heldObjects.count { it.status == "HELD_STABLE" }
         canvas.drawText(
-            "SMART24 • pessoas ${result.persons.size} • objetos ${result.objects.size} • etiquetas ${result.tags.size}$demoText",
+            "SMART24 • pessoas ${result.persons.size} • objetos ${result.objects.size} • na mão $stableHeldCount • etiquetas ${result.tags.size}$demoText",
             14f * scale,
             36f * scale,
             text
