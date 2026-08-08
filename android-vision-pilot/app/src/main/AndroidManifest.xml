@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -26,6 +29,8 @@
         android:theme="@style/Theme.Smart24Vision"
         android:usesCleartextTraffic="false">
         <activity android:name=".CalibrationActivity" android:screenOrientation="portrait" />
+        <activity android:name=".DirectCameraActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".LegacyCaptureActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PortalActivity" android:exported="true">
             <intent-filter>
