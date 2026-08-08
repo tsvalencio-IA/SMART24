@@ -19,6 +19,7 @@ data class Zone(
 object CoordinateSpaces {
     const val FULL_SCREEN_LEGACY = "FULL_SCREEN_LEGACY"
     const val CAMERA_VIEWPORT_V1 = "CAMERA_VIEWPORT_V1"
+    const val DIRECT_CAMERA_FRAME_V1 = "DIRECT_CAMERA_FRAME_V1"
 }
 
 data class CameraViewport(

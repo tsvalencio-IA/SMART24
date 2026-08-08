@@ -15,6 +15,7 @@ import java.io.File
 class CalibrationActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_MODE = "calibration_mode"
+        const val EXTRA_COORDINATE_SPACE = "calibration_coordinate_space"
         const val MODE_VIEWPORT = "VIEWPORT"
         const val MODE_ZONE = "ZONE"
     }
@@ -35,6 +36,13 @@ class CalibrationActivity : AppCompatActivity() {
         val returnButton = findViewById<Button>(R.id.returnToCaptureButton)
         val mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_ZONE
         val viewportMode = mode == MODE_VIEWPORT
+        val coordinateSpace = intent.getStringExtra(EXTRA_COORDINATE_SPACE)
+            ?.takeIf {
+                it == CoordinateSpaces.DIRECT_CAMERA_FRAME_V1 ||
+                    it == CoordinateSpaces.CAMERA_VIEWPORT_V1
+            }
+            ?: CoordinateSpaces.CAMERA_VIEWPORT_V1
+        val directCameraMode = !viewportMode && coordinateSpace == CoordinateSpaces.DIRECT_CAMERA_FRAME_V1
         val file = File(filesDir, if (viewportMode) "latest_screen_frame.jpg" else "latest_frame.jpg")
 
         if (viewportMode) {
@@ -45,7 +53,11 @@ class CalibrationActivity : AppCompatActivity() {
             saveButton.text = "SALVAR ÁREA DO VÍDEO"
         } else {
             title.text = "Calibrar zona da prateleira"
-            instructions.text = "A imagem abaixo já deve conter somente a câmera. Toque no canto superior esquerdo e depois no canto inferior direito da prateleira/geladeira."
+            instructions.text = if (directCameraMode) {
+                "Esta imagem veio diretamente do RTSP da câmera. Toque no canto superior esquerdo e depois no canto inferior direito da prateleira/geladeira."
+            } else {
+                "A imagem abaixo já deve conter somente a câmera. Toque no canto superior esquerdo e depois no canto inferior direito da prateleira/geladeira."
+            }
             resetButton.text = "REFAZER ZONA"
             saveButton.text = "SALVAR ZONA"
         }
@@ -67,6 +79,8 @@ class CalibrationActivity : AppCompatActivity() {
             returnButton.visibility = View.GONE
             status.text = if (viewportMode) {
                 "Tela capturada carregada. Marque somente os limites da imagem ao vivo da câmera."
+            } else if (directCameraMode) {
+                "Quadro RTSP direto carregado. Marque os dois cantos da zona."
             } else {
                 "Imagem recortada da câmera carregada. Marque os dois cantos da zona."
             }
@@ -78,6 +92,8 @@ class CalibrationActivity : AppCompatActivity() {
             returnButton.visibility = View.VISIBLE
             status.text = if (viewportMode) {
                 "SEM CAPTURA DA TELA. Volte ao SMART24, autorize a análise, abra o vídeo ao vivo no Yoosee e aguarde alguns segundos."
+            } else if (directCameraMode) {
+                "SEM QUADRO RTSP. Volte à câmera direta e aguarde o SMART24 analisar a primeira imagem."
             } else {
                 "SEM RECORTE DA CÂMERA. Primeiro delimite a área do vídeo; depois deixe o Yoosee visível por alguns segundos para o SMART24 gerar a imagem recortada."
             }
@@ -145,15 +161,21 @@ class CalibrationActivity : AppCompatActivity() {
                             "top" to rect[1],
                             "right" to rect[2],
                             "bottom" to rect[3],
-                            "coordinateSpace" to CoordinateSpaces.CAMERA_VIEWPORT_V1,
+                            "coordinateSpace" to coordinateSpace,
                             "updatedAt" to now,
                             "updatedBy" to PilotSession.uid,
-                            "source" to "ANDROID_SCREEN_CAPTURE_PILOT"
+                            "source" to if (directCameraMode) {
+                                "ANDROID_DIRECT_RTSP_PILOT"
+                            } else {
+                                "ANDROID_SCREEN_CAPTURE_PILOT"
+                            }
                         ))
                     }
                 }.onSuccess {
                     status.text = if (viewportMode) {
                         "Área do vídeo salva. Volte ao Yoosee e aguarde alguns segundos; depois calibre a prateleira sobre a imagem já recortada."
+                    } else if (directCameraMode) {
+                        "Zona $zoneId salva no Firebase. A câmera direta passará a usá-la em até 10 segundos."
                     } else {
                         "Zona $zoneId salva no Firebase. O piloto passará a usá-la em até 10 segundos."
                     }
