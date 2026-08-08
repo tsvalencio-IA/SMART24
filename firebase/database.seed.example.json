@@ -13,6 +13,8 @@
   "tags": {},
   "cameras": {},
   "cameraBridges": {},
+  "cameraViewports": {},
+  "visionSamples": {},
   "sessions": {},
   "events": {},
   "occurrences": {},

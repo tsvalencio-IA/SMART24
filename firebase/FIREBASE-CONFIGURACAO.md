@@ -63,3 +63,12 @@ As regras não permitem leitura ou escrita pública. O agente local futuro utili
 Após enviar esta versão ao GitHub, publique novamente `database.rules.json`. A nova regra permite `/integrations/yoosee` somente para usuários autenticados e gravação apenas por administrador, exigindo `passwordStored: false`.
 
 O cadastro de câmeras também bloqueia explicitamente `inviteCode`, `shareUrl`, `rawQrPayload`, `password`, `token` e `rtspUrl`.
+
+## Atualização da visão 2.3.0
+
+Antes de testar a delimitação da câmera e a coleta de recortes, publique novamente o arquivo completo `database.rules.json`. Esta versão adiciona:
+
+- `/cameraViewports`: limites normalizados da imagem real da câmera, graváveis por `admin` e `operator`;
+- `/visionSamples`: recortes confirmados pelo operador para revisão do futuro conjunto de treinamento, com limite de tamanho e sem credenciais da câmera.
+
+Se essas regras não forem publicadas, o APK informará falha ao salvar a área do vídeo ou a amostra do produto.

@@ -77,6 +77,26 @@
         }
       }
     },
+    "cameraViewports": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
+      "$storeId": {
+        "$cameraId": {
+          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+          ".validate": "newData.hasChildren(['storeId','cameraId','left','top','right','bottom','coordinateSpace','updatedAt']) && newData.child('storeId').val() === $storeId && newData.child('cameraId').val() === $cameraId && newData.child('coordinateSpace').val() === 'CAMERA_VIEWPORT_V1' && newData.child('left').isNumber() && newData.child('top').isNumber() && newData.child('right').isNumber() && newData.child('bottom').isNumber() && newData.child('left').val() >= 0 && newData.child('top').val() >= 0 && newData.child('right').val() <= 1 && newData.child('bottom').val() <= 1 && newData.child('right').val() > newData.child('left').val() && newData.child('bottom').val() > newData.child('top').val()"
+        }
+      }
+    },
+    "visionSamples": {
+      ".read": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+      "$storeId": {
+        "$cameraId": {
+          "$sampleId": {
+            ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'operator')",
+            ".validate": "newData.hasChildren(['sampleId','storeId','cameraId','sessionId','productName','sku','imageDataUrl','associationStatus','operatorConfirmed','eligibleForTraining','createdAt']) && newData.child('storeId').val() === $storeId && newData.child('cameraId').val() === $cameraId && newData.child('sampleId').isString() && newData.child('productName').isString() && newData.child('sku').isString() && newData.child('sku').val().length > 0 && newData.child('imageDataUrl').isString() && newData.child('imageDataUrl').val().length < 500000 && newData.child('operatorConfirmed').val() === true && newData.child('eligibleForTraining').isBoolean()"
+          }
+        }
+      }
+    },
     "carts": {
       ".read": "auth != null && root.child('roles').child(auth.uid).exists()",
       "$storeId": {
