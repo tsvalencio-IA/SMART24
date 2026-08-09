@@ -1,6 +1,8 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -24,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.net.SocketFactory
 
 /** Reprodução e análise do stream entregue diretamente pela câmera. */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
@@ -40,12 +43,15 @@ class DirectCameraActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val analysisBusy = AtomicBoolean(false)
     private var player: ExoPlayer? = null
+    private var compatibilityProxy: RtspCompatibilityProxy? = null
     private var candidates: List<Candidate> = emptyList()
     private var candidateIndex = 0
     private var streamReady = false
     private var firstFrameAnalyzed = false
+    private var firmwareCompatibilityActive = false
     private var stopping = false
     private var lastAnalysisErrorAt = 0L
+    private var connectionGeneration = 0
 
     private val frameLoop = object : Runnable {
         override fun run() {
@@ -164,17 +170,55 @@ class DirectCameraActivity : AppCompatActivity() {
         }
 
         candidateIndex = index
+        val generation = ++connectionGeneration
         streamReady = false
+        firmwareCompatibilityActive = false
         mainHandler.removeCallbacks(frameLoop)
         releasePlayer()
         progress.visibility = View.VISIBLE
         setStatus("Conectando diretamente à câmera • ${candidates[index].label}…")
 
+        val upstreamSocketFactory = wifiSocketFactory()
+        if (upstreamSocketFactory == null) {
+            progress.visibility = View.GONE
+            setStatus("O celular não está conectado ao Wi-Fi. Conecte-o à mesma rede local da câmera e tente novamente.")
+            return
+        }
+        val candidate = candidates[index]
+        val cameraHost = candidate.uri.host
+        val cameraPort = candidate.uri.port.takeIf { it > 0 } ?: 554
+        if (cameraHost.isNullOrBlank()) {
+            progress.visibility = View.GONE
+            setStatus("O endereço local da câmera é inválido. Volte e confira o IP informado.")
+            return
+        }
+        val proxy = runCatching {
+            RtspCompatibilityProxy(
+                upstreamHost = cameraHost,
+                upstreamPort = cameraPort,
+                upstreamSocketFactory = upstreamSocketFactory,
+                onCSeqRepair = {
+                    mainHandler.post {
+                        if (!stopping && generation == connectionGeneration) {
+                            firmwareCompatibilityActive = true
+                            setStatus("Câmera respondeu. Compatibilidade com o firmware RTSP antigo ativada…")
+                        }
+                    }
+                }
+            )
+        }.getOrElse {
+            progress.visibility = View.GONE
+            setStatus("Não foi possível preparar a conexão RTSP protegida. Tente novamente.")
+            return
+        }
+        compatibilityProxy = proxy
+
         val mediaSource = RtspMediaSource.Factory()
             .setForceUseRtpTcp(true)
             .setTimeoutMs(RTSP_TIMEOUT_MS)
+            .setSocketFactory(proxy.media3SocketFactory)
             .setDebugLoggingEnabled(false)
-            .createMediaSource(MediaItem.fromUri(candidates[index].uri))
+            .createMediaSource(MediaItem.fromUri(candidate.uri))
 
         val newPlayer = ExoPlayer.Builder(this).build()
         newPlayer.addListener(object : Player.Listener {
@@ -188,7 +232,12 @@ class DirectCameraActivity : AppCompatActivity() {
                     Player.STATE_READY -> {
                         streamReady = true
                         progress.visibility = View.GONE
-                        setStatus("Câmera conectada diretamente. Aguardando o primeiro quadro para iniciar a visão…")
+                        val compatibility = if (firmwareCompatibilityActive) {
+                            " • firmware antigo normalizado"
+                        } else {
+                            ""
+                        }
+                        setStatus("Câmera conectada diretamente$compatibility. Aguardando o primeiro quadro para iniciar a visão…")
                         scheduleFrameLoop()
                     }
                     Player.STATE_ENDED -> reconnectCurrentCandidate()
@@ -303,9 +352,22 @@ class DirectCameraActivity : AppCompatActivity() {
 
     private fun releasePlayer() {
         val active = player
+        val activeProxy = compatibilityProxy
         player = null
+        compatibilityProxy = null
         playerView.player = null
         runCatching { active?.release() }
+        runCatching { activeProxy?.close() }
+    }
+
+    /** Garante que o tráfego local continue no Wi-Fi mesmo quando o 4G estiver ligado. */
+    private fun wifiSocketFactory(): SocketFactory? {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        val wifiNetwork = connectivity.allNetworks.firstOrNull { network ->
+            connectivity.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        }
+        return wifiNetwork?.socketFactory
     }
 
     private fun setManualControlsEnabled(enabled: Boolean) {
