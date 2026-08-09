@@ -12,8 +12,8 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "2.4.0-direct-rtsp-onvif"
+        versionCode = 13
+        versionName = "2.4.1-direct-rtsp-firmware-fix"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")
@@ -44,4 +44,5 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:object-detection:17.0.2")
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    testImplementation("junit:junit:4.13.2")
 }
