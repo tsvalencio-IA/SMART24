@@ -19,11 +19,7 @@ class PersonTracker {
         var source: String,
         var lastSeenAt: Long,
         val trail: ArrayDeque<PointF> = ArrayDeque(),
-        var landmarks: List<PointF> = emptyList(),
-        var leftWrist: PointF? = null,
-        var rightWrist: PointF? = null,
-        var leftHand: HandObservation? = null,
-        var rightHand: HandObservation? = null
+        var landmarks: List<PointF> = emptyList()
     )
 
     private val tracks = linkedMapOf<String, Track>()
@@ -48,26 +44,12 @@ class PersonTracker {
                 match.source = observation.source
                 match.lastSeenAt = timestamp
                 match.landmarks = observation.landmarks
-                match.leftWrist = observation.leftWrist
-                match.rightWrist = observation.rightWrist
-                match.leftHand = observation.leftHand
-                match.rightHand = observation.rightHand
                 match
             } else {
                 val id = "PERSON-${nextId.toString().padStart(2, '0')}"
                 nextId += 1
-                Track(
-                    id = id,
-                    box = RectF(observation.box),
-                    confidence = observation.confidence,
-                    source = observation.source,
-                    lastSeenAt = timestamp,
-                    landmarks = observation.landmarks,
-                    leftWrist = observation.leftWrist,
-                    rightWrist = observation.rightWrist,
-                    leftHand = observation.leftHand,
-                    rightHand = observation.rightHand
-                ).also { tracks[id] = it }
+                Track(id, RectF(observation.box), observation.confidence, observation.source, timestamp, landmarks = observation.landmarks)
+                    .also { tracks[id] = it }
             }
 
             val center = PointF(track.box.centerX(), track.box.centerY())
@@ -82,11 +64,7 @@ class PersonTracker {
                 confidence = track.confidence,
                 source = track.source,
                 trail = track.trail.toList(),
-                landmarks = track.landmarks,
-                leftWrist = track.leftWrist,
-                rightWrist = track.rightWrist,
-                leftHand = track.leftHand,
-                rightHand = track.rightHand
+                landmarks = track.landmarks
             )
         }
         return output

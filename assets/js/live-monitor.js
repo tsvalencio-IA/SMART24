@@ -23,15 +23,8 @@ function flatten(value) {
 function statusClass(status) {
   const value = String(status || "").toUpperCase();
   if (["VIDEO_VISIBLE", "ONLINE"].includes(value)) return "status-badge--ok";
-  if (["WAITING_VIDEO", "WAITING_VIEWPORT", "DEGRADED"].includes(value)) return "status-badge--warning";
+  if (["WAITING_VIDEO", "DEGRADED"].includes(value)) return "status-badge--warning";
   return "status-badge--danger";
-}
-
-function assistedStatusClass(status) {
-  const value = String(status || "").toUpperCase();
-  if (["TRACKING", "TRACKING_HELD", "TRACKING_NEAR_HAND", "WRIST_TRACKING"].includes(value)) return "status-badge--ok";
-  if (value.startsWith("ALERT") || value === "VISUAL_LOST") return "status-badge--danger";
-  return "status-badge--warning";
 }
 
 function stale(item) {
@@ -54,15 +47,17 @@ function render() {
 
   grid.classList.remove("is-hidden");
   empty.classList.add("is-hidden");
-  if (!selectedKey || !streams.some(item => item.key === selectedKey)) selectedKey = streams[0].key;
+  if (!selectedKey || !streams.some(item => item.key === selectedKey)) {
+    selectedKey = streams[0].key;
+  }
 
   grid.innerHTML = streams.map(item => {
     const isStale = stale(item);
     const status = isStale ? "SEM ATUALIZAÇÃO" : (item.status || "SEM ESTADO");
-    const assisted = item.assistedDemo;
     const image = item.frameDataUrl
       ? `<img src="${item.frameDataUrl}" alt="Imagem analisada da câmera ${escapeHtml(item.cameraId)}">`
-      : `<div class="live-camera-placeholder"><strong>Sem quadro publicado</strong><span>Abra o vídeo no Yoosee e inicie o Vision Pilot.</span></div>`;
+      : `<div class="live-camera-placeholder"><strong>Sem quadro publicado</strong><span>Inicie o protótipo no celular e abra o vídeo no Yoosee.</span></div>`;
+
     return `<button class="live-camera-card ${item.key === selectedKey ? "is-selected" : ""}" type="button" data-live-key="${escapeHtml(item.key)}">
       <div class="live-camera-frame">${image}<span class="live-camera-timestamp">${item.updatedAt ? formatDate(item.updatedAt) : "nunca"}</span></div>
       <div class="live-camera-card-copy">
@@ -71,75 +66,61 @@ function render() {
       </div>
       <div class="live-camera-metrics">
         <span>👤 ${Number(item.personsDetected || 0)}</span>
-        <span>◫ ${Number(item.objectsDetected || 0)}</span>
-        <span>✋ ${Number(item.heldObjectsDetected || 0)}</span>
-        <span>⌗ ${Number(item.tagsDetected || 0)}</span>
+        <span>◈ ${Number(item.objectsDetected || 0)}</span>
       </div>
-      ${assisted ? `<div class="live-camera-metrics"><span>Demo: ${escapeHtml(assisted.status || "—")}</span></div>` : ""}
     </button>`;
   }).join("");
 
-  document.querySelectorAll("[data-live-key]").forEach(button => button.addEventListener("click", () => {
-    selectedKey = button.dataset.liveKey;
-    render();
-  }));
+  document.querySelectorAll("[data-live-key]").forEach(button => {
+    button.addEventListener("click", () => {
+      selectedKey = button.dataset.liveKey;
+      render();
+    });
+  });
 
   const selected = streams.find(item => item.key === selectedKey);
   if (!selected) return;
+
   detail.classList.remove("is-hidden");
   const people = objectEntries(selected.persons || {});
   const objects = objectEntries(selected.objects || {});
-  const heldObjects = objectEntries(selected.heldObjects || {});
-  const tags = objectEntries(selected.tags || {});
-  const assisted = selected.assistedDemo || null;
+  const track = selected.demoTrack || null;
+
+  const trackHtml = track
+    ? `<div class="notice notice--warning">
+        <strong>Demonstração em acompanhamento</strong>
+        <span>Pessoa: ${escapeHtml(track.personId || "—")} · Objeto: ${escapeHtml(track.objectId || "não isolado")} · Modo: ${escapeHtml(track.mode || "—")} · Confiança: ${Math.round(Number(track.confidence || 0) * 100)}%</span>
+      </div>`
+    : `<div class="notice notice--info">
+        <strong>Nenhum item marcado agora</strong>
+        <span>No celular, toque PEGOU somente depois que a pessoa estiver com o item.</span>
+      </div>`;
 
   detail.innerHTML = `
     <div class="panel-header">
       <div><span class="eyebrow">IMAGEM ANALISADA</span><h2>${escapeHtml(selected.cameraId)} · ${escapeHtml(selected.storeId)}</h2></div>
       <span class="status-badge ${stale(selected) ? "status-badge--danger" : statusClass(selected.status)}">${escapeHtml(stale(selected) ? "SEM ATUALIZAÇÃO" : selected.status || "—")}</span>
     </div>
+    ${trackHtml}
     <div class="live-detail-layout">
       <div class="live-detail-image">${selected.frameDataUrl ? `<img src="${selected.frameDataUrl}" alt="Imagem ampliada da câmera ${escapeHtml(selected.cameraId)}">` : `<div class="live-camera-placeholder"><strong>Sem imagem</strong><span>Nenhum quadro foi publicado.</span></div>`}</div>
       <div class="live-detail-side">
         <div class="metric-strip">
           <div><span>Pessoas</span><strong>${people.length}</strong></div>
           <div><span>Objetos</span><strong>${objects.length}</strong></div>
-          <div><span>Na mão</span><strong>${heldObjects.filter(item => item.status === "HELD_STABLE").length}</strong></div>
-          <div><span>Etiquetas</span><strong>${tags.length}</strong></div>
           <div><span>Último quadro</span><strong>${selected.updatedAt ? formatDate(selected.updatedAt) : "—"}</strong></div>
         </div>
-        ${assisted ? `
-          <div class="live-detection-list">
-            <h3>Demonstração assistida</h3>
-            <div>
-              <strong>${escapeHtml(assisted.productName || assisted.sku || "Item demonstrado")}</strong>
-              <span class="status-badge ${assistedStatusClass(assisted.status)}">${escapeHtml(assisted.status || "—")}</span>
-            </div>
-            <div><strong>Pessoa</strong><span>${escapeHtml(assisted.personId || "não confirmada")}</span></div>
-            <div><strong>Modo visual</strong><span>${escapeHtml(assisted.visualMode || "—")}</span></div>
-            <div><strong>Mão</strong><span>${escapeHtml(assisted.handSide || "não confirmada")}</span></div>
-            <div><strong>Evidência mão/objeto</strong><span>${escapeHtml(assisted.associationStatus || "não confirmada")} · ${Math.round(Number(assisted.associationConfidence || 0) * 100)}%</span></div>
-            <div><strong>Observação</strong><span>${escapeHtml(assisted.note || "—")}</span></div>
-          </div>` : `
-          <div class="live-detection-list">
-            <h3>Demonstração assistida</h3>
-            <p>O operador ainda não marcou que alguém pegou um item.</p>
-          </div>`}
         <div class="live-detection-list">
-          <h3>Usuários acompanhados</h3>
-          ${people.length ? people.map(person => `<div><strong>${escapeHtml(person.personId || person.id)}</strong><span>${Math.round(Number(person.confidence || 0) * 100)}% · ${escapeHtml(person.source || "rastreamento")}</span></div>`).join("") : `<p>Nenhuma pessoa reconhecida no quadro atual.</p>`}
+          <h3>Pessoas acompanhadas</h3>
+          ${people.length
+            ? people.map(person => `<div><strong>${escapeHtml(person.personId || person.id)}</strong><span>${Math.round(Number(person.confidence || 0) * 100)}% · ${escapeHtml(person.source || "rastreamento")}</span></div>`).join("")
+            : `<p>Nenhuma pessoa detectada no quadro atual.</p>`}
         </div>
         <div class="live-detection-list">
-          <h3>Objetos associados às mãos</h3>
-          ${heldObjects.length ? heldObjects.map(held => `<div><strong>${escapeHtml(held.status === "HELD_STABLE" ? "Objeto na mão" : "Próximo da mão")}</strong><span>${escapeHtml(held.personId || "pessoa não confirmada")} · ${escapeHtml(held.handSide || "mão")} · ${Math.round(Number(held.confidence || 0) * 100)}% · ${Number(held.stableFrames || 0)} quadro(s)</span></div>`).join("") : `<p>Nenhuma associação mão/objeto com evidência suficiente no quadro atual.</p>`}
-        </div>
-        <div class="live-detection-list">
-          <h3>Objetos genéricos visíveis</h3>
-          ${objects.length ? objects.map(object => `<div><strong>${escapeHtml((object.labels || [])[0] || object.objectId || object.id)}</strong><span>${Math.round(Number(object.confidence || 0) * 100)}% · rastreio visual provisório</span></div>`).join("") : `<p>Nenhum objeto genérico estável no quadro atual.</p>`}
-        </div>
-        <div class="live-detection-list">
-          <h3>Etiquetas visíveis</h3>
-          ${tags.length ? tags.map(tag => `<div><strong>${escapeHtml(tag.productName || tag.sku || "Produto")}</strong><span>${escapeHtml(tag.serial || tag.id)}</span></div>`).join("") : `<p>Nenhuma etiqueta SMART24 visível no quadro atual.</p>`}
+          <h3>Objetos genéricos</h3>
+          ${objects.length
+            ? objects.map(object => `<div><strong>${escapeHtml(object.objectId || object.id)}</strong><span>${Math.round(Number(object.confidence || 0) * 100)}% · não significa SKU reconhecido</span></div>`).join("")
+            : `<p>Nenhum objeto genérico isolado no quadro atual.</p>`}
         </div>
       </div>
     </div>`;

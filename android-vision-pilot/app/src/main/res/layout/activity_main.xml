@@ -22,20 +22,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="14dp"
-            android:text="VISION DIRECT — RTSP / ONVIF"
+            android:layout_marginBottom="16dp"
+            android:text="PROTÓTIPO LIMPO • DEMONSTRAÇÃO ASSISTIDA"
             android:textColor="#B7C7D9"
             android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/openFullSmart24Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="#00A859"
-            android:text="VOLTAR À LOJA 3D E AO PAINEL COMPLETO"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
 
         <TextView
             android:layout_width="match_parent"
@@ -43,7 +33,7 @@
             android:background="#102239"
             android:lineSpacingExtra="3dp"
             android:padding="14dp"
-            android:text="Conexão real: a câmera envia seu vídeo diretamente ao SMART24 pela rede local. O Yoosee não precisa ficar aberto e o Android não grava a tela."
+            android:text="Objetivo: provar câmera → pessoa/objeto → evento → Firebase → painel. Nesta versão o operador confirma PEGOU, DEVOLVEU ou SUSPEITA. O sistema não afirma reconhecer SKU automaticamente."
             android:textColor="#DCE7F3"
             android:textSize="14sp" />
 
@@ -51,7 +41,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="1. CONECTAR AO FIREBASE"
+            android:text="PASSO 0 • CONFIRMAR A CÂMERA"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/openYooseeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:text="Abrir Yoosee e testar câmera" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="PASSO 1 • FIREBASE"
             android:textColor="#00D79A"
             android:textStyle="bold" />
 
@@ -59,8 +64,8 @@
             android:id="@+id/emailInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="E-mail do usuário Firebase"
+            android:layout_marginTop="7dp"
+            android:hint="E-mail do Firebase"
             android:inputType="textEmailAddress"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
@@ -87,7 +92,7 @@
             android:id="@+id/cameraInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Identificação da câmera no SMART24"
+            android:hint="Câmera"
             android:text="CAM-01"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
@@ -97,7 +102,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Conector"
-            android:text="pilot-android-01"
+            android:text="pilot-android-demo-01"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
@@ -106,136 +111,46 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="ENTRAR NO FIREBASE" />
+            android:text="1. Entrar no Firebase" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="2. CÂMERA DIRETA NA REDE LOCAL"
+            android:layout_marginTop="18dp"
+            android:text="PASSO 2 • PAINEL SOBRE O YOOSEE"
             android:textColor="#00D79A"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="A câmera e este celular precisam estar no mesmo Wi‑Fi. Os valores abaixo correspondem ao equipamento mostrado no Yoosee e continuam editáveis caso o roteador altere o IP."
-            android:textColor="#8EA5BD"
-            android:textSize="12sp" />
-
-        <EditText
-            android:id="@+id/cameraIpInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="IP local da câmera"
-            android:inputType="textUri|textNoSuggestions"
-            android:text="192.168.15.5"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/cameraPortInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Porta RTSP"
-                android:inputType="number"
-                android:text="554"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#7890AA" />
-
-            <EditText
-                android:id="@+id/cameraPathInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_weight="1"
-                android:hint="Fluxo"
-                android:inputType="textUri|textNoSuggestions"
-                android:text="onvif1"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#7890AA" />
-        </LinearLayout>
-
-        <EditText
-            android:id="@+id/cameraUserInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Usuário NVR/RTSP"
-            android:inputType="textNoSuggestions"
-            android:text="admin"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
-        <EditText
-            android:id="@+id/cameraPasswordInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Senha criada em Conexão NVR (nunca é salva)"
-            android:inputType="textPassword"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
         <Button
-            android:id="@+id/discoverOnvifButton"
+            android:id="@+id/overlayButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="LOCALIZAR CÂMERA ONVIF NO WI-FI" />
+            android:layout_marginTop="7dp"
+            android:text="2. Autorizar painel flutuante" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="3. DEMONSTRAÇÃO ASSISTIDA"
+            android:layout_marginTop="18dp"
+            android:text="PASSO 3 • INICIAR"
             android:textColor="#00D79A"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/demoProductNameInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="Nome do item demonstrado"
-            android:text="Produto de demonstração"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
-        <EditText
-            android:id="@+id/demoSkuInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="SKU demonstrativo"
-            android:text="DEMO-001"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
-        <EditText
-            android:id="@+id/demoZoneInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Zona/prateleira"
-            android:text="PRATELEIRA-DEMO"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
         <Button
-            android:id="@+id/connectDirectButton"
+            android:id="@+id/startButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="#00A859"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
             android:enabled="false"
-            android:text="CONECTAR DIRETAMENTE À CÂMERA"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
+            android:text="3. Autorizar vídeo e iniciar teste" />
+
+        <Button
+            android:id="@+id/stopButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:enabled="false"
+            android:text="Parar teste" />
 
         <TextView
             android:id="@+id/statusText"
@@ -243,34 +158,18 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:background="#102239"
+            android:lineSpacingExtra="3dp"
             android:padding="14dp"
-            android:text="Aguardando. Ative Conexão NVR no Yoosee, entre no Firebase e conecte diretamente."
+            android:text="Aguardando. Comece confirmando que a câmera abre normalmente no Yoosee."
             android:textColor="#DCE7F3" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="CONTINGÊNCIA DA VERSÃO ANTERIOR"
-            android:textColor="#7890AA"
-            android:textStyle="bold" />
+            android:layout_marginTop="14dp"
+            android:text="Durante o teste: Yoosee fica em tela cheia. O pequeno painel SMART24 fica por cima. Toque PEGOU somente depois que a pessoa estiver com o item; DEVOLVEU quando devolver; SUSPEITA somente para criar uma ocorrência de demonstração para revisão humana."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
 
-        <Button
-            android:id="@+id/openLegacyCaptureButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:backgroundTint="#34465A"
-            android:text="Abrir modo antigo de captura de tela"
-            android:textColor="#DCE7F3" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="18dp"
-            android:text="Mantido somente para não remover funcionalidades da versão 2.3.0. A conexão direta acima é o modo principal."
-            android:textColor="#7890AA"
-            android:textSize="11sp" />
     </LinearLayout>
 </ScrollView>

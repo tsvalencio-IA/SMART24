@@ -1,6 +1,5 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
-import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -9,6 +8,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.PointF
 import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -19,7 +19,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
 import android.util.DisplayMetrics
@@ -34,153 +33,133 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.hypot
 
+/**
+ * Demonstração assistida:
+ * - recebe a tela autorizada do Android (Yoosee em primeiro plano);
+ * - roda visão local;
+ * - mostra um controle flutuante;
+ * - o OPERADOR confirma PEGOU / DEVOLVEU / SUSPEITA;
+ * - publica evidências e eventos no Firebase.
+ *
+ * Não reconhece automaticamente SKU e não acusa furto.
+ */
 class CaptureService : Service() {
     companion object {
         const val ACTION_START = "SMART24_START_CAPTURE"
         const val ACTION_STOP = "SMART24_STOP_CAPTURE"
-        const val ACTION_DEMO_PICKUP = "SMART24_DEMO_PICKUP"
-        const val ACTION_DEMO_RETURN = "SMART24_DEMO_RETURN"
-        const val ACTION_DEMO_CONCEAL = "SMART24_DEMO_CONCEAL"
-        const val ACTION_DEMO_ALERT = "SMART24_DEMO_ALERT"
-        const val ACTION_DEMO_FINISH = "SMART24_DEMO_FINISH"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
-        private const val CHANNEL_ID = "smart24_vision"
-        private const val ALERT_CHANNEL_ID = "smart24_demo_alerts"
+
+        private const val CHANNEL_ID = "smart24_vision_demo"
         private const val NOTIFICATION_ID = 2401
-        private const val PROCESS_INTERVAL_MS = 350L
-        private const val LIVE_FRAME_INTERVAL_MS = 1800L
+        private const val PROCESS_INTERVAL_MS = 500L
+        private const val LIVE_FRAME_INTERVAL_MS = 2500L
     }
+
+    private data class DemoTrack(
+        val personId: String,
+        val objectId: String?,
+        val mode: String,
+        val confidence: Double,
+        val startedAt: Long
+    )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val busy = AtomicBoolean(false)
-    private val stopping = AtomicBoolean(false)
     private val firebase = FirebaseRestClient()
     private val vision = VisionEngine()
-    private val cartEngine = CartEngine(firebase)
-    private val demoEngine = AssistedDemoEngine(firebase)
     private val annotator = FrameAnnotator()
+
+    @Volatile private var latestResult: VisionResult? = null
+    @Volatile private var lastFrameDataUrl: String? = null
+    @Volatile private var activeTrack: DemoTrack? = null
+
     private var zones: List<Zone> = emptyList()
-    private var cameraViewport: CameraViewport? = null
     private var lastProcessedAt = 0L
-    @Volatile private var lastImageReceivedAt = 0L
-    private var lastSavedFrameAt = 0L
-    private var lastScreenSavedFrameAt = 0L
     private var lastLiveFrameAt = 0L
     private var lastHeartbeatAt = 0L
-    private var lastZoneRefreshAt = 0L
-    private var lastViewportRefreshAt = 0L
+
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
     private var handlerThread: HandlerThread? = null
-    private var overlayView: LinearLayout? = null
-    private var overlayStatus: TextView? = null
+
     private var windowManager: WindowManager? = null
-    @Volatile private var latestSnapshotDataUrl: String? = null
-    @Volatile private var latestObjectCropDataUrl: String? = null
-    @Volatile private var latestObjectCropId: String? = null
+    private var overlayRoot: LinearLayout? = null
+    private var overlayStatus: TextView? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopCapture(
-                    CaptureStatusStore.STATE_STOPPED,
-                    "Análise parada. Os dados já enviados continuam no Firebase."
-                )
+                stopCapture("STOPPED")
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_DEMO_PICKUP,
-            ACTION_DEMO_RETURN,
-            ACTION_DEMO_CONCEAL,
-            ACTION_DEMO_ALERT,
-            ACTION_DEMO_FINISH -> {
-                handleManualControl(intent.action.orEmpty())
-                return START_NOT_STICKY
-            }
+
             ACTION_START -> {
-                createChannels()
-                startForeground(NOTIFICATION_ID, notification("Analisando vídeo da câmera Yoosee"))
-                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
+                createChannel()
+                startForeground(NOTIFICATION_ID, notification("Demonstração assistida em execução"))
+
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
                 val data = if (Build.VERSION.SDK_INT >= 33) {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
-                if (resultCode != Activity.RESULT_OK || data == null) {
-                    stopCapture(
-                        CaptureStatusStore.STATE_ERROR,
-                        "O Android não devolveu uma autorização válida de captura. Autorize ‘Tela inteira’ e tente novamente."
-                    )
+
+                if (resultCode < 0 || data == null || !PilotSession.authenticated) {
+                    stopCapture("ERROR")
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                if (!PilotSession.authenticated) {
-                    stopCapture(
-                        CaptureStatusStore.STATE_ERROR,
-                        "A sessão do Firebase expirou. Entre novamente e depois autorize a captura da tela."
-                    )
+
+                if (!Settings.canDrawOverlays(this)) {
+                    stopCapture("OVERLAY_PERMISSION_REQUIRED")
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                runCatching { startProjection(resultCode, data) }
-                    .onFailure { error ->
-                        Log.e("SMART24", "Falha ao iniciar a captura de tela", error)
-                        stopCapture(
-                            CaptureStatusStore.STATE_ERROR,
-                            "Falha ao iniciar a captura: ${error.message ?: "erro do Android"}. Autorize ‘Tela inteira’ e tente novamente."
-                        )
-                        stopSelf()
-                    }
+
+                showOverlay()
+                startProjection(resultCode, data)
             }
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun startProjection(resultCode: Int, data: Intent) {
         if (projection != null) return
-        stopping.set(false)
-        CaptureStatusStore.reset(this, "Autorização recebida. Preparando a captura da tela…")
-        clearLatestFrame()
-        lastProcessedAt = 0L
-        lastImageReceivedAt = 0L
-        lastLiveFrameAt = 0L
-        lastHeartbeatAt = 0L
-        lastZoneRefreshAt = 0L
-        lastViewportRefreshAt = 0L
-        cameraViewport = CameraViewportStore.load(this, PilotSession.storeId, PilotSession.cameraId)
-        latestSnapshotDataUrl = null
-        latestObjectCropDataUrl = null
-        latestObjectCropId = null
+
         val metrics = currentMetrics()
         handlerThread = HandlerThread("Smart24Capture").also { it.start() }
         val handler = Handler(handlerThread!!.looper)
-        imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2)
+
+        imageReader = ImageReader.newInstance(
+            metrics.widthPixels,
+            metrics.heightPixels,
+            PixelFormat.RGBA_8888,
+            2
+        )
+
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         projection = manager.getMediaProjection(resultCode, data).also { mediaProjection ->
             mediaProjection.registerCallback(object : MediaProjection.Callback() {
                 override fun onStop() {
-                    stopCapture(
-                        CaptureStatusStore.STATE_STOPPED,
-                        "A autorização de captura foi encerrada pelo Android."
-                    )
+                    stopCapture("STOPPED")
                     stopSelf()
                 }
             }, handler)
         }
+
         virtualDisplay = projection?.createVirtualDisplay(
-            "SMART24Vision",
+            "SMART24VisionDemo",
             metrics.widthPixels,
             metrics.heightPixels,
             metrics.densityDpi,
@@ -189,167 +168,66 @@ class CaptureService : Service() {
             null,
             handler
         )
+
         imageReader?.setOnImageAvailableListener({ reader -> handleImage(reader) }, handler)
-        if (PilotSession.overlayControlsEnabled) showAssistedOverlay()
-        CaptureStatusStore.update(
-            this,
-            CaptureStatusStore.STATE_WAITING_VIDEO,
-            "Captura de tela ativa. Abra o vídeo ao vivo no Yoosee; o SMART24 está aguardando o primeiro quadro."
-        )
+
         scope.launch {
-            publishHeartbeat("WAITING_VIDEO", 0, 0, 0, "Captura autorizada; aguardando o vídeo ao vivo do Yoosee.")
-            publishLiveStatus("WAITING_VIDEO", "Abra a câmera no Yoosee e deixe o vídeo ao vivo visível.")
+            publishHeartbeat("WAITING_VIDEO", 0, 0, 0, "Captura autorizada; aguardando vídeo do Yoosee.")
+            publishLiveStatus("WAITING_VIDEO", "Abra a câmera no Yoosee em tela cheia.")
         }
-        scope.launch {
-            delay(8000L)
-            if (projection != null && !stopping.get() && lastImageReceivedAt == 0L) {
-                CaptureStatusStore.update(
-                    this@CaptureService,
-                    CaptureStatusStore.STATE_WAITING_VIDEO,
-                    "Nenhum quadro chegou em 8 segundos. Pare a análise, autorize novamente e escolha ‘Tela inteira’ na janela do Android."
-                )
-            }
-        }
+
+        updateOverlay("Abra a câmera no Yoosee.\nAguardando imagem…")
     }
 
     private fun handleImage(reader: ImageReader) {
         val image = reader.acquireLatestImage() ?: return
         val now = System.currentTimeMillis()
-        lastImageReceivedAt = now
+
         if (busy.get() || now - lastProcessedAt < PROCESS_INTERVAL_MS) {
             image.close()
             return
         }
+
         busy.set(true)
         lastProcessedAt = now
+
         val bitmap = runCatching { BitmapUtils.fromRgbaImage(image) }.getOrNull()
         image.close()
+
         if (bitmap == null) {
-            CaptureStatusStore.update(
-                this,
-                CaptureStatusStore.STATE_ERROR,
-                "O Android enviou um quadro que o SMART24 não conseguiu converter. Pare a análise e autorize novamente."
-            )
             busy.set(false)
             return
         }
+
         scope.launch {
-            var cameraBitmap: Bitmap? = null
             try {
-                if (BitmapUtils.isMostlyBlack(bitmap)) {
+                if (isMostlyBlack(bitmap)) {
+                    latestResult = null
+                    updateOverlay("Sem imagem válida.\nConfira o Yoosee.")
                     if (now - lastHeartbeatAt > 5000L) {
-                        CaptureStatusStore.update(
-                            this@CaptureService,
-                            CaptureStatusStore.STATE_NO_IMAGE,
-                            "A captura chegou preta. A gravação em nuvem do Yoosee não interfere: autorize ‘Tela inteira’. Se continuar preto, o Yoosee está protegendo o vídeo nesse aparelho."
-                        )
-                        runCatching {
-                            publishHeartbeat("NO_IMAGE", 0, 0, 0, "A captura está preta ou sem vídeo; o Yoosee pode estar fora da tela ou bloqueando captura.")
-                            publishLiveStatus("NO_IMAGE", "Sem imagem válida. Confirme o vídeo ao vivo no Yoosee.")
-                        }.onFailure { Log.e("SMART24", "Falha ao publicar estado sem imagem", it) }
+                        publishHeartbeat("NO_IMAGE", 0, 0, 0, "A captura está preta ou sem vídeo válido.")
+                        publishLiveStatus("NO_IMAGE", "Sem imagem válida.")
                         lastHeartbeatAt = now
                     }
-                    updateOverlayStatus("SEM IMAGEM: abra o vídeo ao vivo no Yoosee. Se continuar preto, o Yoosee está bloqueando a captura.")
                     return@launch
                 }
 
-                // Guardamos a tela inteira apenas para o operador delimitar o
-                // vídeo. Ela nunca é enviada ao detector de pessoas/objetos.
-                if (now - lastScreenSavedFrameAt > 2500L) {
-                    saveLatestScreenFrame(bitmap)
-                    lastScreenSavedFrameAt = now
+                val result = vision.analyze(bitmap)
+                latestResult = result
+
+                val track = activeTrack
+                val trackText = if (track == null) {
+                    "Aguardando PEGOU"
+                } else {
+                    "Acompanhando ${track.personId}\n${track.objectId ?: "objeto não isolado"}"
                 }
 
-                if (now - lastViewportRefreshAt > 5000L) {
-                    val remoteViewport = runCatching {
-                        firebase.getCameraViewport(PilotSession.storeId, PilotSession.cameraId)
-                    }.getOrNull()
-                    if (remoteViewport != null) {
-                        cameraViewport = remoteViewport
-                        CameraViewportStore.save(this@CaptureService, remoteViewport)
-                    } else if (cameraViewport == null) {
-                        cameraViewport = CameraViewportStore.load(
-                            this@CaptureService,
-                            PilotSession.storeId,
-                            PilotSession.cameraId
-                        )
-                    }
-                    lastViewportRefreshAt = now
-                }
-
-                val viewport = cameraViewport
-                if (viewport == null || !viewport.valid) {
-                    if (now - lastHeartbeatAt > 5000L) {
-                        CaptureStatusStore.update(
-                            this@CaptureService,
-                            CaptureStatusStore.STATE_WAITING_VIEWPORT,
-                            "Tela recebida. Volte ao SMART24 e use ‘3. Delimitar somente o vídeo da câmera’ para excluir menus e miniaturas da análise.",
-                            validFrame = true
-                        )
-                        runCatching {
-                            publishHeartbeat(
-                                "WAITING_VIEWPORT",
-                                0,
-                                0,
-                                0,
-                                "Tela real recebida; aguardando delimitação da área do vídeo."
-                            )
-                            publishLiveStatus(
-                                "WAITING_VIEWPORT",
-                                "Delimite no APK somente a imagem ao vivo da câmera antes de iniciar a visão."
-                            )
-                        }
-                        lastHeartbeatAt = now
-                    }
-                    updateOverlayStatus("DEFINA A ÁREA DO VÍDEO: volte ao SMART24 e conclua o passo 3.")
-                    return@launch
-                }
-
-                val analysisFrame = BitmapUtils.cropViewport(bitmap, viewport)
-                cameraBitmap = analysisFrame
-                if (BitmapUtils.isMostlyBlack(analysisFrame)) {
-                    if (now - lastHeartbeatAt > 5000L) {
-                        CaptureStatusStore.update(
-                            this@CaptureService,
-                            CaptureStatusStore.STATE_DEGRADED,
-                            "A área delimitada está preta ou não contém o vídeo. Ajuste novamente os limites no passo 3."
-                        )
-                        publishLiveStatus("DEGRADED", "Área delimitada sem imagem útil; recalibre o vídeo.")
-                        lastHeartbeatAt = now
-                    }
-                    updateOverlayStatus("RECORTE SEM VÍDEO: ajuste novamente a área da câmera.")
-                    return@launch
-                }
-
-                if (now - lastZoneRefreshAt > 10000L) {
-                    zones = runCatching {
-                        firebase.getZones(PilotSession.storeId, PilotSession.cameraId)
-                            .filter { it.coordinateSpace == CoordinateSpaces.CAMERA_VIEWPORT_V1 }
-                    }.getOrDefault(zones)
-                    lastZoneRefreshAt = now
-                }
-
-                // latest_frame.jpg contém somente pixels da câmera e serve à
-                // calibração da prateleira. A interface do celular não entra.
-                if (now - lastSavedFrameAt > 2500L) {
-                    saveLatestFrame(analysisFrame)
-                    lastSavedFrameAt = now
-                    CaptureStatusStore.update(
-                        this@CaptureService,
-                        CaptureStatusStore.STATE_VIDEO_VISIBLE,
-                        "Vídeo da câmera isolado. Pessoas, mãos e objetos agora são analisados somente dentro do recorte; a calibração da prateleira foi liberada.",
-                        validFrame = true
-                    )
-                }
-
-                val result = vision.analyze(analysisFrame)
-                updateLatestObjectCrop(analysisFrame, result)
-                demoEngine.update(result)
-                cartEngine.process(result, zones)
-                updateOverlayStatus(demoEngine.statusLine())
+                updateOverlay(
+                    "Pessoas ${result.persons.size} • Objetos ${result.objects.size}\n$trackText"
+                )
 
                 if (now - lastLiveFrameAt >= LIVE_FRAME_INTERVAL_MS) {
-                    publishLiveFrame(analysisFrame, result)
+                    publishLiveFrame(bitmap, result)
                     lastLiveFrameAt = now
                 }
 
@@ -359,101 +237,330 @@ class CaptureService : Service() {
                         result.persons.size,
                         result.objects.size,
                         result.tags.size,
-                        "Vídeo isolado processado; ${result.heldObjects.count { it.status == "HELD_STABLE" }} objeto(s) estável(is) na mão.",
-                        heldObjects = result.heldObjects.count { it.status == "HELD_STABLE" }
+                        "Vídeo do Yoosee analisado localmente."
                     )
                     lastHeartbeatAt = now
                 }
             } catch (error: Throwable) {
-                Log.e("SMART24", "Erro no processamento", error)
+                Log.e("SMART24", "Falha no processamento da demonstração", error)
+                updateOverlay("Falha de análise:\n${error.message ?: "erro desconhecido"}")
                 if (now - lastHeartbeatAt > 5000L) {
-                    val calibrationNote = if (CaptureStatusStore.snapshot(this@CaptureService).hasValidFrame) {
-                        "A calibração continua disponível."
-                    } else {
-                        "A calibração ainda não foi liberada."
-                    }
-                    CaptureStatusStore.update(
-                        this@CaptureService,
-                        CaptureStatusStore.STATE_DEGRADED,
-                        "Uma etapa da análise falhou: ${error.message ?: "erro de processamento"}. $calibrationNote"
-                    )
                     runCatching {
                         publishHeartbeat("DEGRADED", 0, 0, 0, error.message ?: "Falha de processamento")
                         publishLiveStatus("DEGRADED", error.message ?: "Falha de processamento")
                     }
-                    updateOverlayStatus("Falha: ${error.message ?: "processamento"}")
                     lastHeartbeatAt = now
                 }
             } finally {
-                cameraBitmap?.let { frame ->
-                    if (frame !== bitmap && !frame.isRecycled) frame.recycle()
-                }
                 bitmap.recycle()
                 busy.set(false)
             }
         }
     }
 
-    private fun updateLatestObjectCrop(bitmap: Bitmap, result: VisionResult) {
-        val association = result.heldObjects.maxWithOrNull(
-            compareBy<HeldObjectObservation> { it.status == "HELD_STABLE" }
-                .thenBy { it.confidence }
-        )
-        val obj = association?.let { held -> result.objects.firstOrNull { it.objectId == held.objectId } }
-        if (association == null || obj == null) {
-            latestObjectCropDataUrl = null
-            latestObjectCropId = null
-            return
+    private fun showOverlay() {
+        if (overlayRoot != null || !Settings.canDrawOverlays(this)) return
+
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = GradientDrawable().apply {
+                setColor(Color.argb(235, 7, 17, 31))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.rgb(0, 215, 154))
+            }
         }
 
-        val padding = (maxOf(obj.box.width(), obj.box.height()) * 0.28f).coerceIn(0.012f, 0.06f)
-        val crop = runCatching { BitmapUtils.cropNormalized(bitmap, obj.box, padding) }.getOrNull()
-        if (crop == null) {
-            latestObjectCropDataUrl = null
-            latestObjectCropId = null
-            return
+        val title = TextView(this).apply {
+            text = "SMART24 • TESTE"
+            setTextColor(Color.rgb(0, 215, 154))
+            textSize = 13f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
-        var preview: Bitmap = crop
-        try {
-            val maxSide = maxOf(crop.width, crop.height)
-            if (maxSide > 320) {
-                val scale = 320f / maxSide.toFloat()
-                preview = Bitmap.createScaledBitmap(
-                    crop,
-                    (crop.width * scale).toInt().coerceAtLeast(1),
-                    (crop.height * scale).toInt().coerceAtLeast(1),
-                    true
-                )
-            }
-            val bytes = ByteArrayOutputStream().use { stream ->
-                preview.compress(Bitmap.CompressFormat.JPEG, 82, stream)
-                stream.toByteArray()
-            }
-            latestObjectCropDataUrl = "data:image/jpeg;base64," +
-                Base64.encodeToString(bytes, Base64.NO_WRAP)
-            latestObjectCropId = association.objectId
-        } finally {
-            if (preview !== crop && !preview.isRecycled) preview.recycle()
-            if (!crop.isRecycled) crop.recycle()
+
+        val status = TextView(this).apply {
+            text = "Aguardando vídeo…"
+            setTextColor(Color.WHITE)
+            textSize = 11f
+            setPadding(0, dp(4), 0, dp(7))
+        }
+        overlayStatus = status
+
+        root.addView(title)
+        root.addView(status)
+        root.addView(actionButton("PEGOU", Color.rgb(0, 137, 123)) { manualPicked() })
+        root.addView(actionButton("DEVOLVEU", Color.rgb(38, 120, 190)) { manualReturned() })
+        root.addView(actionButton("SUSPEITA", Color.rgb(198, 103, 0)) { manualSuspicion() })
+        root.addView(actionButton("FINALIZAR", Color.rgb(85, 85, 96)) { manualFinish() })
+
+        val params = WindowManager.LayoutParams(
+            dp(190),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_SECURE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = dp(8)
+            y = dp(50)
+        }
+
+        runCatching {
+            windowManager?.addView(root, params)
+            overlayRoot = root
+        }.onFailure {
+            overlayStatus = null
+            overlayRoot = null
+            Log.e("SMART24", "Não foi possível criar o painel flutuante", it)
         }
     }
 
+    private fun actionButton(label: String, color: Int, action: () -> Unit): Button =
+        Button(this).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            textSize = 11f
+            setBackgroundColor(color)
+            isAllCaps = true
+            setOnClickListener { action() }
+        }
+
+    private fun manualPicked() {
+        scope.launch {
+            val result = latestResult
+            if (result == null) {
+                updateOverlay("Ainda não há quadro analisado.")
+                return@launch
+            }
+
+            val person = result.persons.maxByOrNull { it.confidence }
+            if (person == null) {
+                updateOverlay("Nenhuma pessoa detectada.\nEntre no enquadramento.")
+                return@launch
+            }
+
+            val association = chooseObject(person, result.objects)
+            val objectId = association.first?.objectId
+            val mode = association.second
+            val confidence = association.first?.confidence
+                ?.times(person.confidence)
+                ?.coerceIn(0.35, 0.95)
+                ?: (person.confidence * 0.62).coerceIn(0.30, 0.72)
+
+            val track = DemoTrack(
+                personId = person.personId,
+                objectId = objectId,
+                mode = mode,
+                confidence = confidence,
+                startedAt = System.currentTimeMillis()
+            )
+            activeTrack = track
+
+            val eventId = firebase.post("events", baseEvent(
+                type = "DEMO_PICK_CONFIRMED",
+                track = track,
+                note = "Operador confirmou que a pessoa pegou um item. O objeto visual é apenas associação de demonstração."
+            ))
+
+            firebase.patch(
+                "cameraLive/${PilotSession.storeId}/${PilotSession.cameraId}",
+                mapOf(
+                    "demoTrack" to mapOf(
+                        "eventId" to eventId,
+                        "personId" to track.personId,
+                        "objectId" to (track.objectId ?: ""),
+                        "mode" to track.mode,
+                        "confidence" to track.confidence,
+                        "startedAt" to track.startedAt
+                    ),
+                    "updatedAt" to System.currentTimeMillis()
+                )
+            )
+
+            updateOverlay(
+                "PEGOU registrado.\n${track.personId}\n${track.objectId ?: "usando pulso/pessoa"}"
+            )
+        }
+    }
+
+    private fun manualReturned() {
+        scope.launch {
+            val track = activeTrack
+            if (track == null) {
+                updateOverlay("Nenhum item está em acompanhamento.")
+                return@launch
+            }
+
+            firebase.post("events", baseEvent(
+                type = "DEMO_RETURN_CONFIRMED",
+                track = track,
+                note = "Operador confirmou a devolução do item."
+            ))
+            activeTrack = null
+            clearDemoTrack()
+            updateOverlay("DEVOLUÇÃO registrada.\nAguardando novo PEGOU.")
+        }
+    }
+
+    private fun manualSuspicion() {
+        scope.launch {
+            val track = activeTrack
+            val result = latestResult
+            val fallbackPerson = result?.persons?.maxByOrNull { it.confidence }
+
+            if (track == null && fallbackPerson == null) {
+                updateOverlay("Sem pessoa ou item para associar ao alerta.")
+                return@launch
+            }
+
+            val effectiveTrack = track ?: DemoTrack(
+                personId = fallbackPerson!!.personId,
+                objectId = null,
+                mode = "PERSON_ONLY",
+                confidence = fallbackPerson.confidence.coerceIn(0.35, 0.85),
+                startedAt = System.currentTimeMillis()
+            )
+
+            firebase.post("events", baseEvent(
+                type = "DEMO_SUSPICION",
+                track = effectiveTrack,
+                note = "Operador marcou uma situação para revisão. Isto não é uma acusação automática."
+            ))
+
+            val occurrence = mutableMapOf<String, Any?>(
+                "storeId" to PilotSession.storeId,
+                "cameraId" to PilotSession.cameraId,
+                "sessionId" to PilotSession.sessionId,
+                "personId" to effectiveTrack.personId,
+                "productName" to "Item demonstrativo / não identificado",
+                "sku" to "",
+                "status" to "pending",
+                "pickedUp" to 1,
+                "returned" to 0,
+                "expected" to 1,
+                "registered" to 0,
+                "paid" to 0,
+                "difference" to 1,
+                "confidence" to effectiveTrack.confidence,
+                "reason" to "Situação marcada manualmente para revisão durante a demonstração.",
+                "source" to "ANDROID_ASSISTED_DEMO",
+                "createdAt" to System.currentTimeMillis()
+            )
+            lastFrameDataUrl?.takeIf { it.length < 850000 }?.let {
+                occurrence["snapshotDataUrl"] = it
+            }
+            firebase.post("occurrences", occurrence)
+
+            updateOverlay("SUSPEITA enviada.\nVerifique Ocorrências no painel.")
+        }
+    }
+
+    private fun manualFinish() {
+        scope.launch {
+            activeTrack?.let {
+                firebase.post("events", baseEvent(
+                    type = "DEMO_TRACK_FINISHED",
+                    track = it,
+                    note = "Acompanhamento encerrado pelo operador sem conclusão automática."
+                ))
+            }
+            activeTrack = null
+            clearDemoTrack()
+            updateOverlay("Acompanhamento finalizado.\nAguardando novo PEGOU.")
+        }
+    }
+
+    private fun baseEvent(type: String, track: DemoTrack, note: String): Map<String, Any?> =
+        mapOf(
+            "type" to type,
+            "storeId" to PilotSession.storeId,
+            "cameraId" to PilotSession.cameraId,
+            "sessionId" to PilotSession.sessionId,
+            "personId" to track.personId,
+            "productName" to "Item demonstrativo / não identificado",
+            "sku" to "",
+            "quantity" to 1,
+            "objectId" to (track.objectId ?: ""),
+            "associationMode" to track.mode,
+            "confidence" to track.confidence,
+            "source" to "ANDROID_ASSISTED_DEMO",
+            "note" to note,
+            "createdAt" to System.currentTimeMillis()
+        )
+
+    private fun chooseObject(
+        person: PersonObservation,
+        objects: List<GenericObjectObservation>
+    ): Pair<GenericObjectObservation?, String> {
+        if (objects.isEmpty()) return null to "WRIST_OR_PERSON_ONLY"
+
+        val wrists = listOfNotNull(person.leftWrist, person.rightWrist)
+        if (wrists.isNotEmpty()) {
+            val ranked = objects.map { obj ->
+                val d = wrists.minOf { wrist ->
+                    distance(wrist, PointF(obj.centerX, obj.centerY))
+                }
+                obj to d
+            }.minByOrNull { it.second }
+
+            if (ranked != null && ranked.second <= 0.30f) {
+                return ranked.first to "OBJECT_NEAR_WRIST"
+            }
+        }
+
+        val expanded = android.graphics.RectF(
+            (person.box.left - 0.08f).coerceAtLeast(0f),
+            (person.box.top - 0.06f).coerceAtLeast(0f),
+            (person.box.right + 0.08f).coerceAtMost(1f),
+            (person.box.bottom + 0.08f).coerceAtMost(1f)
+        )
+
+        val inside = objects
+            .filter { expanded.contains(it.centerX, it.centerY) }
+            .maxByOrNull { it.confidence }
+
+        return if (inside != null) inside to "OBJECT_INSIDE_PERSON_REGION"
+        else null to "WRIST_OR_PERSON_ONLY"
+    }
+
+    private fun distance(a: PointF, b: PointF): Float =
+        hypot((a.x - b.x).toDouble(), (a.y - b.y).toDouble()).toFloat()
+
+    private suspend fun clearDemoTrack() {
+        firebase.patch(
+            "cameraLive/${PilotSession.storeId}/${PilotSession.cameraId}",
+            mapOf(
+                "demoTrack" to null,
+                "updatedAt" to System.currentTimeMillis()
+            )
+        )
+    }
+
     private suspend fun publishLiveFrame(bitmap: Bitmap, result: VisionResult) {
-        val assisted = demoEngine.snapshot()
-        val annotated = annotator.annotate(bitmap, result, zones, assisted)
-        val targetWidth = 480.coerceAtMost(annotated.width)
-        val targetHeight = (annotated.height * (targetWidth.toFloat() / annotated.width.toFloat())).toInt().coerceAtLeast(1)
+        val annotated = annotator.annotate(bitmap, result, zones)
+        val targetWidth = 520.coerceAtMost(annotated.width)
+        val targetHeight = (
+            annotated.height * (targetWidth.toFloat() / annotated.width.toFloat())
+        ).toInt().coerceAtLeast(1)
+
         val preview = if (annotated.width == targetWidth) {
             annotated
         } else {
             Bitmap.createScaledBitmap(annotated, targetWidth, targetHeight, true)
         }
+
         val bytes = ByteArrayOutputStream().use { stream ->
-            preview.compress(Bitmap.CompressFormat.JPEG, 58, stream)
+            preview.compress(Bitmap.CompressFormat.JPEG, 56, stream)
             stream.toByteArray()
         }
-        val dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
-        latestSnapshotDataUrl = dataUrl
+
+        val dataUrl = "data:image/jpeg;base64," +
+            Base64.encodeToString(bytes, Base64.NO_WRAP)
+        lastFrameDataUrl = dataUrl
 
         val personsPayload = result.persons.associate { person ->
             person.personId to mapOf(
@@ -465,119 +572,57 @@ class CaptureService : Service() {
                 "confidence" to person.confidence,
                 "source" to person.source,
                 "leftWrist" to person.leftWrist?.let { mapOf("x" to it.x, "y" to it.y) },
-                "rightWrist" to person.rightWrist?.let { mapOf("x" to it.x, "y" to it.y) },
-                "leftHand" to person.leftHand?.let { hand ->
-                    mapOf(
-                        "side" to hand.side,
-                        "x" to hand.anchor.x,
-                        "y" to hand.anchor.y,
-                        "confidence" to hand.confidence
-                    )
-                },
-                "rightHand" to person.rightHand?.let { hand ->
-                    mapOf(
-                        "side" to hand.side,
-                        "x" to hand.anchor.x,
-                        "y" to hand.anchor.y,
-                        "confidence" to hand.confidence
-                    )
-                },
-                "trail" to person.trail.mapIndexed { index, point ->
-                    index.toString() to mapOf("x" to point.x, "y" to point.y)
-                }.toMap()
+                "rightWrist" to person.rightWrist?.let { mapOf("x" to it.x, "y" to it.y) }
             )
         }
+
         val objectsPayload = result.objects.associate { obj ->
             obj.objectId to mapOf(
                 "objectId" to obj.objectId,
+                "trackingId" to (obj.trackingId ?: -1),
                 "left" to obj.box.left,
                 "top" to obj.box.top,
                 "right" to obj.box.right,
                 "bottom" to obj.box.bottom,
-                "x" to obj.centerX,
-                "y" to obj.centerY,
                 "confidence" to obj.confidence,
                 "labels" to obj.labels
             )
         }
-        val heldObjectsPayload = result.heldObjects.associate { held ->
-            held.associationId to mapOf(
-                "associationId" to held.associationId,
-                "personId" to held.personId,
-                "objectId" to held.objectId,
-                "handSide" to held.handSide,
-                "status" to held.status,
-                "confidence" to held.confidence,
-                "stableFrames" to held.stableFrames,
-                "handX" to held.handX,
-                "handY" to held.handY,
-                "objectX" to held.objectX,
-                "objectY" to held.objectY,
-                "distanceToObject" to held.distanceToObject,
-                "evidence" to held.evidence
-            )
-        }
-        val tagsPayload = result.tags.associate { tag ->
-            tag.serial to mapOf(
-                "serial" to tag.serial,
-                "productId" to tag.productId,
-                "productName" to tag.productName,
-                "sku" to tag.sku,
-                "x" to tag.centerX,
-                "y" to tag.centerY,
-                "confidence" to tag.confidence
-            )
-        }
-        val assistedPayload = assisted?.let {
-            mapOf(
-                "trackId" to it.trackId,
-                "status" to it.status,
-                "productName" to it.productName,
-                "sku" to it.sku,
-                "zoneId" to it.zoneId,
-                "personId" to it.personId,
-                "visualObjectId" to (it.visualObjectId ?: ""),
-                "visualMode" to it.visualMode,
-                "handSide" to it.handSide,
-                "associationStatus" to it.associationStatus,
-                "associationConfidence" to it.associationConfidence,
-                "associationStableFrames" to it.associationStableFrames,
-                "x" to it.centerX,
-                "y" to it.centerY,
-                "confidence" to it.confidence,
-                "startedAt" to it.startedAt,
-                "lastSeenAt" to it.lastSeenAt,
-                "note" to it.note
+
+        val track = activeTrack
+        val payload = mutableMapOf<String, Any?>(
+            "storeId" to PilotSession.storeId,
+            "cameraId" to PilotSession.cameraId,
+            "bridgeId" to PilotSession.bridgeId,
+            "sessionId" to PilotSession.sessionId,
+            "status" to "VIDEO_VISIBLE",
+            "source" to "ANDROID_YOOSEE_SCREEN_DEMO",
+            "frameDataUrl" to dataUrl,
+            "frameWidth" to targetWidth,
+            "frameHeight" to targetHeight,
+            "personsDetected" to result.persons.size,
+            "objectsDetected" to result.objects.size,
+            "tagsDetected" to result.tags.size,
+            "persons" to personsPayload,
+            "objects" to objectsPayload,
+            "updatedAt" to result.capturedAt
+        )
+
+        if (track != null) {
+            payload["demoTrack"] = mapOf(
+                "personId" to track.personId,
+                "objectId" to (track.objectId ?: ""),
+                "mode" to track.mode,
+                "confidence" to track.confidence,
+                "startedAt" to track.startedAt
             )
         }
 
         firebase.put(
             "cameraLive/${PilotSession.storeId}/${PilotSession.cameraId}",
-            mapOf(
-                "storeId" to PilotSession.storeId,
-                "cameraId" to PilotSession.cameraId,
-                "bridgeId" to PilotSession.bridgeId,
-                "sessionId" to PilotSession.sessionId,
-                "status" to "VIDEO_VISIBLE",
-                "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
-                "analysisSpace" to CoordinateSpaces.CAMERA_VIEWPORT_V1,
-                "viewportConfigured" to true,
-                "frameDataUrl" to dataUrl,
-                "frameWidth" to targetWidth,
-                "frameHeight" to targetHeight,
-                "personsDetected" to result.persons.size,
-                "objectsDetected" to result.objects.size,
-                "heldObjectsDetected" to result.heldObjects.count { it.status == "HELD_STABLE" },
-                "handObjectCandidates" to result.heldObjects.size,
-                "tagsDetected" to result.tags.size,
-                "persons" to personsPayload,
-                "objects" to objectsPayload,
-                "heldObjects" to heldObjectsPayload,
-                "tags" to tagsPayload,
-                "assistedDemo" to assistedPayload,
-                "updatedAt" to result.capturedAt
-            )
+            payload
         )
+
         if (preview !== annotated) preview.recycle()
         annotated.recycle()
     }
@@ -591,13 +636,7 @@ class CaptureService : Service() {
                 "bridgeId" to PilotSession.bridgeId,
                 "sessionId" to PilotSession.sessionId,
                 "status" to status,
-                "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
-                "viewportConfigured" to (cameraViewport?.valid == true),
-                "analysisSpace" to if (cameraViewport?.valid == true) {
-                    CoordinateSpaces.CAMERA_VIEWPORT_V1
-                } else {
-                    CoordinateSpaces.FULL_SCREEN_LEGACY
-                },
+                "source" to "ANDROID_YOOSEE_SCREEN_DEMO",
                 "note" to note,
                 "updatedAt" to System.currentTimeMillis()
             )
@@ -609,27 +648,28 @@ class CaptureService : Service() {
         persons: Int,
         objects: Int,
         tags: Int,
-        note: String,
-        heldObjects: Int = 0
+        note: String
     ) {
         val timestamp = System.currentTimeMillis()
-        val payload = mapOf(
-            "pilotId" to PilotSession.pilotId,
-            "storeId" to PilotSession.storeId,
-            "cameraId" to PilotSession.cameraId,
-            "bridgeId" to PilotSession.bridgeId,
-            "sessionId" to PilotSession.sessionId,
-            "status" to status,
-            "personsDetected" to persons,
-            "objectsDetected" to objects,
-            "heldObjectsDetected" to heldObjects,
-            "tagsDetected" to tags,
-            "viewportConfigured" to (cameraViewport?.valid == true),
-            "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO",
-            "note" to note,
-            "lastSeenAt" to timestamp
+
+        firebase.put(
+            "visionPilots/${PilotSession.pilotId}",
+            mapOf(
+                "pilotId" to PilotSession.pilotId,
+                "storeId" to PilotSession.storeId,
+                "cameraId" to PilotSession.cameraId,
+                "bridgeId" to PilotSession.bridgeId,
+                "sessionId" to PilotSession.sessionId,
+                "status" to status,
+                "personsDetected" to persons,
+                "objectsDetected" to objects,
+                "tagsDetected" to tags,
+                "source" to "ANDROID_YOOSEE_SCREEN_DEMO",
+                "note" to note,
+                "lastSeenAt" to timestamp
+            )
         )
-        firebase.put("visionPilots/${PilotSession.pilotId}", payload)
+
         firebase.put(
             "cameraBridges/${PilotSession.bridgeId}",
             mapOf(
@@ -638,249 +678,78 @@ class CaptureService : Service() {
                 "cameraId" to PilotSession.cameraId,
                 "status" to status,
                 "lastSeenAt" to timestamp,
-                "source" to "ANDROID_SCREEN_CAPTURE_ASSISTED_DEMO"
+                "source" to "ANDROID_YOOSEE_SCREEN_DEMO"
             )
         )
     }
 
-    private fun showAssistedOverlay() {
-        if (!Settings.canDrawOverlays(this) || overlayView != null) return
-        Handler(Looper.getMainLooper()).post {
-            val panel = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(10), dp(8), dp(10), dp(8))
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(12).toFloat()
-                    setColor(Color.argb(230, 7, 17, 31))
-                    setStroke(dp(1), Color.rgb(0, 215, 154))
-                }
-            }
-            val title = TextView(this).apply {
-                text = "SMART24 • DEMO ASSISTIDA"
-                setTextColor(Color.rgb(0, 215, 154))
-                textSize = 12f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-            }
-            val product = TextView(this).apply {
-                text = "${PilotSession.demoProductName} • ${PilotSession.demoSku}"
-                setTextColor(Color.WHITE)
-                textSize = 11f
-            }
-            val status = TextView(this).apply {
-                text = "Aguardando vídeo…"
-                setTextColor(Color.rgb(220, 231, 243))
-                textSize = 11f
-                maxLines = 3
-                setPadding(0, dp(4), 0, dp(6))
-            }
-            overlayStatus = status
-            panel.addView(title)
-            panel.addView(product)
-            panel.addView(status)
+    private fun isMostlyBlack(bitmap: Bitmap): Boolean {
+        val stepX = (bitmap.width / 24).coerceAtLeast(1)
+        val stepY = (bitmap.height / 24).coerceAtLeast(1)
+        var dark = 0
+        var total = 0
+        var y = 0
 
-            val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row1.addView(actionButton("PEGOU", Color.rgb(0, 121, 107)) {
-                runDemoAction {
-                    demoEngine.markPickup(
-                        snapshotDataUrl = latestSnapshotDataUrl,
-                        objectCropDataUrl = latestObjectCropDataUrl,
-                        objectCropId = latestObjectCropId
-                    )
-                }
-            })
-            row1.addView(actionButton("DEVOLVEU", Color.rgb(30, 136, 229)) {
-                runDemoAction { demoEngine.markReturn(latestSnapshotDataUrl) }
-            })
-            panel.addView(row1)
-
-            val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row2.addView(actionButton("ESCONDEU", Color.rgb(239, 108, 0)) {
-                runDemoAction(alert = true) { demoEngine.markConcealment(latestSnapshotDataUrl) }
-            })
-            row2.addView(actionButton("ALERTA", Color.rgb(198, 40, 40)) {
-                runDemoAction(alert = true) { demoEngine.sendManualAlert(latestSnapshotDataUrl) }
-            })
-            panel.addView(row2)
-
-            val row3 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row3.addView(actionButton("FINALIZAR", Color.rgb(69, 90, 100)) {
-                runDemoAction { demoEngine.finish() }
-            })
-            row3.addView(actionButton("OCULTAR PAINEL", Color.rgb(55, 71, 79)) {
-                removeAssistedOverlay()
-            })
-            panel.addView(row3)
-
-            val params = WindowManager.LayoutParams(
-                dp(300),
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.END
-                x = dp(8)
-                y = dp(72)
+        while (y < bitmap.height) {
+            var x = 0
+            while (x < bitmap.width) {
+                val color = bitmap.getPixel(x, y)
+                val r = (color shr 16) and 0xff
+                val g = (color shr 8) and 0xff
+                val b = color and 0xff
+                if ((r + g + b) / 3 < 12) dark++
+                total++
+                x += stepX
             }
-            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-            runCatching { windowManager?.addView(panel, params) }
-                .onSuccess { overlayView = panel }
-                .onFailure { Log.e("SMART24", "Não foi possível abrir controle flutuante", it) }
+            y += stepY
+        }
+
+        return total > 0 && dark.toDouble() / total.toDouble() > 0.96
+    }
+
+    private fun updateOverlay(text: String) {
+        Handler(mainLooper).post {
+            overlayStatus?.text = text
         }
     }
 
-    private fun actionButton(label: String, color: Int, action: () -> Unit): Button =
-        Button(this).apply {
-            text = label
-            textSize = 10f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(color)
-            minWidth = 0
-            minimumWidth = 0
-            minimumHeight = 0
-            setPadding(dp(8), dp(2), dp(8), dp(2))
-            val params = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
-                setMargins(dp(2), dp(2), dp(2), dp(2))
-            }
-            layoutParams = params
-            setOnClickListener { action() }
-        }
-
-    private fun runDemoAction(
-        alert: Boolean = false,
-        action: suspend () -> AssistedDemoEngine.ActionResult
-    ) {
-        updateOverlayStatus("Registrando ação…")
-        scope.launch {
-            val result = runCatching { action() }
-                .getOrElse { AssistedDemoEngine.ActionResult(false, it.message ?: "Falha ao registrar ação.") }
-            updateOverlayStatus(result.message)
-            val current = CaptureStatusStore.snapshot(this@CaptureService)
-            val state = if (current.state in setOf(
-                    CaptureStatusStore.STATE_VIDEO_VISIBLE,
-                    CaptureStatusStore.STATE_DEGRADED
-                )
-            ) {
-                current.state
-            } else {
-                CaptureStatusStore.STATE_VIDEO_VISIBLE
-            }
-            CaptureStatusStore.update(
-                this@CaptureService,
-                state,
-                result.message,
-                validFrame = current.hasValidFrame
-            )
-            if (result.ok && alert) {
-                showLocalAlert(result.message)
-            }
-        }
+    private fun removeOverlay() {
+        val view = overlayRoot ?: return
+        runCatching { windowManager?.removeView(view) }
+        overlayRoot = null
+        overlayStatus = null
     }
 
-    private fun handleManualControl(action: String) {
-        if (projection == null || stopping.get()) {
-            CaptureStatusStore.update(
-                this,
-                CaptureStatusStore.STATE_ERROR,
-                "A análise não está ativa. Inicie a captura e aguarde o vídeo recortado antes de usar os controles."
-            )
-            return
-        }
-        when (action) {
-            ACTION_DEMO_PICKUP -> runDemoAction {
-                demoEngine.markPickup(
-                    snapshotDataUrl = latestSnapshotDataUrl,
-                    objectCropDataUrl = latestObjectCropDataUrl,
-                    objectCropId = latestObjectCropId
-                )
-            }
-            ACTION_DEMO_RETURN -> runDemoAction { demoEngine.markReturn(latestSnapshotDataUrl) }
-            ACTION_DEMO_CONCEAL -> runDemoAction(alert = true) {
-                demoEngine.markConcealment(latestSnapshotDataUrl)
-            }
-            ACTION_DEMO_ALERT -> runDemoAction(alert = true) {
-                demoEngine.sendManualAlert(latestSnapshotDataUrl)
-            }
-            ACTION_DEMO_FINISH -> runDemoAction { demoEngine.finish() }
-        }
-    }
+    private fun stopCapture(status: String) {
+        removeOverlay()
 
-    private fun updateOverlayStatus(text: String) {
-        Handler(Looper.getMainLooper()).post { overlayStatus?.text = text }
-    }
-
-    private fun removeAssistedOverlay() {
-        Handler(Looper.getMainLooper()).post {
-            overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
-            overlayView = null
-            overlayStatus = null
-        }
-    }
-
-    private fun showLocalAlert(message: String) {
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_error)
-            .setContentTitle("SMART24 — ocorrência demonstrativa")
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-        manager.notify((System.currentTimeMillis() % 100000).toInt(), notification)
-    }
-
-    private fun saveLatestFrame(bitmap: Bitmap) {
-        FileOutputStream(File(filesDir, "latest_frame.jpg")).use {
-            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 86, it)) {
-                "Não foi possível salvar o quadro para calibração"
-            }
-        }
-    }
-
-    private fun saveLatestScreenFrame(bitmap: Bitmap) {
-        FileOutputStream(File(filesDir, "latest_screen_frame.jpg")).use {
-            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 82, it)) {
-                "Não foi possível salvar a tela para delimitar o vídeo"
-            }
-        }
-    }
-
-    private fun clearLatestFrame() {
-        runCatching { File(filesDir, "latest_frame.jpg").delete() }
-        runCatching { File(filesDir, "latest_screen_frame.jpg").delete() }
-        lastSavedFrameAt = 0L
-        lastScreenSavedFrameAt = 0L
-    }
-
-    private fun stopCapture(status: String, message: String = "Captura encerrada") {
-        if (!stopping.compareAndSet(false, true)) return
-        CaptureStatusStore.update(this, status, message)
-        removeAssistedOverlay()
-        scope.launch {
-            if (PilotSession.authenticated) {
+        if (PilotSession.authenticated) {
+            scope.launch {
                 runCatching {
-                    publishHeartbeat(status, 0, 0, 0, message)
-                    publishLiveStatus(status, message)
+                    publishHeartbeat(status, 0, 0, 0, "Demonstração encerrada.")
+                    publishLiveStatus(status, "Demonstração encerrada.")
                 }
             }
         }
+
         imageReader?.setOnImageAvailableListener(null, null)
         imageReader?.close()
         imageReader = null
+
         virtualDisplay?.release()
         virtualDisplay = null
-        val activeProjection = projection
+
+        val currentProjection = projection
         projection = null
-        activeProjection?.stop()
+        runCatching { currentProjection?.stop() }
+
         handlerThread?.quitSafely()
         handlerThread = null
-        vision.close()
     }
 
     override fun onDestroy() {
-        stopCapture(CaptureStatusStore.STATE_STOPPED, "Serviço de captura encerrado.")
+        stopCapture("STOPPED")
+        vision.close()
         scope.cancel()
         super.onDestroy()
     }
@@ -888,7 +757,10 @@ class CaptureService : Service() {
     private fun currentMetrics(): DisplayMetrics {
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
-        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager)
+            .defaultDisplay
+            .getRealMetrics(metrics)
+
         val maxWidth = 1080
         if (metrics.widthPixels > maxWidth) {
             val scale = maxWidth.toFloat() / metrics.widthPixels
@@ -898,24 +770,26 @@ class CaptureService : Service() {
         return metrics
     }
 
-    private fun createChannels() {
+    private fun createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "SMART24 Vision", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "SMART24 Demonstração",
+                NotificationManager.IMPORTANCE_LOW
             )
-            manager.createNotificationChannel(
-                NotificationChannel(ALERT_CHANNEL_ID, "Alertas SMART24", NotificationManager.IMPORTANCE_HIGH)
-            )
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(channel)
         }
     }
 
-    private fun notification(text: String) = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.presence_video_online)
-        .setContentTitle("SMART24 Vision Pilot")
-        .setContentText(text)
-        .setOngoing(true)
-        .build()
+    private fun notification(text: String) =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.presence_video_online)
+            .setContentTitle("SMART24 • Teste assistido")
+            .setContentText(text)
+            .setOngoing(true)
+            .build()
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt().coerceAtLeast(1)
 }

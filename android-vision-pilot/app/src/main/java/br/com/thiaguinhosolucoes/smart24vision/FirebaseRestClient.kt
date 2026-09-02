@@ -54,26 +54,10 @@ class FirebaseRestClient {
                 left = obj.optDouble("left", 0.0).toFloat(),
                 top = obj.optDouble("top", 0.0).toFloat(),
                 right = obj.optDouble("right", 1.0).toFloat(),
-                bottom = obj.optDouble("bottom", 1.0).toFloat(),
-                coordinateSpace = obj.optString("coordinateSpace", CoordinateSpaces.FULL_SCREEN_LEGACY)
+                bottom = obj.optDouble("bottom", 1.0).toFloat()
             )
         }
         list
-    }
-
-    suspend fun getCameraViewport(storeId: String, cameraId: String): CameraViewport? = withContext(Dispatchers.IO) {
-        val result = requestRaw("cameraViewports/$storeId/$cameraId", "GET", null)
-        if (result.isBlank() || result == "null") return@withContext null
-        val obj = JSONObject(result)
-        CameraViewport(
-            storeId = obj.optString("storeId", storeId),
-            cameraId = obj.optString("cameraId", cameraId),
-            left = obj.optDouble("left", -1.0).toFloat(),
-            top = obj.optDouble("top", -1.0).toFloat(),
-            right = obj.optDouble("right", -1.0).toFloat(),
-            bottom = obj.optDouble("bottom", -1.0).toFloat(),
-            updatedAt = obj.optLong("updatedAt", 0L)
-        ).takeIf { it.valid }
     }
 
     private fun request(path: String, method: String, body: String?): JSONObject {

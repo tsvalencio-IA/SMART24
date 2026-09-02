@@ -5,29 +5,32 @@ import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
 import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 
+/**
+ * Motor visual deliberadamente simples para a demonstração.
+ *
+ * Verdade operacional:
+ * - detecta uma pose corporal principal;
+ * - usa faces como apoio para manter pessoas;
+ * - rastreia objetos genéricos salientes pelo ML Kit;
+ * - QR SMART24 continua opcional, mas NÃO é necessário para o botão PEGOU.
+ *
+ * Ele não afirma reconhecer SKU automaticamente.
+ */
 class VisionEngine {
-    private val barcodeScanner = BarcodeScanning.getClient(
-        BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).enableAllPotentialBarcodes().build()
-    )
     private val faceDetector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -35,6 +38,7 @@ class VisionEngine {
             .setMinFaceSize(0.06f)
             .build()
     )
+
     private val objectDetector = ObjectDetection.getClient(
         ObjectDetectorOptions.Builder()
             .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
@@ -42,25 +46,27 @@ class VisionEngine {
             .enableClassification()
             .build()
     )
+
     private val poseDetector = PoseDetection.getClient(
         PoseDetectorOptions.Builder()
             .setDetectorMode(PoseDetectorOptions.STREAM_MODE)
             .build()
     )
+
     private val personTracker = PersonTracker()
-    private val objectTracker = ObjectTracker()
-    private val handObjectAssociator = HandObjectAssociator()
 
     suspend fun analyze(bitmap: Bitmap): VisionResult = withContext(Dispatchers.Default) {
         val capturedAt = System.currentTimeMillis()
-        val fullInput = InputImage.fromBitmap(bitmap, 0)
+        val input = InputImage.fromBitmap(bitmap, 0)
         val candidates = mutableListOf<PersonObservation>()
 
-        // O ML Kit Pose identifica a pessoa principal. Além dos pulsos, usamos
-        // polegar, indicador e mindinho para calcular uma âncora de cada mão.
-        // A identidade continua anônima: PERSON-XX é apenas um ID de sessão.
-        val pose = runCatching { Tasks.await(poseDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrNull()
-        val poseLandmarks = pose?.allPoseLandmarks.orEmpty().filter { it.inFrameLikelihood >= 0.45f }
+        val pose = runCatching {
+            Tasks.await(poseDetector.process(input), 6, TimeUnit.SECONDS)
+        }.getOrNull()
+
+        val poseLandmarks = pose?.allPoseLandmarks.orEmpty()
+            .filter { it.inFrameLikelihood >= 0.45f }
+
         if (poseLandmarks.size >= 8) {
             val left = poseLandmarks.minOf { it.position.x }.coerceIn(0f, bitmap.width.toFloat())
             val top = poseLandmarks.minOf { it.position.y }.coerceIn(0f, bitmap.height.toFloat())
@@ -68,158 +74,115 @@ class VisionEngine {
             val bottom = poseLandmarks.maxOf { it.position.y }.coerceIn(0f, bitmap.height.toFloat())
             val padX = (right - left) * 0.18f
             val padY = (bottom - top) * 0.12f
+
             val rect = RectF(
                 ((left - padX) / bitmap.width).coerceIn(0f, 1f),
                 ((top - padY) / bitmap.height).coerceIn(0f, 1f),
                 ((right + padX) / bitmap.width).coerceIn(0f, 1f),
                 ((bottom + padY) / bitmap.height).coerceIn(0f, 1f)
             )
-            val landmarks = poseLandmarks.map {
-                PointF(
-                    (it.position.x / bitmap.width).coerceIn(0f, 1f),
-                    (it.position.y / bitmap.height).coerceIn(0f, 1f)
-                )
-            }
+
             val leftWrist = pose?.getPoseLandmark(PoseLandmark.LEFT_WRIST)
                 ?.takeIf { it.inFrameLikelihood >= 0.35f }
-                ?.let { PointF((it.position.x / bitmap.width).coerceIn(0f, 1f), (it.position.y / bitmap.height).coerceIn(0f, 1f)) }
+                ?.let { normalizedPoint(it.position, bitmap.width, bitmap.height) }
+
             val rightWrist = pose?.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
                 ?.takeIf { it.inFrameLikelihood >= 0.35f }
-                ?.let { PointF((it.position.x / bitmap.width).coerceIn(0f, 1f), (it.position.y / bitmap.height).coerceIn(0f, 1f)) }
-            val leftHand = buildHand(
-                pose = pose,
-                side = "LEFT",
-                wristType = PoseLandmark.LEFT_WRIST,
-                fingertipTypes = intArrayOf(PoseLandmark.LEFT_THUMB, PoseLandmark.LEFT_INDEX, PoseLandmark.LEFT_PINKY),
-                width = bitmap.width,
-                height = bitmap.height
-            )
-            val rightHand = buildHand(
-                pose = pose,
-                side = "RIGHT",
-                wristType = PoseLandmark.RIGHT_WRIST,
-                fingertipTypes = intArrayOf(PoseLandmark.RIGHT_THUMB, PoseLandmark.RIGHT_INDEX, PoseLandmark.RIGHT_PINKY),
-                width = bitmap.width,
-                height = bitmap.height
-            )
+                ?.let { normalizedPoint(it.position, bitmap.width, bitmap.height) }
 
             candidates += PersonObservation(
                 personId = "POSE-PRIMARY",
                 box = rect,
-                confidence = poseLandmarks.map { it.inFrameLikelihood.toDouble() }.average().coerceIn(0.45, 0.98),
-                source = "POSE_TRACK_GAME_DERIVED",
-                landmarks = landmarks,
+                confidence = poseLandmarks.map { it.inFrameLikelihood.toDouble() }
+                    .average().coerceIn(0.45, 0.98),
+                source = "POSE_PRIMARY",
+                landmarks = poseLandmarks.map {
+                    normalizedPoint(it.position, bitmap.width, bitmap.height)
+                },
                 leftWrist = leftWrist,
-                rightWrist = rightWrist,
-                leftHand = leftHand,
-                rightHand = rightHand
+                rightWrist = rightWrist
             )
         }
 
-        val faces = runCatching { Tasks.await(faceDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrDefault(emptyList())
+        val faces = runCatching {
+            Tasks.await(faceDetector.process(input), 6, TimeUnit.SECONDS)
+        }.getOrDefault(emptyList())
+
         faces.forEachIndexed { index, face ->
-            val rect = normalized(face.boundingBox, bitmap.width, bitmap.height)
-            if (candidates.none { iou(it.box, rect) > 0.18f }) {
+            val faceRect = normalized(face.boundingBox, bitmap.width, bitmap.height)
+            if (candidates.none { iou(it.box, faceRect) > 0.18f }) {
                 candidates += PersonObservation(
                     personId = "FACE-${face.trackingId ?: (index + 1)}",
-                    box = expandFaceBox(rect),
-                    confidence = 0.82,
+                    box = expandFaceBox(faceRect),
+                    confidence = 0.80,
                     source = "FACE_TRACK"
                 )
             }
         }
 
-        val genericObjects = mutableListOf<ObjectObservation>()
-        val detectedObjects = runCatching { Tasks.await(objectDetector.process(fullInput), 8, TimeUnit.SECONDS) }.getOrDefault(emptyList())
-        detectedObjects.forEachIndexed { index, obj ->
+        val rawObjects = runCatching {
+            Tasks.await(objectDetector.process(input), 6, TimeUnit.SECONDS)
+        }.getOrDefault(emptyList())
+
+        // Primeiro aproveitamos objetos com formato humano para reforçar a lista de pessoas.
+        rawObjects.forEachIndexed { index, obj ->
             val rect = normalized(obj.boundingBox, bitmap.width, bitmap.height)
             val aspect = if (rect.height() > 0) rect.width() / rect.height() else 2f
             val area = rect.width() * rect.height()
-            val looksHuman = rect.height() >= 0.22f && aspect in 0.16f..1.05f && area >= 0.028f
+            val looksHuman = rect.height() >= 0.24f && aspect in 0.16f..1.05f && area >= 0.03f
             val overlapsKnown = candidates.any { iou(it.box, rect) > 0.16f }
             if (looksHuman && !overlapsKnown) {
                 candidates += PersonObservation(
-                    personId = "OBJECT-${obj.trackingId ?: index + 1}",
+                    personId = "OBJECT-PERSON-${obj.trackingId ?: index + 1}",
                     box = rect,
                     confidence = 0.52,
-                    source = "OBJECT_TRACK_HEURISTIC"
-                )
-            } else if (!looksHuman && area >= 0.0005f) {
-                val labels = obj.labels.map { it.text }.filter { it.isNotBlank() }
-                val confidence = obj.labels.maxOfOrNull { it.confidence.toDouble() } ?: 0.50
-                genericObjects += ObjectObservation(
-                    objectId = obj.trackingId?.let { "OBJ-$it" } ?: "OBJ-FRAME-$capturedAt-${index + 1}",
-                    box = rect,
-                    confidence = confidence.coerceIn(0.30, 0.99),
-                    labels = labels
+                    source = "OBJECT_PERSON_HEURISTIC"
                 )
             }
         }
 
         val persons = personTracker.update(candidates, capturedAt)
-        val objects = objectTracker.update(genericObjects, capturedAt)
-        val heldObjects = handObjectAssociator.update(persons, objects, capturedAt)
-        val tags = detectTags(bitmap)
+
+        // Objetos genéricos: não chamamos isso de "produto reconhecido".
+        // Excluímos caixas grandes que parecem ser a própria pessoa.
+        val genericObjects = rawObjects.mapIndexedNotNull { index, obj ->
+            val rect = normalized(obj.boundingBox, bitmap.width, bitmap.height)
+            val area = rect.width() * rect.height()
+            val personOverlap = persons.maxOfOrNull { iou(it.box, rect) } ?: 0f
+            val tooLarge = area > 0.42f
+            val probablyPerson = personOverlap > 0.58f && rect.height() > 0.28f
+            if (tooLarge || probablyPerson || area < 0.0008f) return@mapIndexedNotNull null
+
+            val labels = obj.labels.mapNotNull { label ->
+                label.text?.trim()?.takeIf { it.isNotBlank() }
+            }
+            val confidence = obj.labels.maxOfOrNull { it.confidence.toDouble() } ?: 0.55
+
+            GenericObjectObservation(
+                objectId = "OBJ-${obj.trackingId ?: index + 1}",
+                trackingId = obj.trackingId,
+                box = rect,
+                confidence = confidence.coerceIn(0.35, 0.95),
+                labels = labels
+            )
+        }
+
+        val tags = emptyList<TagObservation>()
+
         VisionResult(
             width = bitmap.width,
             height = bitmap.height,
             persons = persons,
-            objects = objects,
-            heldObjects = heldObjects,
+            objects = genericObjects,
             tags = tags,
             capturedAt = capturedAt
         )
     }
 
-    private fun buildHand(
-        pose: Pose?,
-        side: String,
-        wristType: Int,
-        fingertipTypes: IntArray,
-        width: Int,
-        height: Int
-    ): HandObservation? {
-        val detectedPose = pose ?: return null
-        val wristLandmark = detectedPose.getPoseLandmark(wristType)
-            ?.takeIf { it.inFrameLikelihood >= 0.35f }
-            ?: return null
-        val wrist = PointF(
-            (wristLandmark.position.x / width).coerceIn(0f, 1f),
-            (wristLandmark.position.y / height).coerceIn(0f, 1f)
-        )
-        val fingertipsWithConfidence = fingertipTypes.toList().mapNotNull { type ->
-            detectedPose.getPoseLandmark(type)
-                ?.takeIf { it.inFrameLikelihood >= 0.25f }
-                ?.let { landmark ->
-                    PointF(
-                        (landmark.position.x / width).coerceIn(0f, 1f),
-                        (landmark.position.y / height).coerceIn(0f, 1f)
-                    ) to landmark.inFrameLikelihood.toDouble()
-                }
-        }
-        val fingertips = fingertipsWithConfidence.map { it.first }
-        val anchor = if (fingertips.isEmpty()) {
-            wrist
-        } else {
-            val tipX = fingertips.map { it.x }.average().toFloat()
-            val tipY = fingertips.map { it.y }.average().toFloat()
-            PointF(
-                wrist.x * 0.32f + tipX * 0.68f,
-                wrist.y * 0.32f + tipY * 0.68f
-            )
-        }
-        val confidenceValues = buildList {
-            add(wristLandmark.inFrameLikelihood.toDouble())
-            addAll(fingertipsWithConfidence.map { it.second })
-        }
-        return HandObservation(
-            side = side,
-            wrist = wrist,
-            anchor = anchor,
-            fingertips = fingertips,
-            confidence = confidenceValues.average().coerceIn(0.25, 0.99)
-        )
-    }
+    private fun normalizedPoint(point: PointF, width: Int, height: Int) = PointF(
+        (point.x / width).coerceIn(0f, 1f),
+        (point.y / height).coerceIn(0f, 1f)
+    )
 
     private fun expandFaceBox(face: RectF): RectF {
         val width = face.width()
@@ -230,59 +193,6 @@ class VisionEngine {
             (face.right + width * 0.65f).coerceIn(0f, 1f),
             (face.bottom + height * 4.2f).coerceIn(0f, 1f)
         )
-    }
-
-    private fun detectTags(bitmap: Bitmap): List<TagObservation> {
-        val regions = mutableListOf(Region(0, 0, bitmap.width, bitmap.height, bitmap))
-        val halfW = bitmap.width / 2
-        val halfH = bitmap.height / 2
-        if (halfW > 100 && halfH > 100) {
-            regions += Region(0, 0, halfW, halfH, Bitmap.createBitmap(bitmap, 0, 0, halfW, halfH))
-            regions += Region(halfW, 0, bitmap.width - halfW, halfH, Bitmap.createBitmap(bitmap, halfW, 0, bitmap.width - halfW, halfH))
-            regions += Region(0, halfH, halfW, bitmap.height - halfH, Bitmap.createBitmap(bitmap, 0, halfH, halfW, bitmap.height - halfH))
-            regions += Region(halfW, halfH, bitmap.width - halfW, bitmap.height - halfH, Bitmap.createBitmap(bitmap, halfW, halfH, bitmap.width - halfW, bitmap.height - halfH))
-        }
-        val found = linkedMapOf<String, TagObservation>()
-        regions.forEachIndexed { index, region ->
-            try {
-                val input = InputImage.fromBitmap(region.bitmap, 0)
-                val barcodes = runCatching { Tasks.await(barcodeScanner.process(input), 8, TimeUnit.SECONDS) }.getOrDefault(emptyList())
-                barcodes.forEach { barcode ->
-                    val raw = barcode.rawValue ?: return@forEach
-                    val parsed = parseSmart24(raw) ?: return@forEach
-                    val box = barcode.boundingBox ?: Rect(region.width / 2, region.height / 2, region.width / 2, region.height / 2)
-                    val cx = (region.offsetX + box.centerX()).toFloat() / bitmap.width.toFloat()
-                    val cy = (region.offsetY + box.centerY()).toFloat() / bitmap.height.toFloat()
-                    found[parsed.serial] = parsed.copy(centerX = cx.coerceIn(0f, 1f), centerY = cy.coerceIn(0f, 1f))
-                }
-            } finally {
-                if (index > 0 && !region.bitmap.isRecycled) region.bitmap.recycle()
-            }
-        }
-        return found.values.toList()
-    }
-
-    private fun parseSmart24(raw: String): TagObservation? {
-        return try {
-            val obj = JSONObject(raw)
-            if (obj.optString("system") != "SMART24") return null
-            val serial = obj.optString("serial")
-            if (serial.isBlank()) return null
-            TagObservation(
-                serial = serial,
-                productId = obj.optString("productId"),
-                productName = obj.optString("productName", obj.optString("sku", "Produto")),
-                sku = obj.optString("sku"),
-                declaredStoreId = obj.optString("storeId"),
-                declaredZoneId = obj.optString("zoneId"),
-                centerX = 0f,
-                centerY = 0f,
-                confidence = 0.93,
-                rawPayload = raw
-            )
-        } catch (_: Exception) {
-            null
-        }
     }
 
     private fun normalized(rect: Rect, width: Int, height: Int): RectF = RectF(
@@ -303,17 +213,8 @@ class VisionEngine {
     }
 
     fun close() {
-        barcodeScanner.close()
         faceDetector.close()
         objectDetector.close()
         poseDetector.close()
     }
-
-    private data class Region(
-        val offsetX: Int,
-        val offsetY: Int,
-        val width: Int,
-        val height: Int,
-        val bitmap: Bitmap
-    )
 }

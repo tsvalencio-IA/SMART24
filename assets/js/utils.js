@@ -1,4 +1,8 @@
 export const EVENT_LABELS = {
+  DEMO_PICK_CONFIRMED: "Retirada confirmada pelo operador",
+  DEMO_RETURN_CONFIRMED: "Devolução confirmada pelo operador",
+  DEMO_SUSPICION: "Situação marcada para revisão",
+  DEMO_TRACK_FINISHED: "Acompanhamento de demonstração encerrado",
   ACCESS_GRANTED: "Acesso autorizado",
   PERSON_ENTERED: "Pessoa entrou",
   PERSON_MOVED: "Pessoa em deslocamento",
@@ -14,12 +18,7 @@ export const EVENT_LABELS = {
   CAMERA_ONLINE: "Câmera disponível",
   AMBIGUOUS_INTERACTION: "Interação ambígua",
   IMAGE_INSUFFICIENT: "Imagem insuficiente",
-  OCCURRENCE_CREATED: "Ocorrência criada",
-  DEMO_TRACK_STARTED: "Demonstração: item marcado como retirado",
-  DEMO_ITEM_RETURNED: "Demonstração: item devolvido",
-  DEMO_POSSIBLE_CONCEALMENT: "Demonstração: possível ocultação",
-  DEMO_ALERT_SENT: "Demonstração: alerta manual",
-  DEMO_TRACK_FINISHED: "Demonstração: rastreio encerrado"
+  OCCURRENCE_CREATED: "Ocorrência criada"
 };
 
 export function escapeHtml(value = "") {
