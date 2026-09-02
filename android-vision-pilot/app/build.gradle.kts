@@ -54,10 +54,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     // Media3 / ExoPlayer — necessários para DirectCameraActivity e PlayerView.
-    // 1.10.1 é a versão estável atual da linha Media3.
-    implementation("androidx.media3:media3-exoplayer:1.10.1")
-    implementation("androidx.media3:media3-exoplayer-rtsp:1.10.1")
-    implementation("androidx.media3:media3-ui:1.10.1")
+    // 1.7.1 é usada aqui por compatibilidade com compileSdk 35 deste projeto.
+    implementation("androidx.media3:media3-exoplayer:1.7.1")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.7.1")
+    implementation("androidx.media3:media3-ui:1.7.1")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:face-detection:16.1.7")
