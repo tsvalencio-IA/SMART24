@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -27,12 +28,41 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      # IMPORTANTE:
+      # Esses arquivos pertencem a protótipos RTSP/ONVIF antigos e ficaram no
+      # repositório porque upload por cima não remove arquivos antigos.
+      # O rumo atual é USER BOT P2P, então eles não entram nesta compilação.
+      - name: Limpar fontes legadas antes do build
+        shell: bash
+        run: |
+          BASE="android-vision-pilot/app/src/main/java/br/com/thiaguinhosolucoes/smart24vision"
+
+          rm -f "$BASE/AssistedDemoEngine.kt"
+          rm -f "$BASE/CameraViewportStore.kt"
+          rm -f "$BASE/CaptureStatusStore.kt"
+          rm -f "$BASE/DirectCameraActivity.kt"
+          rm -f "$BASE/DirectVisionProcessor.kt"
+          rm -f "$BASE/HandObjectAssociator.kt"
+          rm -f "$BASE/LegacyCaptureActivity.kt"
+          rm -f "$BASE/ObjectTracker.kt"
+          rm -f "$BASE/OnvifDiscovery.kt"
+          rm -f "$BASE/PortalActivity.kt"
+          rm -f "$BASE/RtspCompatibilityProxy.kt"
+          rm -f "$BASE/VisionOverlayView.kt"
+
+          rm -f "android-vision-pilot/app/src/main/res/layout/activity_direct_camera.xml"
+          rm -f "android-vision-pilot/app/src/main/res/layout/activity_legacy_capture.xml"
+          rm -f "android-vision-pilot/app/src/main/res/layout/activity_portal.xml"
+
+          echo "Arquivos ativos após limpeza:"
+          find "$BASE" -maxdepth 2 -type f -name '*.kt' | sort
+
       - name: Compilar APK de teste
         env:
           ORG_GRADLE_PROJECT_YOOSEE_APP_ID: ${{ secrets.YOOSEE_APP_ID }}
           ORG_GRADLE_PROJECT_YOOSEE_APP_TOKEN: ${{ secrets.YOOSEE_APP_TOKEN }}
           ORG_GRADLE_PROJECT_YOOSEE_APP_VERSION: ${{ secrets.YOOSEE_APP_VERSION }}
-        run: gradle -p android-vision-pilot :app:assembleDebug --stacktrace
+        run: gradle -p android-vision-pilot :app:assembleDebug --stacktrace --console=plain
 
       - name: Enviar APK para download
         uses: actions/upload-artifact@v4
