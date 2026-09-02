@@ -22,10 +22,16 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="PROTÓTIPO LIMPO • DEMONSTRAÇÃO ASSISTIDA"
+            android:layout_marginBottom="18dp"
+            android:text="VISION PILOT — câmera Yoosee real"
             android:textColor="#B7C7D9"
             android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/openUserBotButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="NOVO: Modo Usuário Robô Yoosee (P2P)" />
 
         <TextView
             android:layout_width="match_parent"
@@ -33,7 +39,7 @@
             android:background="#102239"
             android:lineSpacingExtra="3dp"
             android:padding="14dp"
-            android:text="Objetivo: provar câmera → pessoa/objeto → evento → Firebase → painel. Nesta versão o operador confirma PEGOU, DEVOLVEU ou SUSPEITA. O sistema não afirma reconhecer SKU automaticamente."
+            android:text="O SMART24 não precisa apontar a câmera para um QR exibido neste mesmo celular. Use a conta Yoosee que já mostra a câmera ou importe o convite por link/print. Depois autorize a captura digital do vídeo ao vivo."
             android:textColor="#DCE7F3"
             android:textSize="14sp" />
 
@@ -41,22 +47,61 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="PASSO 0 • CONFIRMAR A CÂMERA"
+            android:text="A. PREPARAR A CÂMERA YOOSEE NESTE CELULAR"
             android:textColor="#00D79A"
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/openYooseeButton"
+            android:id="@+id/openExistingYooseeButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
-            android:text="Abrir Yoosee e testar câmera" />
+            android:layout_marginTop="8dp"
+            android:text="Usar conta Yoosee que já tem a câmera" />
+
+        <EditText
+            android:id="@+id/yooseeShareInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Cole aqui o link de compartilhamento Yoosee"
+            android:inputType="textUri|textNoSuggestions"
+            android:maxLines="4"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/pasteYooseeLinkButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Colar link copiado" />
+
+        <Button
+            android:id="@+id/chooseYooseeQrImageButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Escolher print ou imagem do QR" />
+
+        <Button
+            android:id="@+id/openYooseeInviteButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Abrir convite no Yoosee" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="PASSO 1 • FIREBASE"
+            android:layout_marginTop="8dp"
+            android:text="O link/QR é usado somente para abrir o convite. Ele não é salvo no Firebase nem nas preferências do aparelho."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="B. CONECTAR O PILOTO AO FIREBASE"
             android:textColor="#00D79A"
             android:textStyle="bold" />
 
@@ -64,8 +109,8 @@
             android:id="@+id/emailInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
-            android:hint="E-mail do Firebase"
+            android:layout_marginTop="8dp"
+            android:hint="E-mail do usuário Firebase"
             android:inputType="textEmailAddress"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
@@ -102,7 +147,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Conector"
-            android:text="pilot-android-demo-01"
+            android:text="pilot-android-01"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
@@ -110,47 +155,32 @@
             android:id="@+id/loginButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="10dp"
             android:text="1. Entrar no Firebase" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="PASSO 2 • PAINEL SOBRE O YOOSEE"
-            android:textColor="#00D79A"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/overlayButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
-            android:text="2. Autorizar painel flutuante" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="PASSO 3 • INICIAR"
-            android:textColor="#00D79A"
-            android:textStyle="bold" />
 
         <Button
             android:id="@+id/startButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="8dp"
             android:enabled="false"
-            android:text="3. Autorizar vídeo e iniciar teste" />
+            android:text="2. Autorizar análise e abrir Yoosee" />
+
+        <Button
+            android:id="@+id/calibrateButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:enabled="false"
+            android:text="3. Calibrar prateleira na imagem" />
 
         <Button
             android:id="@+id/stopButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="8dp"
             android:enabled="false"
-            android:text="Parar teste" />
+            android:text="Parar análise" />
 
         <TextView
             android:id="@+id/statusText"
@@ -158,18 +188,16 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:background="#102239"
-            android:lineSpacingExtra="3dp"
             android:padding="14dp"
-            android:text="Aguardando. Comece confirmando que a câmera abre normalmente no Yoosee."
+            android:text="Aguardando. Primeiro confirme que a câmera aparece no Yoosee deste aparelho."
             android:textColor="#DCE7F3" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:text="Durante o teste: Yoosee fica em tela cheia. O pequeno painel SMART24 fica por cima. Toque PEGOU somente depois que a pessoa estiver com o item; DEVOLVEU quando devolver; SUSPEITA somente para criar uma ocorrência de demonstração para revisão humana."
+            android:text="Fluxo correto: deixar a câmera disponível no Yoosee → entrar no Firebase → autorizar captura → abrir o vídeo ao vivo → tela cheia. Para calibrar, volte ao SMART24 depois de alguns segundos."
             android:textColor="#8EA5BD"
             android:textSize="12sp" />
-
     </LinearLayout>
 </ScrollView>

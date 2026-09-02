@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMART24 USER BOT"
+            android:textColor="#00D79A"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Objetivo: entrar no ecossistema Yoosee como uma conta autorizada, listar câmeras compartilhadas e receber vídeo remoto sem capturar a tela do aplicativo oficial."
+            android:textColor="#B7C7D9"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="#102239"
+            android:padding="14dp"
+            android:text="ESTADO ATUAL\nA arquitetura está pronta, mas o SMART24 ainda não possui o SDK P2P oficial/compatível nem AppId/AppToken próprios. Esta tela nunca fingirá que conectou."
+            android:textColor="#DCE7F3"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/userBotProbeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="1. Verificar SDK e credenciais" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="CONTA YOOSEE EXCLUSIVA DO SMART24"
+            android:textColor="#00D79A"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/yooseeBotEmailInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="E-mail da conta Yoosee do SMART24"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/yooseeBotPasswordInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha Yoosee (não é salva)"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/userBotOpenOfficialButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="2. Validar essa conta no Yoosee oficial" />
+
+        <Button
+            android:id="@+id/userBotLoginButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="3. Testar login P2P pelo SMART24" />
+
+        <Button
+            android:id="@+id/userBotListDevicesButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="4. Listar câmeras compartilhadas" />
+
+        <TextView
+            android:id="@+id/userBotStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#102239"
+            android:padding="14dp"
+            android:text="Aguardando. Comece em “Verificar SDK e credenciais”."
+            android:textColor="#DCE7F3"
+            android:textIsSelectable="true" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="A senha da conta Yoosee não é gravada nas preferências nem enviada ao Firebase nesta fundação."
+            android:textColor="#8EA5BD"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
