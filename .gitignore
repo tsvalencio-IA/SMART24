@@ -24,4 +24,3 @@ Thumbs.db
 node_modules/
 dist/
 build/
-android-vision-pilot/.gradle/
