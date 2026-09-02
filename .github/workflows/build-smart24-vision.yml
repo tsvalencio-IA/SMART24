@@ -28,6 +28,10 @@ jobs:
           gradle-version: '8.7'
 
       - name: Compilar APK de teste
+        env:
+          ORG_GRADLE_PROJECT_YOOSEE_APP_ID: ${{ secrets.YOOSEE_APP_ID }}
+          ORG_GRADLE_PROJECT_YOOSEE_APP_TOKEN: ${{ secrets.YOOSEE_APP_TOKEN }}
+          ORG_GRADLE_PROJECT_YOOSEE_APP_VERSION: ${{ secrets.YOOSEE_APP_VERSION }}
         run: gradle -p android-vision-pilot :app:assembleDebug --stacktrace
 
       - name: Enviar APK para download
