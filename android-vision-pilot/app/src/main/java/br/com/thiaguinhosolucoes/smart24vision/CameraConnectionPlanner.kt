@@ -14,7 +14,7 @@ class CameraConnectionPlanner(
     fun resolve(host: String, user: String, password: String, port: Int, explicit: String, serviceUrls: List<String> = emptyList()): Plan {
         val manual = MobileRtspCandidates.build(host, user, password, port, explicit)
         val cameraHost = URI(manual.first()).host.removePrefix("[").removeSuffix("]")
-        val reports = mutableListOf("SMART24 3.1 • câmera $cameraHost")
+        val reports = mutableListOf("SMART24 3.2 • câmera $cameraHost")
         val urls = linkedSetOf<String>()
         val resolvedUrls = linkedSetOf<String>()
         var onvifDenied = false
@@ -54,7 +54,7 @@ class CameraConnectionPlanner(
                 CameraRtspProbe.Status.AUTH_REQUIRED -> return Plan(emptyList(),
                     "A câmera respondeu e exige usuário/senha NVR/RTSP. Preencha os campos da seção CÂMERA IP e conecte novamente.", reports.joinToString("\n"), true)
                 CameraRtspProbe.Status.AUTH_REJECTED -> return Plan(emptyList(),
-                    "A câmera recusou o usuário/senha NVR/RTSP. Confira as credenciais configuradas no equipamento.", reports.joinToString("\n"), true)
+                    "A câmera recusou a autenticação NVR/RTSP${result.code?.let { " ($it)" }.orEmpty()}. Confira as credenciais da câmera selecionada. Se funcionarem em outro player, copie o diagnóstico para verificar a compatibilidade.", reports.joinToString("\n"), true)
                 CameraRtspProbe.Status.PATH_NOT_FOUND -> wrongPath = true
                 CameraRtspProbe.Status.NO_VIDEO -> announcedWithoutVideo = true
                 else -> Unit

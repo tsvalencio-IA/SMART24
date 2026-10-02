@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import re
+import secrets
 import socketserver
 import threading
 from datetime import datetime, timedelta, timezone
@@ -160,13 +161,54 @@ class RtspStall(socketserver.BaseRequestHandler):
             pass
 
 
+class RtspSessionDigest(socketserver.BaseRequestHandler):
+    """Each TCP connection has its own nonce; reconnecting loses the challenge."""
+    def handle(self):
+        self.request.settimeout(4)
+        nonce = secrets.token_hex(16)
+        realm = "session-camera"
+        count("rtsp_digest_connection")
+        try:
+            reader = self.request.makefile("rb")
+            for _ in range(4):
+                first = reader.readline(8192).decode().strip()
+                if not first:
+                    return
+                method, uri, _ = first.split(" ", 2)
+                headers = {}
+                for _ in range(80):
+                    line = reader.readline(8192).decode().strip()
+                    if not line:
+                        break
+                    key, value = line.split(":", 1)
+                    headers[key.lower()] = value.strip()
+                sequence = headers.get("cseq", "1")
+                authorization = headers.get("authorization", "")
+                pairs = dict((m[0].lower(), m[1] or m[2]) for m in
+                             re.findall(r'(\w+)\s*=\s*(?:"([^"]*)"|([^,\s]+))', authorization))
+                expected = md5(f'{md5("rtsp-test:session-camera:rtsp-test-password")}:{nonce}:{pairs.get("nc")}:{pairs.get("cnonce")}:auth:{md5(f"{method}:{uri}")}')
+                valid = (authorization.startswith("Digest ") and pairs.get("username") == "rtsp-test"
+                         and pairs.get("nonce") == nonce and pairs.get("realm") == realm
+                         and pairs.get("uri") == uri and pairs.get("qop") == "auth"
+                         and hmac.compare_digest(pairs.get("response", ""), expected))
+                if valid:
+                    count("rtsp_session_digest_accepted")
+                    body = b"v=0\r\nm=video 0 RTP/AVP 96\r\na=rtpmap:96 H264/90000\r\n"
+                    self.request.sendall(f'RTSP/1.0 200 OK\r\nCSeq: {sequence}\r\nContent-Type: application/sdp\r\nContent-Length: {len(body)}\r\n\r\n'.encode() + body)
+                else:
+                    count("rtsp_session_digest_challenge")
+                    self.request.sendall(f'RTSP/1.0 401 Unauthorized\r\nCSeq: {sequence}\r\nWWW-Authenticate: Digest realm="{realm}", nonce="{nonce}", qop="auth"\r\nContent-Length: 0\r\n\r\n'.encode())
+        except (OSError, ValueError):
+            pass
+
+
 class ThreadedTcp(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
 
 
 if __name__ == "__main__":
-    for port, handler in [(8555, Rtsp401), (8556, RtspStall)]:
+    for port, handler in [(8555, Rtsp401), (8556, RtspStall), (8557, RtspSessionDigest)]:
         server = ThreadedTcp(("0.0.0.0", port), handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
     print("SMART24 camera fixtures ready", flush=True)

@@ -6,7 +6,7 @@ SHA-256 do pacote: `c9516282a1e4df3530a6021ec66bf6c343bfdbd77438f77e22e9876d1009
 
 ## Aplicação atual
 
-- Android `br.com.thiaguinhosolucoes.smart24vision`, versão 3.1.0, código 8.
+- Android `br.com.thiaguinhosolucoes.smart24vision`, versão 3.2.0, código 9.
 - Tela inicial: `MobileVigilanteActivity`; vídeo RTSP direto com LibVLC 3.7.0.
 - Primeira câmera informada por Thiago: `192.168.15.5`; senha e usuário NVR são digitados somente no celular.
 - Procura IPs por WS-Discovery e consulta ONVIF Media/Media2 autenticado para obter GetStreamUri. RTSP DESCRIBE verifica o fluxo e explica autenticação, caminho, porta e ausência de vídeo antes do player; URL explícita usa somente seu endereço.
@@ -28,15 +28,17 @@ SHA-256 do pacote: `c9516282a1e4df3530a6021ec66bf6c343bfdbd77438f77e22e9876d1009
 
 ## Estado de validação
 
-Histórico 3.0: build, 12 testes unitários, lint sem erros impeditivos e 2 testes Android aprovados. O vídeo físico recebido em 02/10 mostrou câmera sem imagem e ANR; a versão 3.1 acrescenta diagnóstico/ONVIF e remove paradas nativas da thread da tela. Validação 3.1: build, 23 testes unitários, lint e 5 testes Android aprovados no [Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37017543792). Consulte [VALIDACAO-VIGILANTE-V3_1.md](VALIDACAO-VIGILANTE-V3_1.md) para a revisão atual e [VALIDACAO-VIGILANTE-V3.md](VALIDACAO-VIGILANTE-V3.md) para o APK anterior.
+Histórico 3.0: build, 12 testes unitários, lint sem erros impeditivos e 2 testes Android aprovados. O vídeo físico recebido em 02/10 mostrou câmera sem imagem e ANR; a versão 3.1 acrescenta diagnóstico/ONVIF e remove paradas nativas da thread da tela. Validação 3.1: build, 23 testes unitários, lint e 5 testes Android aprovados no [Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37017543792). Consulte [VALIDACAO-VIGILANTE-V3_1.md](VALIDACAO-VIGILANTE-V3_1.md) para a revisão anterior e [VALIDACAO-VIGILANTE-V3.md](VALIDACAO-VIGILANTE-V3.md) para o APK anterior.
+
+Novo diagnóstico físico: o SMART24 3.1 chegou ao RTSP em `192.168.15.7:554`, mas recebeu 401. Foi reproduzida uma falha do probe ao abrir outra conexão para responder ao desafio Digest. A versão 3.2 mantém a conexão, trata nonce expirado e limita recuperação. Validação local: 22 testes aprovados. Build e seis testes Android pendentes. Consulte [VALIDACAO-VIGILANTE-V3_2.md](VALIDACAO-VIGILANTE-V3_2.md).
 
 Nenhum frame da câmera física `192.168.15.5` foi recebido neste ambiente. A rede privada da câmera não é acessível daqui. Usuário/senha NVR não foram fornecidos e não devem ser publicados no repositório.
 
 ## Teste físico pelo celular
 
-1. Instale o APK 3.1.0. Se o Android recusar por assinatura diferente, o APK anterior pode exigir desinstalação; ela apaga dados locais daquele aplicativo. O Firebase é separado.
+1. Instale o APK 3.2.0 após aprovação do build. Se o Android recusar por assinatura diferente, o APK anterior pode exigir desinstalação; ela apaga dados locais daquele aplicativo. O Firebase é separado.
 2. Conecte celular e câmera ao mesmo roteador. A câmera precisa oferecer RTSP/NVR, e o Wi-Fi não pode isolar dispositivos.
-3. Confira `192.168.15.5`, porta `554` e digite o usuário/senha NVR configurados no equipamento. Toque em CONECTAR DIRETO NA CÂMERA.
+3. Confira o IP atual da câmera (foto anterior `192.168.15.5`, último diagnóstico `192.168.15.7`), porta `554` e digite o usuário/senha NVR configurados no equipamento. Toque em CONECTAR DIRETO NA CÂMERA.
 4. Aguarde imagem real e **VÍDEO CONFIRMADO**. ONVIF obtém endereços; DESCRIBE confere os fluxos antes de até três modos de reprodução por endereço. URL RTSP completa usa somente aquele endereço. Em falha, copie o diagnóstico mostrado.
 5. Capture quadro e calibre uma zona para cada SKU. Produto, ID de zona e SKU devem ser reais e correspondentes àquela posição física.
 6. Volte e inicie o vigilante com prateleira desobstruída. Retire um item, afaste mão e corpo da zona e observe RETIRADA PROVÁVEL; depois devolva ao mesmo lugar e observe o evento correspondente.

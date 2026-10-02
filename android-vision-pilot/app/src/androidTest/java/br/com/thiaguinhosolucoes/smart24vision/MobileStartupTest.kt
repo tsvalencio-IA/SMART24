@@ -117,6 +117,15 @@ class MobileStartupTest {
         activityRule.finishActivity()
     }
 
+    @Test fun rtspDigestBoundToTcpSessionIsAcceptedOnAndroid() {
+        val result = CameraRtspProbe().describe("rtsp://rtsp-test:rtsp-test-password@10.0.2.2:8557/protected-video")
+        assertEquals(CameraRtspProbe.Status.VIDEO, result.status)
+        assertEquals(200, result.code)
+        val stats = JSONObject(URL("http://10.0.2.2:8080/stats").readText())
+        assertTrue(stats.getInt("rtsp_session_digest_accepted") >= 1)
+        // This fixture proves the DESCRIBE handshake only; it does not transmit video frames.
+    }
+
     @Test fun nativeRetriesAndDisconnectDoNotBlockUiWhenCameraStopsResponding() {
         activityRule.launchActivity(Intent())
         val attempts = AtomicInteger()

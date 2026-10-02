@@ -152,7 +152,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tsvalencio-ia.github.io/SMART24/")))
         }
         cameraControls(false)
-        status.text = "SMART24 3.1 • celular e câmera na mesma rede. Digite o usuário e a senha NVR/RTSP e conecte."
+        status.text = "SMART24 3.2 • celular e câmera na mesma rede. Digite o usuário e a senha NVR/RTSP e conecte."
         updateSyncText()
     }
 
