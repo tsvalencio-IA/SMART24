@@ -139,7 +139,8 @@ def verify_installation():
     require("Success" in uninstall.stdout, "Emulator test copy was not removed")
     install(ROOT / "v3.2.apk", "fresh-install-3.2")
     installed_hash = check_installed_file("fresh-install")
-    run(["adb", "logcat", "-c"], "clear-log-buffer")
+    # The fresh emulator has not launched either app version yet. Check its
+    # crash buffer directly; clearing all buffers can fail on Android 8.
     launches = [cold_launch(1)]
     install(ROOT / "v3.2.apk", "same-certificate-update-3.2", update=True)
     check_installed_file("same-certificate-update")
