@@ -36,7 +36,7 @@ jobs:
         run: |
           mv tested-apk/app-debug.apk tested-apk/SMART24-Vigilante-Celular-v3.apk
           echo '906842b89760dc6cea7eaf2227f288cf1429834743d96a64c86346147851dbfc  tested-apk/SMART24-Vigilante-Celular-v3.apk' | sha256sum -c -
-          APKSIGNER=$(rg --files "$ANDROID_HOME/build-tools" | rg '/apksigner$' | sort -V | tail -n 1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs tested-apk/SMART24-Vigilante-Celular-v3.apk
       - name: Publicar download direto do APK
