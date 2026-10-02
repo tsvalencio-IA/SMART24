@@ -1,3 +1,5 @@
+> Android atual: [SMART24 Vigilante Celular 3.0.0 — RTSP direto e calibração por SKU](docs/CONTINUIDADE-VIGILANTE.md). O painel web abaixo permanece disponível.
+
 # SMART24 Fusion V5 — Live IA Pilot
 
 Painel estático responsivo para estruturar a primeira fase do sistema de auditoria inteligente de mercadinhos autônomos.

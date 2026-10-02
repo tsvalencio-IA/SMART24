@@ -1,0 +1,325 @@
+package br.com.thiaguinhosolucoes.smart24vision
+
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.TextureView
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+
+class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
+    private lateinit var textureView: TextureView
+    private lateinit var overlay: MobileOverlayView
+    private lateinit var status: TextView
+    private lateinit var eventText: TextView
+    private lateinit var syncText: TextView
+    private lateinit var rtspPlayer: MobileRtspPlayer
+    private lateinit var outbox: MobileEventOutbox
+    private val visionDelegate = lazy { VisionEngine() }
+    private val vision by visionDelegate
+    private val itemEngine = MobileItemEngine()
+    private val firebase = FirebaseRestClient()
+    private val handler = Handler(Looper.getMainLooper())
+    private val syncMutex = Mutex()
+    private var zones: List<Zone> = emptyList()
+    private var analyzing = false
+    private var analysisBusy = false
+    private var generation = 0
+    private var resumed = false
+    private var destroyed = false
+    private var sessionId = "MOBILE-${UUID.randomUUID()}"
+
+    private fun input(id: Int) = findViewById<EditText>(id)
+    private fun storeId() = input(R.id.mobileStoreInput).text.toString().trim().ifBlank { "loja-01" }
+    private fun cameraId() = input(R.id.mobileCameraInput).text.toString().trim().uppercase().ifBlank { "CAM-01" }
+    private fun validKey(value: String) = value.isNotBlank() && !value.contains(Regex("[.#$\\[\\]/\\u0000-\\u001f]"))
+
+    private val analysisLoop = object : Runnable {
+        override fun run() {
+            if (!analyzing || !resumed) return
+            if (!analysisBusy) {
+                val bitmap = rtspPlayer.captureFrame()
+                if (bitmap != null) {
+                    analysisBusy = true
+                    val token = generation
+                    lifecycleScope.launch {
+                        try {
+                            if (BitmapUtils.isMostlyBlack(bitmap)) {
+                                status.text = "Quadro escuro ou sem imagem útil. Nenhuma retirada será inferida deste quadro."
+                            } else {
+                                val result = vision.analyze(bitmap)
+                                if (token != generation || !analyzing || !resumed) return@launch
+                                overlay.result = result
+                                val events = itemEngine.update(bitmap, result, zones)
+                                events.forEach { publishEvent(it) }
+                                status.text = "Vigilante ativo • pessoas ${result.persons.size} • objetos ${result.objects.size} • zonas ${zones.size}"
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            status.text = "Falha na análise: ${error.message ?: error.javaClass.simpleName}"
+                        } finally {
+                            if (!bitmap.isRecycled) bitmap.recycle()
+                            analysisBusy = false
+                            if (destroyed && visionDelegate.isInitialized()) vision.close()
+                        }
+                    }
+                }
+            }
+            handler.postDelayed(this, 900L)
+        }
+    }
+    private val syncLoop = object : Runnable {
+        override fun run() {
+            if (!resumed) return
+            synchronizeEvents()
+            handler.postDelayed(this, 15000L)
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_mobile_vigilante)
+        val root = findViewById<android.view.View>(R.id.mobileRoot)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        textureView = findViewById(R.id.mobileVideoTexture)
+        overlay = findViewById(R.id.mobileOverlay)
+        status = findViewById(R.id.mobileStatus)
+        eventText = findViewById(R.id.mobileEventText)
+        syncText = findViewById(R.id.mobileSyncText)
+        rtspPlayer = MobileRtspPlayer(this, textureView, this)
+        outbox = MobileEventOutbox(this)
+        val prefs = getSharedPreferences("smart24_mobile", MODE_PRIVATE)
+        input(R.id.mobileHostInput).setText(prefs.getString("host", "192.168.15.5"))
+        input(R.id.mobileUserInput).setText(prefs.getString("user", ""))
+        input(R.id.mobilePortInput).setText(prefs.getString("port", "554"))
+        input(R.id.mobileFirebaseEmailInput).setText(prefs.getString("email", ""))
+        input(R.id.mobileStoreInput).setText(prefs.getString("store", "loja-01"))
+        input(R.id.mobileCameraInput).setText(prefs.getString("camera", "CAM-01"))
+        findViewById<Button>(R.id.mobileConnectButton).setOnClickListener { connectCamera() }
+        findViewById<Button>(R.id.mobileFirebaseLoginButton).setOnClickListener { loginFirebase() }
+        findViewById<Button>(R.id.mobileCalibrateButton).setOnClickListener { captureAndCalibrate() }
+        findViewById<Button>(R.id.mobileStartAiButton).setOnClickListener { startAi() }
+        findViewById<Button>(R.id.mobileStopAiButton).setOnClickListener { stopAi(); status.text = "Análise parada; o vídeo permanece aberto." }
+        findViewById<Button>(R.id.mobileDisconnectButton).setOnClickListener {
+            stopAi(); rtspPlayer.disconnect(); cameraControls(false)
+            input(R.id.mobileCameraPasswordInput).text.clear(); input(R.id.mobileRtspUrlInput).text.clear()
+            status.text = "Câmera desconectada. Credenciais descartadas."
+        }
+        findViewById<Button>(R.id.mobileDiscoverButton).setOnClickListener { discoverCameras() }
+        findViewById<Button>(R.id.mobilePanelButton).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tsvalencio-ia.github.io/SMART24/")))
+        }
+        cameraControls(false)
+        status.text = "Celular e câmera na mesma rede. Digite o usuário e a senha NVR/RTSP e conecte."
+        updateSyncText()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        rtspPlayer.resume()
+        reloadZones()
+        handler.removeCallbacks(syncLoop)
+        handler.post(syncLoop)
+    }
+    override fun onPause() {
+        resumed = false
+        stopAi()
+        handler.removeCallbacks(syncLoop)
+        rtspPlayer.pause()
+        super.onPause()
+    }
+
+    private fun connectCamera() {
+        stopAi()
+        val host = input(R.id.mobileHostInput).text.toString().trim()
+        val user = input(R.id.mobileUserInput).text.toString().trim()
+        val password = input(R.id.mobileCameraPasswordInput).text.toString()
+        val port = input(R.id.mobilePortInput).text.toString().toIntOrNull()
+        val explicit = input(R.id.mobileRtspUrlInput).text.toString().trim()
+        if (port == null || port !in 1..65535) { status.text = "Informe uma porta válida, entre 1 e 65535."; return }
+        val urls = runCatching { MobileRtspCandidates.build(host, user, password, port, explicit) }
+            .getOrElse { status.text = it.message; return }
+        val connectHost = Uri.parse(urls.first()).host.orEmpty()
+        getSharedPreferences("smart24_mobile", MODE_PRIVATE).edit()
+            .putString("host", connectHost).putString("user", user).putString("port", port.toString()).apply()
+        cameraControls(false)
+        rtspPlayer.connect(host, user, password, port, explicit)
+        input(R.id.mobileCameraPasswordInput).text.clear()
+        input(R.id.mobileRtspUrlInput).text.clear()
+    }
+
+    private fun loginFirebase() {
+        stopAi()
+        val email = input(R.id.mobileFirebaseEmailInput).text.toString().trim()
+        val password = input(R.id.mobileFirebasePasswordInput).text.toString()
+        if (email.isBlank() || password.isBlank()) { status.text = "Teste local disponível sem login. Para sincronizar, informe o usuário Firebase existente."; return }
+        if (!validKey(storeId()) || !validKey(cameraId())) { status.text = "Loja ou câmera contém caracteres inválidos."; return }
+        status.text = "Entrando no Firebase…"
+        lifecycleScope.launch {
+            try {
+                PilotSession.clearAuthentication()
+                val result = firebase.login(email, password)
+                PilotSession.idToken = result.idToken
+                PilotSession.refreshToken = result.refreshToken
+                PilotSession.tokenExpiresAt = System.currentTimeMillis() + result.expiresIn * 1000
+                PilotSession.uid = result.localId
+                PilotSession.email = result.email
+                val role = firebase.getRole(result.localId)
+                require(role in setOf("admin", "operator")) { "Usuário precisa ser admin ou operator." }
+                PilotSession.storeId = storeId(); PilotSession.cameraId = cameraId()
+                val device = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                PilotSession.bridgeId = "mobile-$device"
+                PilotSession.pilotId = "mobile-$device"
+                PilotSession.sessionId = sessionId
+                input(R.id.mobileFirebasePasswordInput).text.clear()
+                saveIdentity(email)
+                status.text = "Firebase conectado como $role. Eventos autenticados serão sincronizados."
+                synchronizeEvents()
+            } catch (error: CancellationException) { throw error
+            } catch (error: Exception) {
+                PilotSession.clearAuthentication()
+                status.text = "Falha no Firebase: ${error.message}. O teste local continua disponível."
+            }
+        }
+    }
+
+    private fun saveIdentity(email: String = input(R.id.mobileFirebaseEmailInput).text.toString().trim()) {
+        getSharedPreferences("smart24_mobile", MODE_PRIVATE).edit()
+            .putString("email", email).putString("store", storeId()).putString("camera", cameraId()).apply()
+    }
+
+    private fun captureAndCalibrate() {
+        val bitmap = rtspPlayer.captureFrame()
+        if (bitmap == null || BitmapUtils.isMostlyBlack(bitmap)) {
+            bitmap?.recycle(); status.text = "Aguarde um quadro real e visível da câmera antes de calibrar."; return
+        }
+        if (!validKey(storeId()) || !validKey(cameraId())) { bitmap.recycle(); status.text = "Informe IDs válidos para loja e câmera."; return }
+        try {
+            FileOutputStream(File(filesDir, "latest_mobile_frame.jpg")).use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
+            saveIdentity()
+            startActivity(Intent(this, MobileCalibrationActivity::class.java).putExtra("storeId", storeId()).putExtra("cameraId", cameraId()))
+        } finally { bitmap.recycle() }
+    }
+
+    private fun startAi() {
+        if (!rtspPlayer.isConnected) { status.text = "Conecte a câmera e aguarde a imagem primeiro."; return }
+        reloadZones()
+        if (zones.isEmpty()) { status.text = "Cadastre ao menos uma zona com produto e SKU."; return }
+        if (analysisBusy) { status.text = "Aguarde a análise anterior terminar."; return }
+        saveIdentity()
+        sessionId = "MOBILE-${UUID.randomUUID()}"
+        stopAi()
+        analyzing = true
+        handler.post(analysisLoop)
+        status.text = "Vigilante iniciado. Mantenha a prateleira livre para registrar o estado inicial."
+    }
+    private fun stopAi() { generation++; analyzing = false; handler.removeCallbacks(analysisLoop); itemEngine.reset() }
+    private fun reloadZones() { zones = MobileZoneStore.load(this, storeId(), cameraId()); overlay.zones = zones }
+
+    private suspend fun publishEvent(event: MobileItemEvent) {
+        val labels = mapOf("ITEM_PICKED_PROBABLE" to "RETIRADA PROVÁVEL", "ITEM_RETURNED_PROBABLE" to "DEVOLUÇÃO PROVÁVEL", "SHELF_INTERACTION" to "INTERAÇÃO NA PRATELEIRA")
+        val payload = mapOf<String, Any?>(
+            "type" to event.type, "storeId" to event.zone.storeId, "cameraId" to event.zone.cameraId,
+            "bridgeId" to PilotSession.bridgeId, "sessionId" to sessionId, "personId" to event.personId,
+            "hand" to event.hand, "zoneId" to event.zone.zoneId, "sku" to event.zone.sku,
+            "productId" to event.zone.productId.ifBlank { event.zone.sku }, "productName" to event.zone.productName,
+            "quantity" to 1, "confidence" to event.confidence, "confidenceKind" to "HEURISTIC_SCORE",
+            "evidence" to event.evidence, "source" to "SMART24_MOBILE_RTSP", "requiresReview" to true,
+            "createdAt" to event.createdAt, "createdBy" to PilotSession.uid
+        )
+        withContext(Dispatchers.IO) { outbox.add(payload, if (PilotSession.authenticated) PilotSession.uid else "") }
+        eventText.text = "${labels[event.type]} • ${event.zone.productName} • ${event.personId}\n${event.evidence}"
+        updateSyncText()
+        synchronizeEvents()
+    }
+
+    private fun synchronizeEvents() {
+        if (!PilotSession.authenticated || !resumed || syncMutex.isLocked) { updateSyncText(); return }
+        lifecycleScope.launch {
+            syncMutex.withLock {
+                val uid = PilotSession.uid
+                try {
+                    val rows = withContext(Dispatchers.IO) { outbox.pending(uid) }
+                    for (row in rows) {
+                        if (PilotSession.uid != uid || !resumed) break
+                        val payload = row.getJSONObject("payload")
+                        val values = payload.keys().asSequence().associateWith { payload.get(it) }
+                        firebase.put("events/${row.getString("id")}", values)
+                        withContext(Dispatchers.IO) { outbox.uploaded(row.getString("id")) }
+                    }
+                    if (PilotSession.uid == uid && rtspPlayer.isConnected) {
+                        val now = System.currentTimeMillis()
+                        firebase.put("visionPilots/${PilotSession.pilotId}", mapOf("pilotId" to PilotSession.pilotId, "storeId" to storeId(), "cameraId" to cameraId(), "status" to if (analyzing) "VIGILANTE_ACTIVE" else "VIDEO_DIRECT_VISIBLE", "lastSeenAt" to now, "source" to "SMART24_MOBILE_RTSP", "sessionId" to sessionId))
+                    }
+                    updateSyncText()
+                } catch (error: CancellationException) { throw error
+                } catch (error: Exception) {
+                    syncText.text = "Eventos preservados no celular • pendentes ${outbox.count()} • sincronização: ${error.message}"
+                }
+            }
+        }
+    }
+    private fun updateSyncText() {
+        if (!::outbox.isInitialized) return
+        syncText.text = "Fila local: ${outbox.count()} • teste sem login: ${outbox.localOnlyCount()}\n${if (PilotSession.authenticated) "Firebase autenticado; tentativas automáticas a cada 15 s." else "Sem login: eventos ficam neste celular."}"
+    }
+
+    private fun discoverCameras() {
+        status.text = "Procurando câmeras ONVIF na rede Wi-Fi…"
+        lifecycleScope.launch {
+            try {
+                val cameras = OnvifDiscovery(this@MobileVigilanteActivity).discover()
+                if (cameras.isEmpty()) { status.text = "Nenhuma resposta ONVIF. Você ainda pode informar o IP/URL RTSP manualmente."; return@launch }
+                AlertDialog.Builder(this@MobileVigilanteActivity).setTitle("Câmeras ONVIF encontradas")
+                    .setItems(cameras.map { it.host }.toTypedArray()) { _, selected ->
+                        input(R.id.mobileHostInput).setText(cameras[selected].host)
+                        status.text = "IP preenchido. Informe as credenciais NVR/RTSP e conecte."
+                    }.setNegativeButton("Fechar", null).show()
+            } catch (error: Exception) { status.text = "Descoberta indisponível. Confira o Wi-Fi ou informe o IP manualmente." }
+        }
+    }
+    private fun cameraControls(enabled: Boolean) {
+        findViewById<Button>(R.id.mobileCalibrateButton).isEnabled = enabled
+        findViewById<Button>(R.id.mobileStartAiButton).isEnabled = enabled
+    }
+    override fun onConnecting(candidateNumber: Int, total: Int) { status.text = "Testando RTSP $candidateNumber/$total • aguardando imagem real…" }
+    override fun onConnected(maskedUrl: String) { cameraControls(true); status.text = "VÍDEO CONFIRMADO • CÂMERA DIRETA\n$maskedUrl" }
+    override fun onFailed(message: String) { stopAi(); cameraControls(false); status.text = message }
+    override fun onInterrupted(message: String) { stopAi(); cameraControls(false); status.text = message }
+    override fun onDestroy() {
+        destroyed = true
+        stopAi(); handler.removeCallbacksAndMessages(null)
+        if (!analysisBusy && visionDelegate.isInitialized()) vision.close()
+        rtspPlayer.release()
+        super.onDestroy()
+    }
+}

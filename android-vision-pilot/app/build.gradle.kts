@@ -11,17 +11,16 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "2.2.0-userbot-foundation"
+        versionCode = 7
+        versionName = "3.0.0-mobile-vigilante"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")
 
-        // Credenciais do SDK Yoosee/Gwell serão injetadas por GitHub Secrets.
         val yooseeAppId = providers.gradleProperty("YOOSEE_APP_ID").orElse("").get()
         val yooseeAppToken = providers.gradleProperty("YOOSEE_APP_TOKEN").orElse("").get()
         val yooseeAppVersion = providers.gradleProperty("YOOSEE_APP_VERSION").orElse("").get()
-
         buildConfigField("String", "YOOSEE_APP_ID", "\"${yooseeAppId.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_TOKEN", "\"${yooseeAppToken.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_VERSION", "\"${yooseeAppVersion.replace("\"", "\\\"")}\"")
@@ -30,6 +29,8 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    testOptions { unitTests.isIncludeAndroidResources = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -54,7 +55,6 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
@@ -62,4 +62,13 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:object-detection:17.0.2")
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+
+    // Player RTSP genérico. Não depende do aplicativo do fabricante da câmera.
+    implementation("org.videolan.android:libvlc-all:3.7.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("org.json:json:20240303")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }

@@ -58,6 +58,8 @@ class ZoneView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
         return true
     }
 
+    override fun performClick(): Boolean { super.performClick(); return true }
+
     fun resetZone() { points.clear(); invalidate() }
 
     fun normalizedRect(): FloatArray? {
@@ -66,6 +68,7 @@ class ZoneView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
         val y1 = ((points[0].y - drawTop) / drawHeight).coerceIn(0f, 1f)
         val x2 = ((points[1].x - drawLeft) / drawWidth).coerceIn(0f, 1f)
         val y2 = ((points[1].y - drawTop) / drawHeight).coerceIn(0f, 1f)
+        if (kotlin.math.abs(x2 - x1) < 0.005f || kotlin.math.abs(y2 - y1) < 0.005f) return null
         return floatArrayOf(minOf(x1, x2), minOf(y1, y2), maxOf(x1, x2), maxOf(y1, y2))
     }
 }

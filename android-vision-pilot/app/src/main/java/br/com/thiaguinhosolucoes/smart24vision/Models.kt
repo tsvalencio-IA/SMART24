@@ -10,7 +10,11 @@ data class Zone(
     val left: Float,
     val top: Float,
     val right: Float,
-    val bottom: Float
+    val bottom: Float,
+    val productId: String = "",
+    val productName: String = "",
+    val sku: String = "",
+    val coordinateSpace: String = "MOBILE_TEXTURE_V1"
 ) {
     fun contains(x: Float, y: Float): Boolean = x in left..right && y in top..bottom
 }

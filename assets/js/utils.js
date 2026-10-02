@@ -1,4 +1,7 @@
 export const EVENT_LABELS = {
+  ITEM_PICKED_PROBABLE: "Retirada provável — revisar evidências",
+  ITEM_RETURNED_PROBABLE: "Devolução provável — revisar evidências",
+  SHELF_INTERACTION: "Interação com a prateleira",
   DEMO_PICK_CONFIRMED: "Retirada confirmada pelo operador",
   DEMO_RETURN_CONFIRMED: "Devolução confirmada pelo operador",
   DEMO_SUSPICION: "Situação marcada para revisão",

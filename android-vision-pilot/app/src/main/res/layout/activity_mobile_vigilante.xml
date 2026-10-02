@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mobileRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SMART24 VIGILANTE"
+            android:textColor="#00D79A"
+            android:textSize="25sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Celular → câmera IP direta por RTSP → IA → eventos"
+            android:textColor="#B7C7D9"
+            android:layout_marginBottom="10dp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:background="#000000">
+
+            <TextureView
+                android:id="@+id/mobileVideoTexture"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <br.com.thiaguinhosolucoes.smart24vision.MobileOverlayView
+                android:id="@+id/mobileOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. CÂMERA IP"
+            android:textColor="#00D79A"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <EditText
+            android:id="@+id/mobileHostInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="IP da câmera"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobilePortInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Porta RTSP (normalmente 554)"
+            android:inputType="number"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobileUserInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Usuário RTSP/NVR"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobileCameraPasswordInput"
+            android:saveEnabled="false"
+            android:importantForAutofill="no"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha RTSP/NVR — não é salva"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobileRtspUrlInput"
+            android:saveEnabled="false"
+            android:importantForAutofill="no"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="URL RTSP completa (opcional)"
+            android:inputType="textUri"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/mobileConnectButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CONECTAR DIRETO NA CÂMERA" />
+
+        <Button
+            android:id="@+id/mobileDiscoverButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="LOCALIZAR CÂMERAS ONVIF NO WI-FI" />
+
+        <Button
+            android:id="@+id/mobileDisconnectButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DESCONECTAR CÂMERA" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2. IDENTIFICAÇÃO DA LOJA"
+            android:textColor="#00D79A"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <EditText
+            android:id="@+id/mobileStoreInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Loja"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobileCameraInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Câmera"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/mobileCalibrateButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CAPTURAR QUADRO E CALIBRAR PRODUTOS" />
+
+        <Button
+            android:id="@+id/mobileStartAiButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="INICIAR VIGILANTE" />
+
+        <Button
+            android:id="@+id/mobileStopAiButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PARAR VIGILANTE" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3. FIREBASE / PAINEL (opcional no teste local)"
+            android:textColor="#00D79A"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+
+        <EditText
+            android:id="@+id/mobileFirebaseEmailInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="E-mail Firebase"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/mobileFirebasePasswordInput"
+            android:saveEnabled="false"
+            android:importantForAutofill="no"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha Firebase — não é salva"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/mobileFirebaseLoginButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CONECTAR AO FIREBASE" />
+
+        <TextView
+            android:id="@+id/mobileStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#102239"
+            android:padding="12dp"
+            android:layout_marginTop="12dp"
+            android:textColor="#DCE7F3"
+            android:text="Aguardando." />
+
+        <TextView
+            android:id="@+id/mobileEventText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:text="Último evento: nenhum" />
+
+        <TextView
+            android:id="@+id/mobileSyncText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:textColor="#B7C7D9" />
+
+        <Button
+            android:id="@+id/mobilePanelButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ABRIR PAINEL SMART24" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Powered by thIAguinho Soluções Digitais"
+            android:gravity="center"
+            android:textColor="#B7C7D9"
+            android:padding="10dp" />
+    </LinearLayout>
+</ScrollView>

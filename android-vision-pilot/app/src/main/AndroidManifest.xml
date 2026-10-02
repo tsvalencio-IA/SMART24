@@ -1,33 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- Android 11+ exige declarar os aplicativos que o SMART24 precisa localizar. -->
-    <queries>
-        <package android:name="com.yoosee" />
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-    </queries>
 
     <application
         android:allowBackup="false"
-        android:label="SMART24 Vision Pilot"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="SMART24 Vigilante"
         android:theme="@style/Theme.Smart24Vision"
         android:usesCleartextTraffic="false">
-        <activity android:name=".CalibrationActivity" android:screenOrientation="portrait" />
-        <activity android:name=".UserBotActivity" android:screenOrientation="portrait" />
-        <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="portrait">
+
+        <activity
+            android:name=".MobileCalibrationActivity"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".MobileVigilanteActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Mantidos por compatibilidade com arquivos existentes do projeto. -->
+        <activity android:name=".CalibrationActivity" android:screenOrientation="portrait" />
+        <activity android:name=".UserBotActivity" android:screenOrientation="portrait" />
+        <activity android:name=".MainActivity" android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

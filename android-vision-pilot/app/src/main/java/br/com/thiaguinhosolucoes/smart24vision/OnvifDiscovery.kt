@@ -2,6 +2,8 @@ package br.com.thiaguinhosolucoes.smart24vision
 
 import android.content.Context
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +32,10 @@ class OnvifDiscovery(context: Context) {
         val responses = linkedSetOf<String>()
         val socket = DatagramSocket()
         try {
+            val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
+            connectivity.allNetworks.firstOrNull { network ->
+                connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            }?.bindSocket(socket)
             socket.broadcast = true
             socket.soTimeout = 450
             val destination = InetAddress.getByName(WS_DISCOVERY_ADDRESS)
