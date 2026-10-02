@@ -85,6 +85,22 @@ jobs:
           sleep 2
           ffmpeg -nostdin -re -f lavfi -i 'testsrc2=size=640x360:rate=10' -c:v libx264 -preset ultrafast -tune zerolatency -g 10 -pix_fmt yuv420p -rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/testcam > /tmp/smart24-rtsp-source.log 2>&1 &
           sleep 2
+      - name: Preparar câmeras com autenticação e falha de rede
+        run: |
+          python3 android-vision-pilot/scripts/camera-fixtures.py > /tmp/smart24-camera-fixtures.log 2>&1 &
+          python3 - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for attempt in range(10):
+              try:
+                  with urlopen('http://127.0.0.1:8080/stats', timeout=2) as response:
+                      assert response.status == 200
+                  break
+              except Exception:
+                  if attempt == 9:
+                      raise
+                  time.sleep(1)
+          PY
       - name: Instalar e abrir o APK no Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -93,6 +109,9 @@ jobs:
           target: default
           disable-animations: true
           script: gradle -p android-vision-pilot :app:connectedDebugAndroidTest --stacktrace --console=plain
+      - name: Registrar respostas das câmeras de teste
+        if: always()
+        run: curl -fsS http://127.0.0.1:8080/stats -o /tmp/smart24-camera-fixtures-stats.json || true
       - name: Publicar relatório do teste Android
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,4 +122,6 @@ jobs:
             android-vision-pilot/app/build/outputs/androidTest-results/
             /tmp/smart24-rtsp-server.log
             /tmp/smart24-rtsp-source.log
+            /tmp/smart24-camera-fixtures.log
+            /tmp/smart24-camera-fixtures-stats.json
           if-no-files-found: ignore

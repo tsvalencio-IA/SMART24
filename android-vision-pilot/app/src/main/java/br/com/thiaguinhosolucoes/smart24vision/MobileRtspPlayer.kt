@@ -9,6 +9,7 @@ import android.view.TextureView
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
+import java.util.concurrent.Executors
 
 /** Every attempt owns its player, callbacks and deadline. Credentials stay in memory. */
 class MobileRtspPlayer(context: Context, private val textureView: TextureView, private val listener: Listener) {
@@ -19,23 +20,40 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
         fun onInterrupted(message: String)
     }
     private val handler = Handler(Looper.getMainLooper())
+    // Native stop() can wait for network/decoder threads. Never make the UI wait for it.
+    private val nativeWorker = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "SMART24-VLC").apply { isDaemon = true }
+    }
     private val libVlc = LibVLC(context.applicationContext, arrayListOf("--network-caching=450", "--verbose=0"))
-    private var player: MediaPlayer? = null
-    private var candidates: List<String> = emptyList()
+    @Volatile private var player: MediaPlayer? = null
+    private data class Playback(val url: String, val tcp: Boolean, val hardware: Boolean)
+    private var candidates: List<Playback> = emptyList()
     private var index = -1
-    private var generation = 0
+    @Volatile private var generation = 0
     private var connected = false
-    private var released = false
-    private var paused = false
+    @Volatile private var released = false
+    @Volatile private var paused = false
     private var playing = false
     private var videoOutput = false
+    private var frameTimestampAtStart = 0L
+    private var failureMessage = "O fluxo respondeu, mas não entregou imagem. Confira o NVR/RTSP e a transmissão de vídeo da câmera."
     val isConnected: Boolean get() = connected && !paused
 
     fun connect(host: String, username: String, password: String, preferredPort: Int, explicitUrl: String) {
+        val urls = runCatching { MobileRtspCandidates.build(host, username, password, preferredPort, explicitUrl) }
+            .getOrElse { listener.onFailed(it.message ?: "Configuração RTSP inválida."); return }
+        connectResolved(urls)
+    }
+
+    fun connectResolved(urls: List<String>, explanation: String = failureMessage) {
         disconnect()
         if (released) return
-        candidates = runCatching { MobileRtspCandidates.build(host, username, password, preferredPort, explicitUrl) }
-            .getOrElse { listener.onFailed(it.message ?: "Configuração RTSP inválida."); return }
+        failureMessage = explanation
+        candidates = urls.distinct().take(3).flatMap { url ->
+            listOf(Playback(url, tcp = true, hardware = true),
+                Playback(url, tcp = true, hardware = false),
+                Playback(url, tcp = false, hardware = false))
+        }
         paused = false
         index = -1
         nextCandidate()
@@ -51,14 +69,16 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
         val token = ++generation
         index++
         if (index !in candidates.indices) {
-            listener.onFailed("Nenhum fluxo entregou imagem. Confira o IP, a senha NVR/RTSP e a rede Wi-Fi. A câmera precisa disponibilizar RTSP; ONVIF sozinho não garante vídeo.")
+            listener.onFailed(failureMessage)
             return
         }
         listener.onConnecting(index + 1, candidates.size)
+        val candidate = candidates[index]
         textureView.post {
             if (released || paused || token != generation) return@post
             val active = MediaPlayer(libVlc)
             player = active
+            frameTimestampAtStart = textureView.surfaceTexture?.timestamp ?: 0L
             active.vlcVout.setVideoView(textureView)
             active.vlcVout.setWindowSize(textureView.width.coerceAtLeast(1), textureView.height.coerceAtLeast(1))
             active.vlcVout.attachViews()
@@ -84,30 +104,41 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
                     }
                 }
             }
-            val media = Media(libVlc, Uri.parse(candidates[index])).apply {
-                setHWDecoderEnabled(true, false)
-                addOption(":rtsp-tcp")
-                addOption(":network-caching=450")
-                addOption(":no-audio")
+            nativeWorker.execute {
+                if (released || paused || token != generation || player !== active) return@execute
+                try {
+                    val media = Media(libVlc, Uri.parse(candidate.url)).apply {
+                        setHWDecoderEnabled(candidate.hardware, false)
+                        addOption(if (candidate.tcp) ":rtsp-tcp" else ":no-rtsp-tcp")
+                        addOption(":network-caching=450")
+                        addOption(":tcp-timeout=2500")
+                        addOption(":no-audio")
+                    }
+                    try { active.media = media } finally { media.release() }
+                    handler.post {
+                        if (released || paused || token != generation) return@post
+                        pollFirstFrame(token)
+                        handler.postDelayed({ if (!connected && token == generation) nextCandidate() }, 8500L)
+                    }
+                    active.play()
+                } catch (_: Exception) {
+                    handler.post { if (!released && !paused && token == generation) nextCandidate() }
+                }
             }
-            active.media = media
-            media.release()
-            active.play()
-            pollFirstFrame(token)
-            handler.postDelayed({ if (!connected && token == generation) nextCandidate() }, 8500L)
         }
     }
 
     private fun pollFirstFrame(token: Int) {
         if (released || paused || token != generation || connected) return
-        if (playing && videoOutput && textureView.isAvailable) {
+        val timestamp = textureView.surfaceTexture?.timestamp ?: 0L
+        if (playing && videoOutput && textureView.isAvailable && timestamp > 0 && timestamp != frameTimestampAtStart) {
             val frame = textureView.getBitmap(160, 90)
             val useful = frame != null && !BitmapUtils.isMostlyBlack(frame)
             frame?.recycle()
             if (useful) {
                 connected = true
                 handler.removeCallbacksAndMessages(null)
-                listener.onConnected(MobileRtspCandidates.mask(candidates[index]))
+                listener.onConnected(MobileRtspCandidates.mask(candidates[index].url))
                 return
             }
         }
@@ -124,13 +155,19 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
     fun pause() {
         paused = true
         handler.removeCallbacksAndMessages(null)
-        player?.pause()
+        val active = player
+        val token = generation
+        nativeWorker.execute { if (!released && token == generation && player === active) active?.pause() }
     }
 
     fun resume() {
         if (!paused || released) return
         paused = false
-        if (connected) player?.play() else if (index in candidates.indices) { index--; nextCandidate() }
+        if (connected) {
+            val active = player
+            val token = generation
+            nativeWorker.execute { if (!released && token == generation && player === active) active?.play() }
+        } else if (index in candidates.indices) { index--; nextCandidate() }
     }
 
     fun disconnect() {
@@ -146,15 +183,17 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
         val previous = player
         player = null
         previous?.setEventListener(null)
-        runCatching { previous?.stop() }
         runCatching { previous?.vlcVout?.detachViews() }
-        runCatching { previous?.release() }
+        if (previous != null) nativeWorker.execute {
+            try { runCatching { previous.stop() } } finally { runCatching { previous.release() } }
+        }
     }
 
     fun release() {
         if (released) return
         disconnect()
         released = true
-        libVlc.release()
+        nativeWorker.execute { libVlc.release() }
+        nativeWorker.shutdown()
     }
 }

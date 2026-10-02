@@ -15,7 +15,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="SMART24 Vigilante"
         android:theme="@style/Theme.Smart24Vision"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MobileCalibrationActivity"

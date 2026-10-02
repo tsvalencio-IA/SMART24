@@ -1,6 +1,8 @@
 package br.com.thiaguinhosolucoes.smart24vision
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -21,6 +23,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,6 +33,10 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.URL
 
 class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private lateinit var textureView: TextureView
@@ -50,6 +59,10 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private var resumed = false
     private var destroyed = false
     private var sessionId = "MOBILE-${UUID.randomUUID()}"
+    private var connectionJob: Job? = null
+    private var connectionGeneration = 0
+    private var connectionReport = ""
+    private var knownOnvifServices: List<String> = emptyList()
 
     private fun input(id: Int) = findViewById<EditText>(id)
     private fun storeId() = input(R.id.mobileStoreInput).text.toString().trim().ifBlank { "loja-01" }
@@ -129,6 +142,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         findViewById<Button>(R.id.mobileStartAiButton).setOnClickListener { startAi() }
         findViewById<Button>(R.id.mobileStopAiButton).setOnClickListener { stopAi(); status.text = "Análise parada; o vídeo permanece aberto." }
         findViewById<Button>(R.id.mobileDisconnectButton).setOnClickListener {
+            cancelConnectionCheck()
             stopAi(); rtspPlayer.disconnect(); cameraControls(false)
             input(R.id.mobileCameraPasswordInput).text.clear(); input(R.id.mobileRtspUrlInput).text.clear()
             status.text = "Câmera desconectada. Credenciais descartadas."
@@ -138,7 +152,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tsvalencio-ia.github.io/SMART24/")))
         }
         cameraControls(false)
-        status.text = "Celular e câmera na mesma rede. Digite o usuário e a senha NVR/RTSP e conecte."
+        status.text = "SMART24 3.1 • celular e câmera na mesma rede. Digite o usuário e a senha NVR/RTSP e conecte."
         updateSyncText()
     }
 
@@ -152,6 +166,10 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     }
     override fun onPause() {
         resumed = false
+        if (connectionJob?.isActive == true) {
+            cancelConnectionCheck()
+            status.text = "Verificação da câmera interrompida ao sair. Conecte novamente ao voltar."
+        }
         stopAi()
         handler.removeCallbacks(syncLoop)
         rtspPlayer.pause()
@@ -169,10 +187,66 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         val urls = runCatching { MobileRtspCandidates.build(host, user, password, port, explicit) }
             .getOrElse { status.text = it.message; return }
         val connectHost = Uri.parse(urls.first()).host.orEmpty()
+        cancelConnectionCheck()
+        rtspPlayer.disconnect()
         getSharedPreferences("smart24_mobile", MODE_PRIVATE).edit()
             .putString("host", connectHost).putString("user", user).putString("port", port.toString()).apply()
         cameraControls(false)
-        rtspPlayer.connect(host, user, password, port, explicit)
+        connectionReport = ""
+        status.text = "Verificando a conexão da câmera…"
+        val token = connectionGeneration
+        connectionJob = lifecycleScope.launch {
+            try {
+                val plan = withContext(Dispatchers.IO) {
+                    val context = currentCoroutineContext()
+                    val cancel = { context.ensureActive() }
+                    val progress: (String) -> Unit = { message ->
+                        handler.post { if (token == connectionGeneration && resumed && !destroyed) status.text = message }
+                    }
+                    val connectivity = getSystemService(ConnectivityManager::class.java)
+                    val wifi = connectivity.allNetworks.firstOrNull { network ->
+                        connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+                    }
+                    val networkReport = when {
+                        wifi == null -> "Rede: não foi encontrada uma conexão Wi-Fi ativa."
+                        wifi == connectivity.activeNetwork -> "Rede: Wi-Fi também é a rede padrão do celular."
+                        else -> "Rede: Wi-Fi encontrado, mas não é a rede padrão. Se o vídeo falhar, desligue temporariamente os dados móveis e tente novamente."
+                    }
+                    val socketFactory: (String, Int, Int) -> Socket = { address, tcpPort, timeout ->
+                        Socket().also { socket ->
+                            try {
+                                wifi?.bindSocket(socket)
+                                val destination = wifi?.getByName(address) ?: java.net.InetAddress.getByName(address)
+                                socket.connect(InetSocketAddress(destination, tcpPort), timeout)
+                            } catch (error: Exception) { socket.close(); throw error }
+                        }
+                    }
+                    val httpFactory: (URL) -> HttpURLConnection = { url ->
+                        (wifi?.openConnection(url) ?: url.openConnection()) as HttpURLConnection
+                    }
+                    val probe = CameraRtspProbe(socketFactory)
+                    val services = if (explicit.isBlank()) {
+                        progress("Localizando o serviço ONVIF da câmera…")
+                        knownOnvifServices.filter { OnvifStreamResolver.sameCameraUrl(it, connectHost, setOf("http", "https")) != null }.ifEmpty {
+                            OnvifDiscovery(this@MobileVigilanteActivity).discover(2200L)
+                                .firstOrNull { it.host.equals(connectHost, true) }?.serviceUrls.orEmpty()
+                        }
+                    } else emptyList()
+                    val onvif = OnvifStreamResolver(httpFactory, { address, managementPort -> probe.portOpen(address, managementPort) }, cancel, progress)
+                    CameraConnectionPlanner(probe, onvif, cancel, progress)
+                        .resolve(host, user, password, port, explicit, services).let { result ->
+                            result.copy(report = "$networkReport\n${result.report}")
+                        }
+                }
+                if (token != connectionGeneration || !resumed || destroyed) return@launch
+                connectionReport = plan.report
+                if (plan.urls.isEmpty()) onFailed(plan.message)
+                else rtspPlayer.connectResolved(plan.urls, plan.message)
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) {
+                if (token == connectionGeneration && resumed && !destroyed) onFailed("Não foi possível verificar a câmera. Confira o IP, o Wi-Fi e a configuração NVR/RTSP.")
+            } finally { if (token == connectionGeneration) connectionJob = null }
+        }
         input(R.id.mobileCameraPasswordInput).text.clear()
         input(R.id.mobileRtspUrlInput).text.clear()
     }
@@ -239,10 +313,14 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         sessionId = "MOBILE-${UUID.randomUUID()}"
         stopAi()
         analyzing = true
+        findViewById<Button>(R.id.mobileStopAiButton).isEnabled = true
         handler.post(analysisLoop)
         status.text = "Vigilante iniciado. Mantenha a prateleira livre para registrar o estado inicial."
     }
-    private fun stopAi() { generation++; analyzing = false; handler.removeCallbacks(analysisLoop); itemEngine.reset() }
+    private fun stopAi() {
+        generation++; analyzing = false; handler.removeCallbacks(analysisLoop); itemEngine.reset()
+        findViewById<Button>(R.id.mobileStopAiButton)?.isEnabled = false
+    }
     private fun reloadZones() { zones = MobileZoneStore.load(this, storeId(), cameraId()); overlay.zones = zones }
 
     private suspend fun publishEvent(event: MobileItemEvent) {
@@ -302,6 +380,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 AlertDialog.Builder(this@MobileVigilanteActivity).setTitle("Câmeras ONVIF encontradas")
                     .setItems(cameras.map { it.host }.toTypedArray()) { _, selected ->
                         input(R.id.mobileHostInput).setText(cameras[selected].host)
+                        knownOnvifServices = cameras[selected].serviceUrls
                         status.text = "IP preenchido. Informe as credenciais NVR/RTSP e conecte."
                     }.setNegativeButton("Fechar", null).show()
             } catch (error: Exception) { status.text = "Descoberta indisponível. Confira o Wi-Fi ou informe o IP manualmente." }
@@ -310,13 +389,29 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private fun cameraControls(enabled: Boolean) {
         findViewById<Button>(R.id.mobileCalibrateButton).isEnabled = enabled
         findViewById<Button>(R.id.mobileStartAiButton).isEnabled = enabled
+        if (!analyzing) findViewById<Button>(R.id.mobileStopAiButton).isEnabled = false
+    }
+    private fun cancelConnectionCheck() {
+        connectionGeneration++
+        connectionJob?.cancel()
+        connectionJob = null
     }
     override fun onConnecting(candidateNumber: Int, total: Int) { status.text = "Testando RTSP $candidateNumber/$total • aguardando imagem real…" }
     override fun onConnected(maskedUrl: String) { cameraControls(true); status.text = "VÍDEO CONFIRMADO • CÂMERA DIRETA\n$maskedUrl" }
-    override fun onFailed(message: String) { stopAi(); cameraControls(false); status.text = message }
+    override fun onFailed(message: String) {
+        stopAi(); cameraControls(false); status.text = message
+        if (connectionReport.isNotBlank() && resumed && !destroyed) {
+            AlertDialog.Builder(this).setTitle("Diagnóstico da câmera")
+                .setMessage("$message\n\n${connectionReport.lineSequence().take(7).joinToString("\n")}")
+                .setPositiveButton("Copiar diagnóstico") { _, _ ->
+                    getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("SMART24 câmera", "$message\n\n$connectionReport"))
+                }.setNegativeButton("Fechar", null).show()
+        }
+    }
     override fun onInterrupted(message: String) { stopAi(); cameraControls(false); status.text = message }
     override fun onDestroy() {
         destroyed = true
+        cancelConnectionCheck()
         stopAi(); handler.removeCallbacksAndMessages(null)
         if (!analysisBusy && visionDelegate.isInitialized()) vision.close()
         rtspPlayer.release()
