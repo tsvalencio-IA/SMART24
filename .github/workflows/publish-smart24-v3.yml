@@ -1,4 +1,4 @@
-name: Publish SMART24 Vigilante V3 APK
+name: Publish SMART24 Vigilante APK
 
 on:
   workflow_dispatch:
@@ -16,33 +16,45 @@ jobs:
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
-      TESTED_RUN_ID: '36954287927'
-      TESTED_COMMIT: '398af9d7e10c27c5731664e3c7022c15f34e7598'
-      RELEASE_TAG: 'v3.0.0-vigilante-celular'
+      TESTED_RUN_ID: '37017543792'
+      TESTED_COMMIT: 'c13216cb1a083d3a06dc16d569e846e4e767ee67'
+      ARTIFACT_ID: '11231470457'
+      RELEASE_TAG: 'v3.1.0-vigilante-celular'
     steps:
       - uses: actions/checkout@v4
-      - name: Confirmar que o código foi aprovado
+      - name: Confirmar código e artefato aprovados
         run: |
           RESULT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTED_RUN_ID" --jq '.conclusion + " " + .head_sha')
           test "$RESULT" = "success $TESTED_COMMIT"
-      - name: Baixar o APK aprovado
-        uses: actions/download-artifact@v4
-        with:
-          name: SMART24-Vigilante-Celular-V3-APK
-          run-id: 36954287927
-          github-token: ${{ github.token }}
-          path: tested-apk
-      - name: Conferir arquivo e assinatura
+          ARTIFACT_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --jq '.workflow_run.id')
+          test "$ARTIFACT_RUN" = "$TESTED_RUN_ID"
+      - name: Baixar e conferir o ZIP do Actions
         run: |
-          mv tested-apk/app-debug.apk tested-apk/SMART24-Vigilante-Celular-v3.apk
-          echo '906842b89760dc6cea7eaf2227f288cf1429834743d96a64c86346147851dbfc  tested-apk/SMART24-Vigilante-Celular-v3.apk' | sha256sum -c -
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
-          test -n "$APKSIGNER"
-          "$APKSIGNER" verify --verbose --print-certs tested-apk/SMART24-Vigilante-Celular-v3.apk
-      - name: Publicar download direto do APK
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > tested-apk.zip
+          echo 'a8a80c2b4dde13ef9953cd19b3b296c820b747217a55a7a7663eab7c96ba9175  tested-apk.zip' | sha256sum -c -
+          mkdir tested-apk
+          unzip -q tested-apk.zip app-debug.apk -d tested-apk
+          mv tested-apk/app-debug.apk tested-apk/SMART24-Vigilante-Celular-v3.1.apk
+      - name: Conferir versão, assinatura e hash do APK
         run: |
-          gh release create "$RELEASE_TAG" tested-apk/SMART24-Vigilante-Celular-v3.apk \
+          APK_FILE=tested-apk/SMART24-Vigilante-Celular-v3.1.apk
+          APKSIGNER_BIN=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          AAPT_BIN=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$APKSIGNER_BIN"
+          test -n "$AAPT_BIN"
+          "$APKSIGNER_BIN" verify --verbose --print-certs "$APK_FILE"
+          APK_PACKAGE=$("$AAPT_BIN" dump badging "$APK_FILE" | head -n 1)
+          echo "$APK_PACKAGE"
+          echo "$APK_PACKAGE" | grep -F "name='br.com.thiaguinhosolucoes.smart24vision'"
+          echo "$APK_PACKAGE" | grep -F "versionCode='8'"
+          echo "$APK_PACKAGE" | grep -F "versionName='3.1.0-mobile-vigilante'"
+          APK_SHA=$(sha256sum "$APK_FILE" | cut -d ' ' -f1)
+          echo "$APK_SHA  SMART24-Vigilante-Celular-v3.1.apk" > tested-apk/SHA256SUMS.txt
+          cat tested-apk/SHA256SUMS.txt
+      - name: Publicar download direto
+        run: |
+          gh release create "$RELEASE_TAG" tested-apk/SMART24-Vigilante-Celular-v3.1.apk tested-apk/SHA256SUMS.txt \
             --target "$TESTED_COMMIT" \
-            --title 'SMART24 Vigilante Celular 3.0.0 — piloto RTSP validado' \
-            --notes-file docs/VALIDACAO-VIGILANTE-V3.md \
+            --title 'SMART24 Vigilante Celular 3.1.0 — conexão ONVIF e correção de travamento' \
+            --notes-file docs/VALIDACAO-VIGILANTE-V3_1.md \
             --prerelease

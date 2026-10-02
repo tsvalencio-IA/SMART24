@@ -28,7 +28,7 @@ SHA-256 do pacote: `c9516282a1e4df3530a6021ec66bf6c343bfdbd77438f77e22e9876d1009
 
 ## Estado de validação
 
-Histórico 3.0: build, 12 testes unitários, lint sem erros impeditivos e 2 testes Android aprovados. O vídeo físico recebido em 02/10 mostrou câmera sem imagem e ANR; a versão 3.1 acrescenta diagnóstico/ONVIF e remove paradas nativas da thread da tela. Consulte [VALIDACAO-VIGILANTE-V3_1.md](VALIDACAO-VIGILANTE-V3_1.md) para a revisão atual e [VALIDACAO-VIGILANTE-V3.md](VALIDACAO-VIGILANTE-V3.md) para o APK anterior.
+Histórico 3.0: build, 12 testes unitários, lint sem erros impeditivos e 2 testes Android aprovados. O vídeo físico recebido em 02/10 mostrou câmera sem imagem e ANR; a versão 3.1 acrescenta diagnóstico/ONVIF e remove paradas nativas da thread da tela. Validação 3.1: build, 23 testes unitários, lint e 5 testes Android aprovados no [Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37017543792). Consulte [VALIDACAO-VIGILANTE-V3_1.md](VALIDACAO-VIGILANTE-V3_1.md) para a revisão atual e [VALIDACAO-VIGILANTE-V3.md](VALIDACAO-VIGILANTE-V3.md) para o APK anterior.
 
 Nenhum frame da câmera física `192.168.15.5` foi recebido neste ambiente. A rede privada da câmera não é acessível daqui. Usuário/senha NVR não foram fornecidos e não devem ser publicados no repositório.
 

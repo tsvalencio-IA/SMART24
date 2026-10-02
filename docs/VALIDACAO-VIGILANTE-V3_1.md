@@ -26,9 +26,18 @@ Sem o stacktrace do aparelho, o vídeo não identifica sozinho a chamada que cau
 - 17 testes JVM locais aprovados: 11 novos de protocolo e 6 de URLs existentes.
 - Serviço de teste ONVIF real em HTTP: HTTP Digest + WS-Security, relógio atrasado em uma hora, consulta de perfis e dois GetStreamUri: **aprovados**. Nenhuma credencial real utilizada.
 - XML Android, sintaxe Python e workflow: conferidos.
-- Build completo, 23 testes unitários, lint e 5 testes Android: **pendentes do Actions nesta revisão**.
+- Build completo, 23 testes unitários, lint e 5 testes Android: **aprovados** em 02/10/2026 às 11:13 (São Paulo).
+- [Actions aprovado](https://github.com/tsvalencio-IA/SMART24/actions/runs/37017543792), código Android `c13216cb1a083d3a06dc16d569e846e4e767ee67`.
+- O log Android registra 5 testes iniciados e 5 concluídos, com BUILD SUCCESSFUL. Inclui timeout/retry/parada nativos e autenticação ONVIF com diferença de relógio.
 
 Os testes Android incluem abertura, vídeo RTSP decodificado, ONVIF autenticado com relógio diferente, solicitação de credenciais e resposta da tela durante timeout/retry/parada nativos. O servidor H.264 é MediaMTX com fonte sintética; o teste não representa a câmera física.
+
+## APK
+
+- [Baixar SMART24-Vigilante-Celular-v3.1.apk](https://github.com/tsvalencio-IA/SMART24/releases/download/v3.1.0-vigilante-celular/SMART24-Vigilante-Celular-v3.1.apk).
+- APK universal do build aprovado; versão `3.1.0-mobile-vigilante`, código 8, Android mínimo 8.
+- O arquivo ZIP do Actions tem SHA-256 `a8a80c2b4dde13ef9953cd19b3b296c820b747217a55a7a7663eab7c96ba9175`.
+- A publicação confere o SHA-256 do ZIP, a versão/pacote do APK e a assinatura, e fornece `SHA256SUMS.txt` junto ao APK.
 
 ## Teste no celular de Thiago
 
