@@ -44,3 +44,11 @@ O objetivo completo continua pendente até validar imagem da câmera real, calib
 - A publicação verifica o run/commit, a igualdade dos arquivos Android, o hash do ZIP de artefato, o pacote, a versão 3.2.0/código 9 e a assinatura do APK. O checksum acompanha o download em `SHA256SUMS.txt`.
 - O APK é do build do código aprovado. O teste Android recompila e instala o mesmo código em emulador; não representa instalação no aparelho do usuário nem conexão com a câmera física.
 - Se o Android indicar conflito de assinatura com a versão de teste anterior, reinstalar apaga as configurações locais. Redigite a senha NVR/RTSP ao conectar: o aplicativo limpa o campo após cada tentativa.
+
+## Publicação confirmada
+
+- [Publicação aprovada no Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37059318198).
+- Release `v3.2.0-vigilante-celular` publicada; APK e checksum em estado `uploaded`.
+- APK: 393.658.222 bytes; SHA-256 `a8359d87933d959e64d6a87d229f5e18276cb3e8b6df65790ef350c5fdd33de1`.
+- O hash do asset publicado corresponde ao APK cuja versão e assinatura foram verificadas no workflow.
+- Continua pendente a confirmação de imagem da câmera física e do fluxo completo no celular do usuário.
