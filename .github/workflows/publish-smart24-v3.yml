@@ -1,0 +1,48 @@
+name: Publish SMART24 Vigilante V3 APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/publish-smart24-v3.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-tested-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_RUN_ID: '36954287927'
+      TESTED_COMMIT: '398af9d7e10c27c5731664e3c7022c15f34e7598'
+      RELEASE_TAG: 'v3.0.0-vigilante-celular'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirmar que o código foi aprovado
+        run: |
+          RESULT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTED_RUN_ID" --jq '.conclusion + " " + .head_sha')
+          test "$RESULT" = "success $TESTED_COMMIT"
+      - name: Baixar o APK aprovado
+        uses: actions/download-artifact@v4
+        with:
+          name: SMART24-Vigilante-Celular-V3-APK
+          run-id: 36954287927
+          github-token: ${{ github.token }}
+          path: tested-apk
+      - name: Conferir arquivo e assinatura
+        run: |
+          mv tested-apk/app-debug.apk tested-apk/SMART24-Vigilante-Celular-v3.apk
+          echo '906842b89760dc6cea7eaf2227f288cf1429834743d96a64c86346147851dbfc  tested-apk/SMART24-Vigilante-Celular-v3.apk' | sha256sum -c -
+          APKSIGNER=$(rg --files "$ANDROID_HOME/build-tools" | rg '/apksigner$' | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs tested-apk/SMART24-Vigilante-Celular-v3.apk
+      - name: Publicar download direto do APK
+        run: |
+          gh release create "$RELEASE_TAG" tested-apk/SMART24-Vigilante-Celular-v3.apk \
+            --target "$TESTED_COMMIT" \
+            --title 'SMART24 Vigilante Celular 3.0.0 — piloto RTSP validado' \
+            --notes-file docs/VALIDACAO-VIGILANTE-V3.md \
+            --prerelease

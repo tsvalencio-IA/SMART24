@@ -28,7 +28,7 @@ SHA-256 do pacote: `c9516282a1e4df3530a6021ec66bf6c343bfdbd77438f77e22e9876d1009
 
 ## Estado de validação
 
-Esta revisão está preparada para validação pelo GitHub Actions. Os resultados concluídos devem ser registrados em `VALIDACAO-VIGILANTE-V3.md` após o workflow.
+Validação concluída: build, 12 testes unitários, lint sem erros impeditivos e 2 testes Android, incluindo quadros RTSP decodificados. Consulte [VALIDACAO-VIGILANTE-V3.md](VALIDACAO-VIGILANTE-V3.md) para evidências, APK e limites.
 
 Nenhum frame da câmera física `192.168.15.5` foi recebido neste ambiente. A rede privada da câmera não é acessível daqui. Usuário/senha NVR não foram fornecidos e não devem ser publicados no repositório.
 
