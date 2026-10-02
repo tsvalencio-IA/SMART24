@@ -24,7 +24,10 @@ Versão Android `3.2.0-mobile-vigilante`, código 9, mesmo pacote e Android mín
 - Após a correção: teste local inicial de 15 casos aprovado, incluindo os quatro de regressão.
 - Validação local final: 22 testes aprovados, incluindo conexão encerrada com recuperação e desafio novo, nonce por conexão, nonce expirado, rejeição limitada e os seis testes de URLs existentes.
 - Novo teste Android verifica DESCRIBE Digest no servidor de teste que mantém o nonce por conexão. Esse servidor anuncia SDP, mas não transmite quadros; o teste de vídeo decodificado continua separado, com a fonte H.264 sintética.
-- Build, unitários, lint e seis testes Android: pendentes antes da publicação.
+- Build, 28 testes unitários, lint sem erros impeditivos e seis testes Android: **aprovados** no [Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37058313716).
+- Código Android testado: `a3006da15c5ed6677c3295db4397947b191422d5`.
+- Relatório unitário: 28 testes, zero falhas, zero erros e zero testes ignorados. Lint: zero erros impeditivos; 225 avisos.
+- Log Android: seis testes iniciados e concluídos, BUILD SUCCESSFUL. O teste de Digest por conexão recebeu SDP 200; vídeo decodificado, ONVIF e resposta da interface continuam em testes separados.
 
 ## Próximo teste físico
 
@@ -34,3 +37,10 @@ Versão Android `3.2.0-mobile-vigilante`, código 9, mesmo pacote e Android mín
 4. Se houver novo 401, envie o diagnóstico e a tela de configuração NVR/RTSP com qualquer senha coberta. Não envie a senha pelo chat.
 
 O objetivo completo continua pendente até validar imagem da câmera real, calibração, eventos e Firebase no aparelho do usuário. Os testes sintéticos não comprovam essa integração física.
+
+## Download da versão aprovada
+
+- [SMART24-Vigilante-Celular-v3.2.apk](https://github.com/tsvalencio-IA/SMART24/releases/download/v3.2.0-vigilante-celular/SMART24-Vigilante-Celular-v3.2.apk).
+- A publicação verifica o run/commit, a igualdade dos arquivos Android, o hash do ZIP de artefato, o pacote, a versão 3.2.0/código 9 e a assinatura do APK. O checksum acompanha o download em `SHA256SUMS.txt`.
+- O APK é do build do código aprovado. O teste Android recompila e instala o mesmo código em emulador; não representa instalação no aparelho do usuário nem conexão com a câmera física.
+- Se o Android indicar conflito de assinatura com a versão de teste anterior, reinstalar apaga as configurações locais. Redigite a senha NVR/RTSP ao conectar: o aplicativo limpa o campo após cada tentativa.
