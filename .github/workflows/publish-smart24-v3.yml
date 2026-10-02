@@ -22,10 +22,13 @@ jobs:
       RELEASE_TAG: 'v3.1.0-vigilante-celular'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Confirmar código e artefato aprovados
         run: |
           RESULT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTED_RUN_ID" --jq '.conclusion + " " + .head_sha')
           test "$RESULT" = "success $TESTED_COMMIT"
+          git diff --exit-code "$TESTED_COMMIT" "$GITHUB_SHA" -- android-vision-pilot .github/workflows/build-smart24-vision.yml
           ARTIFACT_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --jq '.workflow_run.id')
           test "$ARTIFACT_RUN" = "$TESTED_RUN_ID"
       - name: Baixar e conferir o ZIP do Actions
@@ -54,7 +57,7 @@ jobs:
       - name: Publicar download direto
         run: |
           gh release create "$RELEASE_TAG" tested-apk/SMART24-Vigilante-Celular-v3.1.apk tested-apk/SHA256SUMS.txt \
-            --target "$TESTED_COMMIT" \
+            --target "$GITHUB_SHA" \
             --title 'SMART24 Vigilante Celular 3.1.0 — conexão ONVIF e correção de travamento' \
             --notes-file docs/VALIDACAO-VIGILANTE-V3_1.md \
             --prerelease
