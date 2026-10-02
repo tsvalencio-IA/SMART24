@@ -32,11 +32,13 @@ Histórico 3.0: build, 12 testes unitários, lint sem erros impeditivos e 2 test
 
 Novo diagnóstico físico: o SMART24 3.1 chegou ao RTSP em `192.168.15.7:554`, mas recebeu 401. Foi reproduzida uma falha do probe ao abrir outra conexão para responder ao desafio Digest. A versão 3.2 mantém a conexão, trata nonce expirado e limita recuperação. Validação local: 22 testes aprovados. Build, 28 testes unitários, lint e seis testes Android aprovados no [Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37058313716). Consulte [VALIDACAO-VIGILANTE-V3_2.md](VALIDACAO-VIGILANTE-V3_2.md).
 
+Após a entrega, Thiago relatou “pacote inválido”. Foi confirmado que 3.1 e 3.2 usam assinaturas diferentes, impedindo atualização normal. O [teste do APK público exato](https://github.com/tsvalencio-IA/SMART24/actions/runs/37078546881) passou em Android 8 e Android 15: integridade e assinatura verificadas, instalação limpa, hash instalado idêntico, atualização com a mesma assinatura e duas aberturas por ambiente. A tentativa 3.1 → 3.2 reproduziu `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. A publicação exige essa prova e o certificado esperado; ainda falta configurar uma chave privada persistente para futuras versões. Não distribuir um APK recompilado com outra chave de debug como atualização.
+
 Nenhum frame da câmera física `192.168.15.5` foi recebido neste ambiente. A rede privada da câmera não é acessível daqui. Usuário/senha NVR não foram fornecidos e não devem ser publicados no repositório.
 
 ## Teste físico pelo celular
 
-1. Instale o APK 3.2.0 do build aprovado. Se o Android recusar por assinatura diferente, o APK anterior pode exigir desinstalação; ela apaga dados locais daquele aplicativo. O Firebase é separado.
+1. Baixe o `.apk` 3.2 completo da release (393.658.222 bytes, aproximadamente 394 MB). A atualização por cima da 3.1 é incompatível por assinatura: será necessária uma instalação limpa. Desinstalar apaga as configurações, zonas/SKUs e eventos que ainda estejam só no celular; registre o que precisa ser refeito antes de remover a versão anterior. O Firebase é separado. Se uma instalação limpa do arquivo completo ainda falhar, obter tela do erro, modelo e versão Android antes de atribuir a causa.
 2. Conecte celular e câmera ao mesmo roteador. A câmera precisa oferecer RTSP/NVR, e o Wi-Fi não pode isolar dispositivos.
 3. Confira o IP atual da câmera (foto anterior `192.168.15.5`, último diagnóstico `192.168.15.7`), porta `554` e digite o usuário/senha NVR configurados no equipamento. Toque em CONECTAR DIRETO NA CÂMERA.
 4. Aguarde imagem real e **VÍDEO CONFIRMADO**. ONVIF obtém endereços; DESCRIBE confere os fluxos antes de até três modos de reprodução por endereço. URL RTSP completa usa somente aquele endereço. Em falha, copie o diagnóstico mostrado.

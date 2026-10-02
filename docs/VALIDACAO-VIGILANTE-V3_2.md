@@ -1,5 +1,24 @@
 # SMART24 Vigilante Celular 3.2 — autenticação RTSP na mesma conexão
 
+## Instalação e assinatura: correção da entrega
+
+As versões 3.1 e 3.2 foram assinadas com chaves de debug diferentes, geradas em jobs distintos. A assinatura da 3.1 é `a6a9a984611d97691fe36df598d69fb4210f8585f38cd10724db5dc8d489d8c7`; a da 3.2 é `65a8783f17b9196344ded1785b4c8e53e6e9c2ab19908a86663bee0a572ace01`. Isso impede atualizar o mesmo pacote da 3.1 para a 3.2. Os testes Android anteriores recompilavam o aplicativo; não comprovavam a instalação do arquivo exato entregue.
+
+O APK público 3.2 foi baixado integralmente e passou na verificação de tamanho, SHA-256, CRC de todas as entradas ZIP e assinatura criptográfica. O novo workflow baixa os APKs das releases, sem recompilar ou assinar novamente, e testa a atualização e a instalação limpa. No Android 8 (API 26) e Android 15 (API 35), o [Actions de instalação aprovado](https://github.com/tsvalencio-IA/SMART24/actions/runs/37078546881) confirmou:
+
+- Atualização da 3.1 para a 3.2 recusada com `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+- Instalação limpa da 3.2 aprovada, com SHA-256 do `base.apk` instalado igual ao arquivo público.
+- Reinstalação da mesma 3.2 com `adb install -r` aprovada, preservando a mesma assinatura.
+- Duas aberturas por ambiente com `Status: ok`, processo em execução e sem falha do aplicativo no buffer de crashes. Capturas das telas e logs estão nos dois artefatos do run.
+
+Isso confirma a instalação do binário entregue nos emuladores. Não comprova a instalação no telefone do usuário nem o vídeo da câmera física. O erro “pacote inválido” relatado ainda precisa ser relacionado ao conflito reproduzido ou ao arquivo/aparelho concreto.
+
+Para substituir uma 3.1 instalada, é necessária uma instalação limpa da 3.2. **Desinstalar apaga login, configurações, zonas/SKUs e eventos ainda armazenados somente no aplicativo.** Registros que já chegaram ao Firebase não são apagados por isso. Antes de remover a versão anterior, registre as configurações e calibrações que precisarão ser refeitas. Não desinstale outros aplicativos de câmera.
+
+Baixe o arquivo `.apk` completo pelo link desta release, aproximadamente 394 MB (393.658.222 bytes); não tente instalar o ZIP do código ou um download incompleto. O aparelho precisa ter Android 8 ou superior. Se a instalação limpa do arquivo completo ainda disser “pacote inválido”, o modelo do aparelho, a versão Android e a tela do erro são necessários para diagnosticar a recusa concreta do celular.
+
+A publicação passa a exigir o relatório de instalação do hash exato nos dois ambientes e a assinatura esperada. Um build com outra assinatura fica bloqueado. Uma chave de assinatura persistente, privada e armazenada de forma protegida ainda precisa ser configurada para futuras versões; a chave privada de debug das releases antigas não foi preservada pelo workflow. Não foi alterado o APK já publicado, o pacote, o layout, o player ou o fluxo Firebase.
+
 ## Diagnóstico físico recebido
 
 O usuário executou o SMART24 3.1 no celular. O diagnóstico mostra Wi-Fi como rede padrão, câmera `192.168.15.7`, porta RTSP 554 acessível e resposta `AUTH_REJECTED (401)` em `/onvif1`. As portas 5000 e 8554 não aceitaram conexão TCP. O ONVIF recusou acesso.
