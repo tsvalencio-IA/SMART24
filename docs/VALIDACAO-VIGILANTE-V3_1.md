@@ -51,3 +51,11 @@ Os testes Android incluem abertura, vídeo RTSP decodificado, ONVIF autenticado 
 O aplicativo continua em primeiro plano e usa uma pose principal. SKU vem da zona calibrada; retirada/devolução continuam hipóteses para revisão. Câmera física, regras Firebase e múltiplas lojas/pessoas não são considerados validados pelos testes sintéticos.
 
 Powered by thIAguinho Soluções Digitais
+
+## Publicação confirmada
+
+- [Publicação aprovada no Actions](https://github.com/tsvalencio-IA/SMART24/actions/runs/37022035350).
+- Release `v3.1.0-vigilante-celular` publicada, APK e checksum em estado `uploaded`.
+- APK: 393.641.838 bytes; SHA-256 `97e0ae0e5369195725a72ad3588f233181c69215c10760eb683ac36ad583dc78`.
+- A tag inclui apenas documentação/publicação além do commit Android testado; o workflow verificou a igualdade dos arquivos Android e do workflow de build antes da publicação.
+- Continua pendente a confirmação de imagem da câmera física `192.168.15.5` no celular do usuário.
