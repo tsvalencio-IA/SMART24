@@ -50,6 +50,7 @@ class ZoneView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_UP) { performClick(); return true }
         if (event.action != MotionEvent.ACTION_DOWN || bitmap == null) return true
         if (event.x !in drawLeft..(drawLeft + drawWidth) || event.y !in drawTop..(drawTop + drawHeight)) return true
         if (points.size >= 2) points.clear()

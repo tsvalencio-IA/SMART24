@@ -80,6 +80,7 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
                                 handler.postDelayed({ if (token == generation) nextCandidate() }, 350L)
                             }
                         }
+                        else -> Unit
                     }
                 }
             }
