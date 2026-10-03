@@ -1,5 +1,11 @@
 # Arquitetura — SMART24 Fusion
 
+## Acesso do dono às seis lojas pelo 4G
+
+Requisito confirmado em 03/10/2026: o dono acompanha as seis lojas no próprio celular pelo 4G, sem depender do Wi-Fi de cada câmera. O teste RTSP local do APK 3.2 não conclui esse requisito. A rede de cada loja precisa de uma ligação remota autenticada, e a análise deve executar em equipamento ou servidor que continue ativo quando o dono fechar o aplicativo.
+
+O Firebase preserva a função de autenticação, cadastros, estados e eventos. A transmissão remota de vídeo e as rotas até as câmeras ainda precisam ser implantadas. Consulte [VIGILANTE-REMOTO-MULTILOJA.md](VIGILANTE-REMOTO-MULTILOJA.md) para as capacidades verificadas, as dependências e a validação em 4G. O conector `edge-agent` é uma base de disponibilidade, não uma implementação concluída da IA e do vídeo remoto.
+
 ## Visão geral
 
 ```text

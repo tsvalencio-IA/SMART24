@@ -4,6 +4,12 @@ Base do repositório: `263ea1b5ec2b8555e87b40b30d736c7fcfc90432`.
 Pacote aplicado: `SMART24-Vigilante-Celular-v3-pronto (1).zip`.
 SHA-256 do pacote: `c9516282a1e4df3530a6021ec66bf6c343bfdbd77438f77e22e9876d1009df64`.
 
+## Escopo obrigatório — dono no 4G, seis mercadinhos
+
+Em 03/10/2026, Thiago reforçou que o dono deve acompanhar as seis lojas pelo celular usando 4G, sem precisar estar no Wi-Fi das câmeras. A orientação de mesma rede serve ao teste local; não é a arquitetura final. Consulte [VIGILANTE-REMOTO-MULTILOJA.md](VIGILANTE-REMOTO-MULTILOJA.md) para o estado do código, a conexão remota necessária e os critérios de validação.
+
+O APK 3.2 não provisiona essa ligação remota e interrompe a IA quando sai da tela. O objetivo exige ligação autenticada de cada loja, processamento contínuo independente do telefone do dono, vídeo remoto autorizado e gestão por loja/câmera. Ainda é necessário identificar os equipamentos ligados nas lojas e configurar o ponto remoto. Não anunciar as seis lojas no 4G como prontas nem substituir essa etapa por outro APK de teste local.
+
 ## Aplicação atual
 
 - Android `br.com.thiaguinhosolucoes.smart24vision`, versão 3.2.0, código 9.
@@ -36,7 +42,9 @@ Após a entrega, Thiago relatou “pacote inválido”. Foi confirmado que 3.1 e
 
 Nenhum frame da câmera física `192.168.15.5` foi recebido neste ambiente. A rede privada da câmera não é acessível daqui. Usuário/senha NVR não foram fornecidos e não devem ser publicados no repositório.
 
-## Teste físico pelo celular
+## Teste físico local da câmera pelo celular
+
+Esta sequência verifica a câmera dentro da rede local. A validação do produto final deve ocorrer no 4G, sem Wi-Fi, conforme [VIGILANTE-REMOTO-MULTILOJA.md](VIGILANTE-REMOTO-MULTILOJA.md).
 
 1. Baixe o `.apk` 3.2 completo da release (393.658.222 bytes, aproximadamente 394 MB). A atualização por cima da 3.1 é incompatível por assinatura: será necessária uma instalação limpa. Desinstalar apaga as configurações, zonas/SKUs e eventos que ainda estejam só no celular; registre o que precisa ser refeito antes de remover a versão anterior. O Firebase é separado. Se uma instalação limpa do arquivo completo ainda falhar, obter tela do erro, modelo e versão Android antes de atribuir a causa.
 2. Conecte celular e câmera ao mesmo roteador. A câmera precisa oferecer RTSP/NVR, e o Wi-Fi não pode isolar dispositivos.
