@@ -8,6 +8,14 @@ O objetivo existente de funcionar com diferentes marcas por RTSP/ONVIF permanece
 
 Este documento registra o escopo e a diferença para o código atual. **Não representa implantação do acesso remoto ou conclusão da vigilância das seis lojas.**
 
+## Prioridade confirmada em 04/10/2026
+
+Thiago confirmou que, por enquanto, há somente câmera e roteador no local da primeira câmera, e pediu começar por essa câmera cujos dados já foram enviados. A prioridade é receber vídeo real dela no SMART24 e validar seu acesso pelo 4G antes de expandir para as seis lojas. Não voltar a pedir o inventário das seis lojas nem presumir um computador ou NVR disponível nesse primeiro local.
+
+Os prints existentes identificam a câmera como “Sala”, firmware `40.0.40`, e mostram IP local `192.168.15.5`. O diagnóstico posterior do SMART24 3.1 usou `192.168.15.7`, alcançou a porta 554 e recebeu 401. Não há confirmação de imagem real nem teste físico bem-sucedido da autenticação corrigida na 3.2. O IP atual precisa corresponder ao mesmo equipamento.
+
+A marca/modelo do roteador dessa primeira câmera não aparece no histórico ou nos anexos examinados. Esse é o dado de infraestrutura que falta para avaliar uma rota remota usando o equipamento existente. Ter o ID da câmera e um IP privado não comprova uma rota pelo 4G. No código atual, `YooseeSdkGateway.openLiveStream` ainda retorna bloqueio por adaptador pendente; não há SDK P2P incorporado que possa abrir a câmera remotamente pelo ID.
+
 ## O que o código atual faz
 
 | Componente | Estado confirmado no repositório |
@@ -24,7 +32,7 @@ O diagnóstico físico disponível continua sendo o 401 em `192.168.15.7:554` no
 
 `192.168.15.7` pertence a uma faixa privada. Informar esse IP em um telefone no 4G não cria uma rota para a loja. É necessária uma ligação remota configurada entre a rede da loja e o sistema, por exemplo uma VPN ou um conector que estabeleça uma conexão autenticada de saída.
 
-A câmera continua acessível por RTSP/ONVIF dentro da loja. A ligação remota pode aproveitar um roteador compatível ou um equipamento capaz de executar o conector. Um NVR ou computador existente só pode assumir essa função após verificar suas capacidades. Não foi confirmado que as lojas possuem algum desses recursos.
+A câmera pode oferecer RTSP/ONVIF dentro da loja, sujeito a credenciais e compatibilidade verificadas. A ligação remota pode aproveitar um roteador compatível ou um equipamento capaz de executar o conector. Para a primeira câmera, só câmera e roteador foram confirmados; não presumir NVR ou computador disponível. A capacidade de ligação remota do roteador ainda precisa ser identificada.
 
 O endereço deve identificar loja e câmera. Duas lojas podem usar o mesmo IP local, por isso não se deve cadastrar apenas `192.168.15.7` como identidade global. A solução deve preservar `storeId` e `cameraId` e isolar as rotas ou os fluxos de cada loja.
 
@@ -40,7 +48,7 @@ A IA continuará tratando retiradas/devoluções como eventos prováveis para re
 
 ## Informação necessária para executar a implantação
 
-Confirmar o que permanece ligado em cada loja: somente câmera e roteador, ou também NVR, computador ou outro equipamento. Obter os modelos sem solicitar senhas pelo chat. Essa informação determina se é possível aproveitar a infraestrutura atual e onde instalar o conector.
+Começar pela marca/modelo do roteador da primeira câmera, sem solicitar senhas pelo chat. O usuário já informou que só câmera e roteador permanecem no local. A capacidade desse roteador determina se podemos aproveitar a infraestrutura atual para a ligação remota. O inventário das outras lojas fica para a expansão após validar a primeira câmera.
 
 Depois será necessário configurar o ponto remoto/servidor e a conexão autorizada de cada loja. Ainda não existem neste trabalho um servidor remoto provisionado nem acesso administrativo confirmado aos equipamentos das lojas. Não afirmar que um novo APK, sozinho, concluiu essa ligação.
 

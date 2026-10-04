@@ -10,6 +10,8 @@ Em 03/10/2026, Thiago reforçou que o dono deve acompanhar as seis lojas pelo ce
 
 O APK 3.2 não provisiona essa ligação remota e interrompe a IA quando sai da tela. O objetivo exige ligação autenticada de cada loja, processamento contínuo independente do telefone do dono, vídeo remoto autorizado e gestão por loja/câmera. Ainda é necessário identificar os equipamentos ligados nas lojas e configurar o ponto remoto. Não anunciar as seis lojas no 4G como prontas nem substituir essa etapa por outro APK de teste local.
 
+Atualização de 04/10/2026: Thiago confirmou que a primeira câmera tem somente câmera e roteador disponíveis e pediu começar por ela, reaproveitando os dados já enviados. Priorizar essa câmera antes das seis lojas, mantendo 4G como requisito. Marca/modelo do roteador ainda não foi informado; nenhum SDK P2P funcional foi encontrado no aplicativo. Os prints da câmera “Sala”, firmware `40.0.40`, foram relidos; o IP da foto é `.5`, o diagnóstico posterior usou `.7`, e ainda falta confirmar imagem real no SMART24.
+
 ## Aplicação atual
 
 - Android `br.com.thiaguinhosolucoes.smart24vision`, versão 3.2.0, código 9.
