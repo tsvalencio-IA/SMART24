@@ -206,6 +206,11 @@ class MobileStartupTest {
                 assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileGuide).text.contains("${cycle+1} áreas"))
             }
         }
+        activityRule.runOnUiThread {
+            activityRule.activity.findViewById<Button>(R.id.mobileStartAiButton).performClick()
+            assertTrue(activityRule.activity.findViewById<Button>(R.id.mobileStopAiButton).isEnabled)
+        }
+        Thread.sleep(1500)
         instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
         Thread.sleep(1200)
         val intent = Intent(context,MobileVigilanteActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)

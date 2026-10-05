@@ -3,7 +3,7 @@ package br.com.thiaguinhosolucoes.smart24vision
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.MotionEvent
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class ZoneEditingTest {
     @Test fun markingKeepsItsPositionWhenKeyboardResizesPreview() {
-        val view = ZoneView(ApplicationProvider.getApplicationContext())
+        val view = ZoneView(RuntimeEnvironment.getApplication())
         view.bitmap = Bitmap.createBitmap(640,360,Bitmap.Config.ARGB_8888)
         view.layout(0,0,640,480)
         view.draw(Canvas(Bitmap.createBitmap(640,480,Bitmap.Config.ARGB_8888)))
@@ -30,7 +30,7 @@ class ZoneEditingTest {
         assertArrayEquals(before,view.normalizedRect(),.00001f)
     }
     @Test fun editingOneAreaKeepsOtherProductsAndCameraScopes() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val context = RuntimeEnvironment.getApplication()
         MobileZoneStore.clear(context,"test","CAM-01")
         MobileZoneStore.clear(context,"test","CAM-02")
         val a = Zone("A","test","CAM-01",.1f,.2f,.4f,.6f,"P1","Produto 1","SKU1")

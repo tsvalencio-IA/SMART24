@@ -98,7 +98,7 @@ class MobileCalibrationActivity : AppCompatActivity() {
         val sku = input(R.id.mobileSkuInput).text.toString().trim().uppercase()
             .ifBlank { existing?.sku ?: "LOCAL-${UUID.randomUUID().toString().take(8).uppercase()}" }
         val zone = Zone(editingId ?: "Z-${UUID.randomUUID()}",store,camera,rect[0],rect[1],rect[2],rect[3],
-            existing?.productId?.takeIf { existing.sku == sku } ?: sku,name,sku,
+            existing?.takeIf { it.sku == sku }?.productId ?: sku,name,sku,
             locationName = input(R.id.mobileLocationInput).text.toString().trim())
         MobileZoneStore.upsert(this,zone)
         editingId = zone.zoneId
