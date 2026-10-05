@@ -5,6 +5,11 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.view.TextureView
+import android.view.View
+import android.app.Instrumentation
+import java.io.File
+import java.io.FileOutputStream
+import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -158,6 +163,71 @@ class MobileStartupTest {
             activityRule.runOnUiThread { nativePlayer.release() }
             activityRule.finishActivity()
         }
+    }
+
+    @Test fun liveVideoCalibrationSaveEditAndReturnSurviveBackground() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        MobileZoneStore.clear(context, "loja-01", "CAM-01")
+        activityRule.launchActivity(Intent())
+        activityRule.runOnUiThread {
+            activityRule.activity.findViewById<EditText>(R.id.mobileRtspUrlInput).setText("rtsp://10.0.2.2:8554/testcam")
+            activityRule.activity.findViewById<Button>(R.id.mobileConnectButton).performClick()
+        }
+        waitForStatus("VÍDEO CONFIRMADO",30000L)
+        for (cycle in 0..1) {
+            val monitor = instrumentation.addMonitor(MobileCalibrationActivity::class.java.name,null,false)
+            activityRule.runOnUiThread { activityRule.activity.findViewById<Button>(R.id.mobileCalibrateButton).performClick() }
+            val calibration = instrumentation.waitForMonitorWithTimeout(monitor,10000L) as? MobileCalibrationActivity
+            assertNotNull("Calibration did not open after a real decoded frame",calibration)
+            instrumentation.removeMonitor(monitor)
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync {
+                val c = calibration!!
+                val view = c.findViewById<ZoneView>(R.id.mobileZoneView)
+                assertNotNull(view.bitmap)
+                view.setNormalizedRect(floatArrayOf(.12f,.15f,.4f,.6f))
+                c.findViewById<EditText>(R.id.mobileProductNameInput).setText("Produto ${cycle+1}")
+                c.findViewById<EditText>(R.id.mobileLocationInput).setText("Armário 1 • prateleira 2")
+                c.findViewById<Button>(R.id.mobileSaveZoneButton).performClick()
+                // Repeated save must edit the same area, never silently duplicate it.
+                c.findViewById<Button>(R.id.mobileSaveZoneButton).performClick()
+                val zones = MobileZoneStore.load(context,"loja-01","CAM-01")
+                assertEquals(cycle+1,zones.size)
+                assertTrue(zones.last().sku.startsWith("LOCAL-"))
+                assertEquals("Armário 1 • prateleira 2",zones.last().locationName)
+                assertTrue(c.findViewById<TextView>(R.id.mobileCalibrationStatus).text.contains("salvo"))
+            }
+            saveScreenshot("calibration-$cycle")
+            instrumentation.runOnMainSync { calibration!!.findViewById<Button>(R.id.mobileFinishZonesButton).performClick() }
+            waitForStatus("VÍDEO CONFIRMADO",30000L)
+            activityRule.runOnUiThread {
+                assertTrue(activityRule.activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
+                assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileGuide).text.contains("${cycle+1} áreas"))
+            }
+        }
+        instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
+        Thread.sleep(1200)
+        val intent = Intent(context,MobileVigilanteActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        context.startActivity(intent)
+        waitForStatus("VÍDEO CONFIRMADO",30000L)
+        saveScreenshot("video-returned")
+        // Opening the event site is optional and has a clear explanation before navigation.
+        activityRule.runOnUiThread { activityRule.activity.findViewById<Button>(R.id.mobilePanelButton).performClick() }
+        instrumentation.waitForIdleSync()
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        instrumentation.waitForIdleSync()
+        activityRule.runOnUiThread {
+            assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileStatus).text.contains("VÍDEO CONFIRMADO"))
+        }
+        activityRule.finishActivity()
+    }
+    private fun saveScreenshot(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val frame = instrumentation.uiAutomation.takeScreenshot()
+        val dir = File(instrumentation.targetContext.getExternalFilesDir(null),"proof").apply { mkdirs() }
+        FileOutputStream(File(dir,"$name.png")).use { frame.compress(Bitmap.CompressFormat.PNG,100,it) }
+        frame.recycle()
     }
 
     private fun waitForStatus(expected: String, timeout: Long) {

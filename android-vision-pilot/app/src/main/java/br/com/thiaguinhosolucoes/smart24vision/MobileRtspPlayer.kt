@@ -153,21 +153,23 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
     }
 
     fun pause() {
+        if (released || paused) return
         paused = true
+        generation++
         handler.removeCallbacksAndMessages(null)
-        val active = player
-        val token = generation
-        nativeWorker.execute { if (!released && token == generation && player === active) active?.pause() }
+        connected = false
+        playing = false
+        videoOutput = false
+        // An RTSP camera is a live source, not a seekable movie. Release the old
+        // surface/decoder before another Activity takes over and reopen on return.
+        // Keep the selected candidate in memory, including its credentials.
+        disposePlayer()
     }
 
     fun resume() {
         if (!paused || released) return
         paused = false
-        if (connected) {
-            val active = player
-            val token = generation
-            nativeWorker.execute { if (!released && token == generation && player === active) active?.play() }
-        } else if (index in candidates.indices) { index--; nextCandidate() }
+        if (index in candidates.indices) { index--; nextCandidate() }
     }
 
     fun disconnect() {
@@ -182,7 +184,7 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
     private fun disposePlayer() {
         val previous = player
         player = null
-        previous?.setEventListener(null)
+        runCatching { previous?.setEventListener(null) }
         runCatching { previous?.vlcVout?.detachViews() }
         if (previous != null) nativeWorker.execute {
             try { runCatching { previous.stop() } } finally { runCatching { previous.release() } }

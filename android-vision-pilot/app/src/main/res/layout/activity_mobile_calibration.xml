@@ -1,81 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#07111F"
-    android:padding="12dp">
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="SMART24 — Calibrar produtos"
-        android:textColor="#00D79A"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <br.com.thiaguinhosolucoes.smart24vision.ZoneView
-        android:id="@+id/mobileZoneView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#000000"
-        android:layout_marginTop="8dp" />
-
-    <EditText
-        android:id="@+id/mobileZoneIdInput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Zona: PRATELEIRA-01-CANAL-01"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#7890AA" />
-
-    <EditText
-        android:id="@+id/mobileProductNameInput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Produto: Coca-Cola 350 ml"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#7890AA" />
-
-    <EditText
-        android:id="@+id/mobileSkuInput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="SKU: COCA-350"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#7890AA" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/mobileResetZoneButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Refazer" />
-
-        <Button
-            android:id="@+id/mobileSaveZoneButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Salvar SKU" />
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/mobileCalibrationRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#07111F" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Produtos na imagem" android:textColor="#00D79A" android:textSize="23sp" android:textStyle="bold" />
+        <TextView android:id="@+id/mobileCalibrationIdentity" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B7C7D9" android:paddingBottom="8dp" />
+        <TextView android:id="@+id/mobileCalibrationStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:background="#102239" android:padding="12dp" />
+        <br.com.thiaguinhosolucoes.smart24vision.ZoneView android:id="@+id/mobileZoneView" android:layout_width="match_parent" android:layout_height="240dp" android:background="#000000" android:layout_marginTop="8dp" android:contentDescription="Imagem capturada. Toque em dois cantos ou arraste para marcar a área de um produto." />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1. Marque a área de um único tipo de produto. Toque em dois cantos opostos ou arraste. As áreas amarelas já estão salvas." android:textColor="#B7C7D9" android:padding="8dp" />
+        <Button android:id="@+id/mobileResetZoneButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Refazer marcação" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2. Qual produto fica nessa área?" android:textColor="#00D79A" android:textStyle="bold" android:paddingTop="8dp" />
+        <EditText android:id="@+id/mobileProductNameInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Nome do produto (ex.: refrigerante 350 ml)" android:inputType="textCapSentences" android:maxLines="2" android:textColor="#FFFFFF" android:textColorHint="#A1B5CC" />
+        <EditText android:id="@+id/mobileLocationInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Local (ex.: armário 1, prateleira 2) — opcional" android:inputType="textCapSentences" android:textColor="#FFFFFF" android:textColorHint="#A1B5CC" />
+        <EditText android:id="@+id/mobileSkuInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Código do produto / SKU — opcional" android:inputType="textCapCharacters" android:textColor="#FFFFFF" android:textColorHint="#A1B5CC" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Se não informar o código, será criada uma referência local. Para corresponder ao catálogo da loja, use o SKU existente. A identificação depende da posição que você marcou." android:textColor="#B7C7D9" android:padding="8dp" />
+        <Button android:id="@+id/mobileSaveZoneButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="SALVAR PRODUTO NESTA ÁREA" />
+        <Button android:id="@+id/mobileNewZoneButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CADASTRAR OUTRO PRODUTO" />
+        <TextView android:id="@+id/mobileSavedZonesTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#00D79A" android:textSize="18sp" android:paddingTop="12dp" />
+        <LinearLayout android:id="@+id/mobileSavedZonesList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <Button android:id="@+id/mobileFinishZonesButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CONCLUIR E VOLTAR AO VÍDEO" />
+        <Button android:id="@+id/mobileClearZonesButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Apagar todas as áreas locais desta câmera" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Powered by thIAguinho Soluções Digitais" android:gravity="center" android:textColor="#B7C7D9" android:padding="10dp" />
     </LinearLayout>
-
-    <Button
-        android:id="@+id/mobileClearZonesButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Apagar todas as zonas desta câmera" />
-
-    <TextView
-        android:id="@+id/mobileCalibrationStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="#DCE7F3"
-        android:padding="8dp" />
-</LinearLayout>
+</ScrollView>

@@ -28,7 +28,8 @@ object MobileZoneStore {
                             bottom = obj.getDouble("bottom").toFloat(),
                             productId = obj.optString("productId", ""),
                             productName = obj.optString("productName", ""),
-                            sku = obj.optString("sku", "")
+                            sku = obj.optString("sku", ""),
+                            locationName = obj.optString("locationName", "")
                         )
                     )
                 }
@@ -42,6 +43,10 @@ object MobileZoneStore {
             .toMutableList()
         zones += zone
         saveAll(context, zone.storeId, zone.cameraId, zones)
+    }
+
+    fun remove(context: Context, storeId: String, cameraId: String, zoneId: String) {
+        saveAll(context, storeId, cameraId, load(context, storeId, cameraId).filterNot { it.zoneId == zoneId })
     }
 
     fun clear(context: Context, storeId: String, cameraId: String) {
@@ -62,6 +67,7 @@ object MobileZoneStore {
                     .put("productId", zone.productId)
                     .put("productName", zone.productName)
                     .put("sku", zone.sku)
+                    .put("locationName", zone.locationName)
             )
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

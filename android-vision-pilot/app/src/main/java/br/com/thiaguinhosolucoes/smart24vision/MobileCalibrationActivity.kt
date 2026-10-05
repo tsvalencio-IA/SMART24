@@ -2,104 +2,167 @@ package br.com.thiaguinhosolucoes.smart24vision
 
 import android.graphics.BitmapFactory
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
+import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.activity.OnBackPressedCallback
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 
 class MobileCalibrationActivity : AppCompatActivity() {
     private val firebase = FirebaseRestClient()
+    private lateinit var zoneView: ZoneView
+    private lateinit var status: TextView
+    private var store = ""
+    private var camera = ""
+    private var editingId: String? = null
+    private var savedDraft = false
+    private fun input(id: Int) = findViewById<EditText>(id)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mobile_calibration)
-
-        val storeId = intent.getStringExtra("storeId").orEmpty().ifBlank { "loja-01" }
-        val cameraId = intent.getStringExtra("cameraId").orEmpty().ifBlank { "CAM-01" }
-
-        val zoneView = findViewById<ZoneView>(R.id.mobileZoneView)
-        val status = findViewById<TextView>(R.id.mobileCalibrationStatus)
-        val file = File(filesDir, "latest_mobile_frame.jpg")
-
-        if (file.exists()) {
-            zoneView.bitmap = BitmapFactory.decodeFile(file.absolutePath)
-            status.text = "Toque em dois cantos para marcar a área ocupada por UM SKU."
-        } else {
-            status.text = "Nenhum quadro capturado ainda."
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.mobileCalibrationRoot)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left,bars.top,bars.right,bars.bottom); insets
         }
-
-        findViewById<Button>(R.id.mobileResetZoneButton).setOnClickListener {
-            zoneView.resetZone()
-            status.text = "Marcação apagada."
+        store = intent.getStringExtra("storeId").orEmpty().ifBlank { "loja-01" }
+        camera = intent.getStringExtra("cameraId").orEmpty().ifBlank { "CAM-01" }
+        zoneView = findViewById(R.id.mobileZoneView)
+        status = findViewById(R.id.mobileCalibrationStatus)
+        findViewById<TextView>(R.id.mobileCalibrationIdentity).text = "$store / $camera • foto capturada da câmera"
+        zoneView.bitmap = BitmapFactory.decodeFile(File(filesDir,"latest_mobile_frame.jpg").absolutePath)
+        zoneView.onSelectionChanged = { count ->
+            savedDraft = false
+            status.text = when (count) {
+                0 -> "1. Marque na imagem o espaço ocupado por um produto."
+                1 -> "Agora toque no canto oposto para fechar a área."
+                else -> "Área marcada. 2. Informe o produto e toque em Salvar."
+            }
         }
-
+        editingId = savedInstanceState?.getString("editingId")
+        zoneView.setNormalizedRect(savedInstanceState?.getFloatArray("rect"))
+        savedDraft = savedInstanceState?.getBoolean("savedDraft") ?: false
+        if (zoneView.bitmap == null) {
+            status.text = "A foto não está disponível. Volte ao vídeo e toque em Configurar produtos novamente."
+            findViewById<Button>(R.id.mobileSaveZoneButton).isEnabled = false
+        }
+        findViewById<Button>(R.id.mobileResetZoneButton).setOnClickListener { zoneView.resetZone() }
+        findViewById<Button>(R.id.mobileNewZoneButton).setOnClickListener { confirmDiscard { newDraft() } }
+        findViewById<Button>(R.id.mobileSaveZoneButton).setOnClickListener { saveZone() }
+        findViewById<Button>(R.id.mobileFinishZonesButton).setOnClickListener { confirmDiscard { finish() } }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { confirmDiscard { finish() } }
+        })
         findViewById<Button>(R.id.mobileClearZonesButton).setOnClickListener {
-            AlertDialog.Builder(this).setTitle("Apagar zonas locais?")
-                .setMessage("Apagar as marcações salvas neste celular para $storeId / $cameraId?")
-                .setNegativeButton("Cancelar", null)
-                .setPositiveButton("Apagar") { _, _ ->
-                    MobileZoneStore.clear(this, storeId, cameraId)
-                    status.text = "Zonas locais apagadas. As cópias no Firebase permanecem registradas."
+            AlertDialog.Builder(this).setTitle("Apagar áreas locais?")
+                .setMessage("Apagar as áreas desta câmera neste celular? Cópias já enviadas ao Firebase permanecem registradas.")
+                .setNegativeButton("Cancelar", null).setPositiveButton("Apagar") { _, _ ->
+                    MobileZoneStore.clear(this,store,camera); newDraft(); refreshList()
                 }.show()
         }
-
-        findViewById<Button>(R.id.mobileSaveZoneButton).setOnClickListener {
-            val rect = zoneView.normalizedRect()
-            val zoneId = findViewById<EditText>(R.id.mobileZoneIdInput).text.toString().trim().uppercase()
-            val productName = findViewById<EditText>(R.id.mobileProductNameInput).text.toString().trim()
-            val sku = findViewById<EditText>(R.id.mobileSkuInput).text.toString().trim().uppercase()
-
-            if (rect == null || zoneId.isBlank() || productName.isBlank() || sku.isBlank()) {
-                status.text = "Marque a zona e informe ID, produto e SKU."
-                return@setOnClickListener
+        listOf(R.id.mobileProductNameInput,R.id.mobileSkuInput,R.id.mobileLocationInput).forEach { id ->
+            input(id).doAfterTextChanged { savedDraft = false }
+        }
+        refreshList()
+    }
+    private fun confirmDiscard(action: () -> Unit) {
+        if (savedDraft || (zoneView.normalizedRect() == null && input(R.id.mobileProductNameInput).text.isBlank())) { action(); return }
+        AlertDialog.Builder(this).setTitle("Alterações ainda não salvas")
+            .setMessage("Deseja descartar esta marcação? As áreas já salvas serão mantidas.")
+            .setNegativeButton("Continuar editando", null).setPositiveButton("Descartar") { _, _ -> action() }.show()
+    }
+    private fun newDraft() {
+        editingId = null; savedDraft = false
+        input(R.id.mobileProductNameInput).text.clear(); input(R.id.mobileSkuInput).text.clear()
+        zoneView.resetZone()
+        findViewById<Button>(R.id.mobileSaveZoneButton).text = "SALVAR PRODUTO NESTA ÁREA"
+        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(zoneView.windowToken,0)
+        currentFocus?.clearFocus()
+        findViewById<ScrollView>(R.id.mobileCalibrationRoot).smoothScrollTo(0,0)
+    }
+    private fun saveZone() {
+        val rect = zoneView.normalizedRect()
+        val name = input(R.id.mobileProductNameInput).text.toString().trim()
+        if (rect == null) { status.text = "Marque os dois cantos da área na imagem."; return }
+        if (name.isBlank()) { input(R.id.mobileProductNameInput).error = "Informe o nome do produto"; return }
+        val existing = MobileZoneStore.load(this,store,camera).firstOrNull { it.zoneId == editingId }
+        val sku = input(R.id.mobileSkuInput).text.toString().trim().uppercase()
+            .ifBlank { existing?.sku ?: "LOCAL-${UUID.randomUUID().toString().take(8).uppercase()}" }
+        val zone = Zone(editingId ?: "Z-${UUID.randomUUID()}",store,camera,rect[0],rect[1],rect[2],rect[3],
+            existing?.productId?.takeIf { existing.sku == sku } ?: sku,name,sku,
+            locationName = input(R.id.mobileLocationInput).text.toString().trim())
+        MobileZoneStore.upsert(this,zone)
+        editingId = zone.zoneId
+        input(R.id.mobileSkuInput).setText(sku)
+        savedDraft = true
+        findViewById<Button>(R.id.mobileSaveZoneButton).text = "SALVAR ALTERAÇÕES DESTE PRODUTO"
+        currentFocus?.clearFocus()
+        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(zoneView.windowToken,0)
+        refreshList()
+        status.text = "$name salvo neste celular. Cadastre outro produto ou conclua para voltar ao vídeo."
+        if (PilotSession.authenticated) lifecycleScope.launch {
+            try {
+                firebase.put("zones/$store/$camera/${zone.zoneId}", mapOf(
+                    "zoneId" to zone.zoneId,"storeId" to store,"cameraId" to camera,
+                    "left" to zone.left,"top" to zone.top,"right" to zone.right,"bottom" to zone.bottom,
+                    "productId" to zone.productId,"productName" to name,"sku" to sku,"locationName" to zone.locationName,
+                    "coordinateSpace" to zone.coordinateSpace,"updatedAt" to System.currentTimeMillis(),"source" to "SMART24_MOBILE_RTSP"))
+                if (editingId == zone.zoneId) status.text = "$name salvo no celular e sincronizado. Cadastre outro ou conclua."
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) {
+                if (editingId == zone.zoneId) status.text = "$name salvo no celular. Não foi sincronizado; toque em Salvar alterações para tentar novamente."
             }
-
-            val zone = Zone(
-                zoneId = zoneId,
-                storeId = storeId,
-                cameraId = cameraId,
-                left = rect[0], top = rect[1], right = rect[2], bottom = rect[3],
-                productId = sku,
-                productName = productName,
-                sku = sku
-            )
-            MobileZoneStore.upsert(this, zone)
-
-            if (PilotSession.authenticated) {
-                lifecycleScope.launch {
-                    runCatching {
-                        firebase.put(
-                            "zones/$storeId/$cameraId/$zoneId",
-                            mapOf(
-                                "zoneId" to zoneId,
-                                "storeId" to storeId,
-                                "cameraId" to cameraId,
-                                "left" to rect[0],
-                                "top" to rect[1],
-                                "right" to rect[2],
-                                "bottom" to rect[3],
-                                "productId" to sku,
-                                "productName" to productName,
-                                "sku" to sku,
-                                "coordinateSpace" to "MOBILE_TEXTURE_V1",
-                                "updatedAt" to System.currentTimeMillis(),
-                                "source" to "SMART24_MOBILE_RTSP"
-                            )
-                        )
-                    }.onSuccess {
-                        status.text = "Zona $zoneId → $sku salva no celular e sincronizada com o Firebase."
-                    }.onFailure {
-                        status.text = "Zona salva no celular. Firebase não sincronizou: ${it.message}. Toque em Salvar SKU novamente para tentar."
-                    }
+        }
+    }
+    private fun refreshList() {
+        val zones = MobileZoneStore.load(this,store,camera)
+        zoneView.savedZones = zones
+        findViewById<TextView>(R.id.mobileSavedZonesTitle).text = "Áreas salvas (${zones.size}) — toque para editar"
+        val list = findViewById<LinearLayout>(R.id.mobileSavedZonesList); list.removeAllViews()
+        zones.forEachIndexed { index, zone ->
+            val row = Button(this).apply {
+                text = "${index+1}. ${zone.productName}\n${zone.locationName.ifBlank { "Área ${index+1}" }} • ${zone.sku}"
+                isAllCaps = false
+                setOnClickListener { confirmDiscard { editZone(zone) } }
+                setOnLongClickListener {
+                    AlertDialog.Builder(this@MobileCalibrationActivity).setTitle("Remover ${zone.productName}?")
+                        .setMessage("Remover apenas esta área do celular? A cópia já enviada ao Firebase permanece.")
+                        .setNegativeButton("Cancelar",null).setPositiveButton("Remover") { _, _ ->
+                            MobileZoneStore.remove(this@MobileCalibrationActivity,store,camera,zone.zoneId)
+                            if (editingId == zone.zoneId) newDraft()
+                            refreshList()
+                        }.show(); true
                 }
             }
-
-            status.text = "Zona $zoneId → $sku salva. Você pode marcar outra zona."
-            zoneView.resetZone()
+            list.addView(row)
         }
+    }
+    private fun editZone(zone: Zone) {
+        editingId = zone.zoneId
+        input(R.id.mobileProductNameInput).setText(zone.productName)
+        input(R.id.mobileSkuInput).setText(zone.sku)
+        input(R.id.mobileLocationInput).setText(zone.locationName)
+        zoneView.setNormalizedRect(floatArrayOf(zone.left,zone.top,zone.right,zone.bottom))
+        savedDraft = true
+        findViewById<Button>(R.id.mobileSaveZoneButton).text = "SALVAR ALTERAÇÕES DESTE PRODUTO"
+        status.text = "Editando ${zone.productName}. Ajuste a área ou os dados e salve."
+        findViewById<ScrollView>(R.id.mobileCalibrationRoot).smoothScrollTo(0,0)
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("editingId",editingId); outState.putFloatArray("rect",zoneView.normalizedRect()); outState.putBoolean("savedDraft",savedDraft)
+        super.onSaveInstanceState(outState)
+    }
+    override fun onDestroy() {
+        val bitmap = zoneView.bitmap; zoneView.bitmap = null; bitmap?.recycle()
+        super.onDestroy()
     }
 }

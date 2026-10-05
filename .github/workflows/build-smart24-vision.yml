@@ -52,7 +52,11 @@ jobs:
   android-smoke:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 35]
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -104,11 +108,14 @@ jobs:
       - name: Instalar e abrir o APK no Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: ${{ matrix.api }}
           arch: x86_64
-          target: default
+          target: google_apis
           disable-animations: true
-          script: gradle -p android-vision-pilot :app:connectedDebugAndroidTest --stacktrace --console=plain
+          script: |
+            gradle -p android-vision-pilot :app:connectedDebugAndroidTest --stacktrace --console=plain
+            adb pull /sdcard/Android/data/br.com.thiaguinhosolucoes.smart24vision/files/proof /tmp/smart24-ui-proof
+
       - name: Registrar respostas das câmeras de teste
         if: always()
         run: curl -fsS http://127.0.0.1:8080/stats -o /tmp/smart24-camera-fixtures-stats.json || true
@@ -116,7 +123,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: SMART24-V3-Android-Smoke
+          name: SMART24-V3-Android-Smoke-API-${{ matrix.api }}
           path: |
             android-vision-pilot/app/build/reports/androidTests/
             android-vision-pilot/app/build/outputs/androidTest-results/
@@ -124,4 +131,5 @@ jobs:
             /tmp/smart24-rtsp-source.log
             /tmp/smart24-camera-fixtures.log
             /tmp/smart24-camera-fixtures-stats.json
+            /tmp/smart24-ui-proof/
           if-no-files-found: ignore

@@ -14,7 +14,7 @@ class CameraConnectionPlanner(
     fun resolve(host: String, user: String, password: String, port: Int, explicit: String, serviceUrls: List<String> = emptyList()): Plan {
         val manual = MobileRtspCandidates.build(host, user, password, port, explicit)
         val cameraHost = URI(manual.first()).host.removePrefix("[").removeSuffix("]")
-        val reports = mutableListOf("SMART24 3.2 • câmera $cameraHost")
+        val reports = mutableListOf("SMART24 3.3 • câmera $cameraHost")
         val urls = linkedSetOf<String>()
         val resolvedUrls = linkedSetOf<String>()
         var onvifDenied = false
@@ -64,7 +64,7 @@ class CameraConnectionPlanner(
         }
         val message = when {
             valid.isNotEmpty() -> "O RTSP respondeu, mas não entregou quadros de vídeo. Foram testados TCP, decodificação por software e UDP.\nConfira se a câmera está transmitindo vídeo e se a rede permite o fluxo."
-            open.isEmpty() && urls.isEmpty() -> "Sem acesso RTSP à câmera $cameraHost nas portas ${cameraPorts.joinToString()}. Confira o IP, o NVR/RTSP e se celular/câmera estão no mesmo Wi-Fi, sem isolamento de dispositivos."
+            open.isEmpty() && urls.isEmpty() -> "Sem acesso RTSP à câmera $cameraHost nas portas ${cameraPorts.joinToString()}. Confira o IP, o NVR/RTSP e a rota até a câmera: mesma rede local ou VPN configurada. O IP local sozinho não permite acesso pelo 4G."
             onvifDenied -> "O serviço ONVIF recusou o acesso e nenhum vídeo RTSP foi localizado. Confira o usuário/senha ONVIF/NVR da câmera."
             wrongPath -> "A câmera respondeu ao RTSP, mas os caminhos testados não localizaram o vídeo. Use a URL RTSP fornecida pela câmera ou confira o serviço ONVIF."
             announcedWithoutVideo -> "A câmera respondeu, mas não anunciou um fluxo de vídeo utilizável. Confira a configuração NVR/RTSP."

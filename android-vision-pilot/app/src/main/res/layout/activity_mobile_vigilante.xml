@@ -23,7 +23,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Celular → câmera IP direta por RTSP → IA → eventos"
+            android:text="Conecte a câmera • marque os produtos • acompanhe os eventos"
             android:textColor="#B7C7D9"
             android:layout_marginBottom="10dp" />
 
@@ -44,6 +44,37 @@
         </FrameLayout>
 
         <TextView
+            android:id="@+id/mobileStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#102239"
+            android:padding="12dp"
+            android:layout_marginTop="12dp"
+            android:textColor="#DCE7F3"
+            android:text="Aguardando." />
+
+        <TextView android:id="@+id/mobileGuide" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1. Conecte a câmera para ver a imagem." android:textColor="#FFFFFF" android:padding="8dp" />
+        <Button
+            android:id="@+id/mobileCalibrateButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2. CONFIGURAR PRODUTOS NA IMAGEM" />
+
+        <Button
+            android:id="@+id/mobileStartAiButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3. INICIAR VIGILANTE" />
+
+        <Button
+            android:id="@+id/mobileStopAiButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PARAR VIGILANTE" />
+
+        <Button android:id="@+id/mobileConnectionSettingsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Configuração da câmera" />
+        <LinearLayout android:id="@+id/mobileConnectionSettings" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="1. CÂMERA IP"
@@ -57,15 +88,6 @@
             android:layout_height="wrap_content"
             android:hint="IP da câmera"
             android:inputType="text"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#7890AA" />
-
-        <EditText
-            android:id="@+id/mobilePortInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Porta RTSP (normalmente 554)"
-            android:inputType="number"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
@@ -89,6 +111,17 @@
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
+        <Button android:id="@+id/mobileAdvancedToggle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Opções de conexão: porta e endereço completo" />
+        <LinearLayout android:id="@+id/mobileAdvancedSection" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+        <EditText
+            android:id="@+id/mobilePortInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Porta RTSP (normalmente 554)"
+            android:inputType="number"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
         <EditText
             android:id="@+id/mobileRtspUrlInput"
             android:saveEnabled="false"
@@ -100,6 +133,7 @@
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
+        </LinearLayout>
         <Button
             android:id="@+id/mobileConnectButton"
             android:layout_width="match_parent"
@@ -121,7 +155,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="2. IDENTIFICAÇÃO DA LOJA"
+            android:text="IDENTIFICAÇÃO DA LOJA E DA CÂMERA"
             android:textColor="#00D79A"
             android:textStyle="bold"
             android:layout_marginTop="12dp" />
@@ -130,7 +164,7 @@
             android:id="@+id/mobileStoreInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Loja"
+            android:hint="Identificação da loja (ex.: oficina)"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
@@ -138,32 +172,17 @@
             android:id="@+id/mobileCameraInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Câmera"
+            android:hint="Identificação da câmera (ex.: sala)"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
 
-        <Button
-            android:id="@+id/mobileCalibrateButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="CAPTURAR QUADRO E CALIBRAR PRODUTOS" />
-
-        <Button
-            android:id="@+id/mobileStartAiButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="INICIAR VIGILANTE" />
-
-        <Button
-            android:id="@+id/mobileStopAiButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="PARAR VIGILANTE" />
-
+        </LinearLayout>
+        <Button android:id="@+id/mobileAccountToggle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Conta e sincronização de eventos" />
+        <LinearLayout android:id="@+id/mobileAccountSection" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="3. FIREBASE / PAINEL (opcional no teste local)"
+            android:text="SINCRONIZAR EVENTOS (opcional)"
             android:textColor="#00D79A"
             android:textStyle="bold"
             android:layout_marginTop="12dp" />
@@ -172,7 +191,7 @@
             android:id="@+id/mobileFirebaseEmailInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="E-mail Firebase"
+            android:hint="E-mail da conta SMART24"
             android:inputType="textEmailAddress"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
@@ -183,7 +202,7 @@
             android:importantForAutofill="no"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Senha Firebase — não é salva"
+            android:hint="Senha da conta — não é salva"
             android:inputType="textPassword"
             android:textColor="#FFFFFF"
             android:textColorHint="#7890AA" />
@@ -192,18 +211,9 @@
             android:id="@+id/mobileFirebaseLoginButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="CONECTAR AO FIREBASE" />
+            android:text="ENTRAR E SINCRONIZAR" />
 
-        <TextView
-            android:id="@+id/mobileStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#102239"
-            android:padding="12dp"
-            android:layout_marginTop="12dp"
-            android:textColor="#DCE7F3"
-            android:text="Aguardando." />
-
+        </LinearLayout>
         <TextView
             android:id="@+id/mobileEventText"
             android:layout_width="match_parent"
@@ -223,7 +233,7 @@
             android:id="@+id/mobilePanelButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ABRIR PAINEL SMART24" />
+            android:text="VER EVENTOS NO SITE" />
 
         <TextView
             android:layout_width="match_parent"
