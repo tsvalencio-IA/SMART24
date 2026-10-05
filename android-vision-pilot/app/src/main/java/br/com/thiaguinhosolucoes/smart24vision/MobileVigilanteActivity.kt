@@ -179,6 +179,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     }
     override fun onPause() {
         resumed = false
+        val hadConfirmedVideo = rtspPlayer.isConnected
         if (connectionJob?.isActive == true) {
             cancelConnectionCheck()
             status.text = "Verificação da câmera interrompida ao sair. Conecte novamente ao voltar."
@@ -187,6 +188,9 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         handler.removeCallbacks(syncLoop)
         rtspPlayer.pause()
         cameraControls(false)
+        if (hadConfirmedVideo) {
+            status.text = "Vídeo pausado ao sair. Reconectando à câmera ao voltar…"
+        }
         super.onPause()
     }
 
