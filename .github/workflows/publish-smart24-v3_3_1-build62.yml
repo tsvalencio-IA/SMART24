@@ -81,3 +81,5 @@ jobs:
               --notes-file release-notes.md \
               --prerelease
           fi
+
+# Trigger publication after workflow exists on main.
