@@ -72,7 +72,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         const val OFFICE_CAMERA = "SALA"
         const val OFFICE_HOST = "192.168.15.5"
         const val OFFICE_RTSP_PORT = "554"
-        const val OFFICE_DEFAULT_USER = "administrator"
+        const val OFFICE_DEFAULT_USER = ""
         const val OFFICE_DEVICE_ID = "5646988473"
         const val OFFICE_MAC = "38:7A:CC:3A:4D:8E"
     }
@@ -193,7 +193,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 .setPositiveButton("Abrir eventos") { _, _ -> openEventSite() }.show()
         }
         cameraControls(false)
-        status.text = "SMART24 3.3.1 • câmera Sala da oficina cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID • MAC $OFFICE_MAC. Digite somente a senha NVR/RTSP e conecte. No 4G, o IP privado exige rota remota/P2P."
+        status.text = "SMART24 3.3.1 • câmera Sala da oficina cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID • MAC $OFFICE_MAC. Digite somente a senha NVR/RTSP; o usuário RTSP é tentado automaticamente. No 4G, o IP privado exige rota remota/P2P."
         showPreviousFailure()
         updateSyncText()
     }
@@ -284,10 +284,37 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                         }
                     } else emptyList()
                     val onvif = OnvifStreamResolver(httpFactory, { address, managementPort -> probe.portOpen(address, managementPort) }, cancel, progress)
-                    CameraConnectionPlanner(probe, onvif, cancel, progress)
-                        .resolve(host, user, password, port, explicit, services).let { result ->
-                            result.copy(report = "$networkReport\n${result.report}")
+                    val planner = CameraConnectionPlanner(probe, onvif, cancel, progress)
+                    val userCandidates = if (user.isBlank() && password.isNotBlank() && explicit.isBlank()) {
+                        listOf("administrator", "admin", "")
+                    } else {
+                        listOf(user)
+                    }
+                    var selectedPlan: CameraConnectionPlanner.Plan? = null
+                    var selectedUser = user
+                    for ((attemptIndex, candidateUser) in userCandidates.withIndex()) {
+                        checkCancelled()
+                        if (userCandidates.size > 1) {
+                            progress("Autenticação RTSP automática ${attemptIndex + 1}/${userCandidates.size}…")
                         }
+                        val attempt = planner.resolve(host, candidateUser, password, port, explicit, services)
+                        selectedPlan = attempt
+                        if (attempt.urls.isNotEmpty()) {
+                            selectedUser = candidateUser
+                            break
+                        }
+                        if (!attempt.needsCredentials) break
+                    }
+                    val result = checkNotNull(selectedPlan)
+                    if (result.urls.isNotEmpty() && selectedUser.isNotBlank()) {
+                        getSharedPreferences("smart24_mobile", MODE_PRIVATE).edit().putString("user", selectedUser).apply()
+                        handler.post {
+                            if (token == connectionGeneration && resumed && !destroyed) {
+                                input(R.id.mobileUserInput).setText(selectedUser)
+                            }
+                        }
+                    }
+                    result.copy(report = "$networkReport\n${result.report}")
                 }
                 if (token != connectionGeneration || !resumed || destroyed) return@launch
                 connectionReport = plan.report
