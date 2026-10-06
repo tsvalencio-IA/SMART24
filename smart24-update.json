@@ -1,7 +1,7 @@
 {
-  "enabled": false,
-  "versionCode": 11,
-  "versionName": "3.3.1-sala-oficina",
-  "apkUrl": "https://github.com/tsvalencio-IA/SMART24/releases/download/v3.3.1-build62/SMART24-Vigilante-Celular-v3.3.1-Sala-Oficina-build62.apk",
-  "sha256": "2efac3421c46b35f881f19024f02dc4dff1650b4f4eac70df867c685ac0de8c9"
+  "enabled": true,
+  "versionCode": 12,
+  "versionName": "3.3.2-auto-update",
+  "apkUrl": "https://github.com/tsvalencio-IA/SMART24/releases/download/v3.3.2-auto-update-code12/SMART24-Vigilante-Celular-3.3.2-auto-update.apk",
+  "sha256": "9f0a63b4f6899da72530a2e95cd94285472f2a1dc2bb646bf175a253a5b19792"
 }
