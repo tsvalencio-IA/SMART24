@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SMART24 • CONEXÃO REMOTA P2P"
+            android:textColor="#00D79A"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/p2pStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#102239"
+            android:padding="12dp"
+            android:text="Preparando P2P."
+            android:textColor="#FFFFFF" />
+
+        <RelativeLayout
+            android:id="@+id/p2pVideoContainer"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="10dp"
+            android:background="#000000">
+
+            <com.p2p.core.P2PView
+                android:id="@+id/p2pview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </RelativeLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Câmera: OFICINA / SALA • ID 5646988473"
+            android:textColor="#DCE7F3"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/p2pAccount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Conta Yoosee (e-mail, telefone com DDI ou ID)"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/p2pAccountPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha da conta Yoosee — não é salva"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:saveEnabled="false"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <EditText
+            android:id="@+id/p2pDevicePassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senha da câmera Sala — não é salva"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:saveEnabled="false"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7890AA" />
+
+        <Button
+            android:id="@+id/p2pConnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CONECTAR SALA PELO 5G / 4G" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:text="Laboratório P2P nativo Gwell/Yoosee. Não usa VPN, computador da oficina ou IP público."
+            android:textColor="#B7C7D9" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="10dp"
+            android:text="Powered by thIAguinho Soluções Digitais"
+            android:textColor="#B7C7D9" />
+    </LinearLayout>
+</ScrollView>
