@@ -41,6 +41,10 @@ class MobileStartupTest {
         activityRule.runOnUiThread {
             val activity = activityRule.activity
             assertEquals("192.168.15.5", activity.findViewById<EditText>(R.id.mobileHostInput).text.toString())
+            assertEquals("administrator", activity.findViewById<EditText>(R.id.mobileUserInput).text.toString())
+            assertEquals("554", activity.findViewById<EditText>(R.id.mobilePortInput).text.toString())
+            assertEquals("OFICINA", activity.findViewById<EditText>(R.id.mobileStoreInput).text.toString())
+            assertEquals("SALA", activity.findViewById<EditText>(R.id.mobileCameraInput).text.toString())
             assertFalse(activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStartAiButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStopAiButton).isEnabled)
@@ -168,7 +172,7 @@ class MobileStartupTest {
     @Test fun liveVideoCalibrationSaveEditAndReturnSurviveBackground() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        MobileZoneStore.clear(context, "loja-01", "CAM-01")
+        MobileZoneStore.clear(context, "OFICINA", "SALA")
         activityRule.launchActivity(Intent())
         activityRule.runOnUiThread {
             activityRule.activity.findViewById<EditText>(R.id.mobileRtspUrlInput).setText("rtsp://10.0.2.2:8554/testcam")
@@ -192,7 +196,7 @@ class MobileStartupTest {
                 c.findViewById<Button>(R.id.mobileSaveZoneButton).performClick()
                 // Repeated save must edit the same area, never silently duplicate it.
                 c.findViewById<Button>(R.id.mobileSaveZoneButton).performClick()
-                val zones = MobileZoneStore.load(context,"loja-01","CAM-01")
+                val zones = MobileZoneStore.load(context,"OFICINA","SALA")
                 assertEquals(cycle+1,zones.size)
                 assertTrue(zones.last().sku.startsWith("LOCAL-"))
                 assertEquals("Armário 1 • prateleira 2",zones.last().locationName)
