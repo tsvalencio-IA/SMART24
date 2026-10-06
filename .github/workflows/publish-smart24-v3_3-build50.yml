@@ -66,8 +66,10 @@ jobs:
           Observação: é uma versão de teste/prerelease. Se o Android recusar atualização por assinatura diferente de uma versão de teste anterior, poderá ser necessária instalação limpa.
           EOF
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            DIGEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[] | select(.name == env.APK_NAME) | .digest')
+            DIGEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[] | select(.name == "SMART24-Vigilante-Celular-v3.3-build50.apk") | .digest')
             test "$DIGEST" = "sha256:$EXPECTED_APK_SHA256"
           else
             gh release create "$RELEASE_TAG" "out/$APK_NAME" out/SHA256SUMS.txt out/signature.txt               --target "$TESTED_COMMIT"               --title 'SMART24 Vigilante Celular 3.3.0 — Build 50'               --notes-file release-notes.md               --prerelease
           fi
+
+# Trigger de publicação após inclusão do workflow no branch main.
