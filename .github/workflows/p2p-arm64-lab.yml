@@ -41,3 +41,22 @@ jobs:
         run: |
           gradle -p android-vision-pilot :app:dependencies --configuration debugRuntimeClasspath --console=plain
           gradle -p android-vision-pilot :app:assembleDebug --stacktrace --console=plain
+      - name: Inspect modern Gwell API and native ABIs
+        run: |
+          set -e
+          AAR=$(find ~/.gradle/caches -type f -name 'gwiotapi-1.6.7.3.aar' | head -n1)
+          echo "GWIOT_AAR=$AAR"
+          test -n "$AAR"
+          rm -rf /tmp/gwiot && mkdir -p /tmp/gwiot
+          unzip -q "$AAR" -d /tmp/gwiot
+          echo "=== GWIOT AAR CONTENTS ==="
+          find /tmp/gwiot -maxdepth 4 -type f | sort | sed -n '1,220p'
+          echo "=== GWIoT SIGNATURES ==="
+          javap -classpath /tmp/gwiot/classes.jar -public com.gw.gwiotapi.GWIoT 2>/dev/null || true
+          echo "=== ENTITY SIGNATURES ==="
+          for C in com.gw.gwiotapi.entities.InitOptions com.gw.gwiotapi.entities.UserC2CInfo com.gw.gwiotapi.entities.Device com.gw.gwiotapi.entities.LivePlayerOption com.gw.gwiotapi.entities.OpenPluginOption; do
+            echo "--- $C ---"
+            javap -classpath /tmp/gwiot/classes.jar -public "$C" 2>/dev/null || true
+          done
+          echo "=== NATIVE ABI FILES IN GWIOT AAR ==="
+          find /tmp/gwiot -type f -path '*/jni/*' -o -path '*/lib/*' | sort || true
