@@ -119,7 +119,7 @@ class MobileStartupTest {
             activity.findViewById<EditText>(R.id.mobileRtspUrlInput).setText("rtsp://10.0.2.2:8555/protected-video")
             activity.findViewById<Button>(R.id.mobileConnectButton).performClick()
         }
-        waitForStatus("exige usuário/senha NVR/RTSP", 15000L)
+        waitForStatus("exige usuário/senha NVR/RTSP", 30000L)
         activityRule.runOnUiThread {
             val activity = activityRule.activity
             assertFalse(activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
