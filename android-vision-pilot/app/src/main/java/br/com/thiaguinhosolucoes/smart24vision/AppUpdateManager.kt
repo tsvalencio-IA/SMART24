@@ -36,7 +36,7 @@ class AppUpdateManager(
             val info = withContext(Dispatchers.IO) { fetchManifest() }
             if (!info.enabled || info.versionCode <= BuildConfig.VERSION_CODE) return
             withContext(Dispatchers.Main) {
-                report("SMART24 \${info.versionName} disponível. Baixando atualização oficial…")
+                report("SMART24 ${info.versionName} disponível. Baixando atualização oficial…")
             }
             val apk = withContext(Dispatchers.IO) { downloadAndVerify(info) }
             pendingApk = apk
@@ -46,7 +46,7 @@ class AppUpdateManager(
             }
         } catch (error: Exception) {
             withContext(Dispatchers.Main) {
-                report("Não foi possível atualizar automaticamente: \${error.message ?: error.javaClass.simpleName}. O SMART24 atual continua funcionando.")
+                report("Não foi possível atualizar automaticamente: ${error.message ?: error.javaClass.simpleName}. O SMART24 atual continua funcionando.")
             }
         }
     }
@@ -62,11 +62,11 @@ class AppUpdateManager(
             readTimeout = 12000
             requestMethod = "GET"
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "SMART24/\${BuildConfig.VERSION_NAME}")
+            setRequestProperty("User-Agent", "SMART24/${BuildConfig.VERSION_NAME}")
             instanceFollowRedirects = true
         }
         return try {
-            require(connection.responseCode in 200..299) { "manifesto HTTP \${connection.responseCode}" }
+            require(connection.responseCode in 200..299) { "manifesto HTTP ${connection.responseCode}" }
             AppUpdateManifest.parse(connection.inputStream.bufferedReader().use { it.readText() })
         } finally {
             connection.disconnect()
@@ -78,10 +78,10 @@ class AppUpdateManager(
             "armazenamento externo indisponível"
         }
         val dir = File(base, "smart24-updates").apply { mkdirs() }
-        val target = File(dir, "SMART24-\${info.versionCode}.apk")
+        val target = File(dir, "SMART24-${info.versionCode}.apk")
         if (target.isFile && sha256(target) == info.sha256) return target
 
-        val temp = File(dir, "SMART24-\${info.versionCode}.download")
+        val temp = File(dir, "SMART24-${info.versionCode}.download")
         if (temp.exists()) temp.delete()
 
         val connection = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
@@ -89,11 +89,11 @@ class AppUpdateManager(
             readTimeout = 45000
             requestMethod = "GET"
             setRequestProperty("Accept", "application/vnd.android.package-archive")
-            setRequestProperty("User-Agent", "SMART24/\${BuildConfig.VERSION_NAME}")
+            setRequestProperty("User-Agent", "SMART24/${BuildConfig.VERSION_NAME}")
             instanceFollowRedirects = true
         }
         try {
-            require(connection.responseCode in 200..299) { "APK HTTP \${connection.responseCode}" }
+            require(connection.responseCode in 200..299) { "APK HTTP ${connection.responseCode}" }
             connection.inputStream.use { input ->
                 FileOutputStream(temp).use { output ->
                     input.copyTo(output, 1024 * 1024)
@@ -131,7 +131,7 @@ class AppUpdateManager(
             .setPositiveButton("Permitir") { _, _ ->
                 val intent = Intent(
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:\${activity.packageName}")
+                    Uri.parse("package:${activity.packageName}")
                 )
                 activity.startActivity(intent)
             }
@@ -148,7 +148,7 @@ class AppUpdateManager(
         if (!apk.isFile) return
         val uri = FileProvider.getUriForFile(
             activity,
-            "\${activity.packageName}.updatefiles",
+            "${activity.packageName}.updatefiles",
             apk
         )
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -156,7 +156,7 @@ class AppUpdateManager(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        report("Atualização \${info.versionName} verificada. Confirme “Instalar” na tela do Android.")
+        report("Atualização ${info.versionName} verificada. Confirme “Instalar” na tela do Android.")
         activity.startActivity(intent)
     }
 
