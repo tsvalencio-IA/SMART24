@@ -89,6 +89,18 @@ dependencies {
 
     // Modern Gwell IoT API: ARM64-capable successor to legacy p2p-core.
     implementation("com.gwell:gwiotapi:1.6.7.3")
+    implementation("com.yoosee.gw_plugin_hub:impl_main:google-release-6.39.0.0.8") {
+        exclude(group = "com.google.android.material")
+        exclude(group = "com.yoosee.gw_plugin_hub", module = "liblog_release")
+        exclude(group = "com.gwell", module = "iotvideo-multiplatform")
+        exclude(group = "com.gwell", module = "cloud_player")
+        exclude(group = "androidx.activity", module = "activity-ktx")
+        exclude(group = "com.gwell", module = "gwiotapi")
+        exclude(group = "com.tencentcs", module = "txtraevoip")
+        exclude(group = "com.contrarywind")
+        exclude(group = "com.eightbitlab", module = "blurview")
+        exclude(group = "com.yoosee.gw_plugin_hub", module = "lib_m3u8manger")
+    }
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.json:json:20240303")
