@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -248,13 +249,18 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         connectionReport = ""
         status.text = "Verificando a conexão da câmera…"
         val token = connectionGeneration
+        val progressOpen = AtomicBoolean(true)
         connectionJob = lifecycleScope.launch {
             try {
                 val plan = withContext(Dispatchers.IO) {
                     val context = currentCoroutineContext()
                     val cancel = { context.ensureActive() }
                     val progress: (String) -> Unit = { message ->
-                        handler.post { if (token == connectionGeneration && resumed && !destroyed) status.text = message }
+                        handler.post {
+                            if (progressOpen.get() && token == connectionGeneration && resumed && !destroyed) {
+                                status.text = message
+                            }
+                        }
                     }
                     val connectivity = getSystemService(ConnectivityManager::class.java)
                     val activeNetwork = connectivity.activeNetwork
@@ -316,14 +322,21 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                     }
                     result.copy(report = "$networkReport\n${result.report}")
                 }
+                progressOpen.set(false)
                 if (token != connectionGeneration || !resumed || destroyed) return@launch
                 connectionReport = plan.report
                 if (plan.urls.isEmpty()) onFailed(plan.message)
                 else rtspPlayer.connectResolved(plan.urls, plan.message)
-            } catch (error: CancellationException) { throw error
+            } catch (error: CancellationException) {
+                progressOpen.set(false)
+                throw error
             } catch (_: Exception) {
+                progressOpen.set(false)
                 if (token == connectionGeneration && resumed && !destroyed) onFailed("Não foi possível verificar a câmera. Confira o IP, a conexão local/VPN e a configuração NVR/RTSP.")
-            } finally { if (token == connectionGeneration) connectionJob = null }
+            } finally {
+                progressOpen.set(false)
+                if (token == connectionGeneration) connectionJob = null
+            }
         }
         input(R.id.mobileCameraPasswordInput).text.clear()
         input(R.id.mobileRtspUrlInput).text.clear()
