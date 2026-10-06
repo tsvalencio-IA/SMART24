@@ -141,6 +141,12 @@
             android:text="CONECTAR DIRETO NA CÂMERA" />
 
         <Button
+            android:id="@+id/mobileP2PButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CONECTAR REMOTO P2P — SALA (5G/4G)" />
+
+        <Button
             android:id="@+id/mobileDiscoverButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
