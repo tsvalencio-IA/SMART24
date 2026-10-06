@@ -114,6 +114,7 @@ class MobileStartupTest {
         activityRule.launchActivity(Intent())
         activityRule.runOnUiThread {
             val activity = activityRule.activity
+            activity.findViewById<EditText>(R.id.mobileUserInput).text.clear()
             activity.findViewById<EditText>(R.id.mobileRtspUrlInput).setText("rtsp://10.0.2.2:8555/protected-video")
             activity.findViewById<Button>(R.id.mobileConnectButton).performClick()
         }
