@@ -1,0 +1,73 @@
+name: Publish SMART24 3.3 Build 50
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-smart24-v3_3-build50.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_RUN_ID: '37393882125'
+      TESTED_COMMIT: '40b12f1d45f1964d3eb1f886764185a40656e0b1'
+      ARTIFACT_ID: '11381999609'
+      ARTIFACT_ZIP_SHA256: '6cfd643b32e934b0276f4b9ae394418818fdaacef42c2e81d4e03588fdfa035a'
+      EXPECTED_APK_SHA256: '62147b55204d481dede94aae0beec842a50b4e36b0851af5238a3cf16250e19b'
+      RELEASE_TAG: 'v3.3.0-build50'
+      APK_NAME: 'SMART24-Vigilante-Celular-v3.3-build50.apk'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirmar build aprovado e artefato exato
+        run: |
+          RESULT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTED_RUN_ID" --jq '.conclusion + " " + .head_sha')
+          test "$RESULT" = "success $TESTED_COMMIT"
+          ARTIFACT_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --jq '.workflow_run.id')
+          test "$ARTIFACT_RUN" = "$TESTED_RUN_ID"
+      - name: Baixar artefato aprovado
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > artifact.zip
+          echo "$ARTIFACT_ZIP_SHA256  artifact.zip" | sha256sum -c -
+          mkdir out
+          unzip -q artifact.zip app-debug.apk -d out
+          mv out/app-debug.apk "out/$APK_NAME"
+      - name: Conferir APK
+        run: |
+          APK="out/$APK_NAME"
+          APK_SHA=$(sha256sum "$APK" | cut -d ' ' -f1)
+          test "$APK_SHA" = "$EXPECTED_APK_SHA256"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          test -n "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee out/signature.txt
+          PACKAGE=$("$AAPT" dump badging "$APK" | head -n 1)
+          echo "$PACKAGE"
+          echo "$PACKAGE" | grep -F "name='br.com.thiaguinhosolucoes.smart24vision'"
+          echo "$PACKAGE" | grep -F "versionCode='10'"
+          echo "$PACKAGE" | grep -F "versionName='3.3.0-mobile-vigilante'"
+          echo "$EXPECTED_APK_SHA256  $APK_NAME" > out/SHA256SUMS.txt
+      - name: Publicar prerelease para download direto
+        run: |
+          cat > release-notes.md <<'EOF'
+          SMART24 Vigilante Celular 3.3.0 — Build #50.
+
+          Este APK corresponde exatamente ao artefato do GitHub Actions #50, que terminou com sucesso no build principal e nos android-smoke API 26 e API 35.
+
+          SHA-256: 62147b55204d481dede94aae0beec842a50b4e36b0851af5238a3cf16250e19b
+
+          Observação: é uma versão de teste/prerelease. Se o Android recusar atualização por assinatura diferente de uma versão de teste anterior, poderá ser necessária instalação limpa.
+          EOF
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            DIGEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[] | select(.name == env.APK_NAME) | .digest')
+            test "$DIGEST" = "sha256:$EXPECTED_APK_SHA256"
+          else
+            gh release create "$RELEASE_TAG" "out/$APK_NAME" out/SHA256SUMS.txt out/signature.txt               --target "$TESTED_COMMIT"               --title 'SMART24 Vigilante Celular 3.3.0 — Build 50'               --notes-file release-notes.md               --prerelease
+          fi
