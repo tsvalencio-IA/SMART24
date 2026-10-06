@@ -25,6 +25,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Probe modern Gwell public artifact endpoints
+        run: |
+          set +e
+          for URL in \
+            "https://mvn.zztfly.com/android/com/gwell/gwiotapi/1.6.7.3/gwiotapi-1.6.7.3.pom" \
+            "https://nexus-sg.gwell.cc/nexus/repository/maven-releases/com/gwell/gwiotapi/1.6.7.3/gwiotapi-1.6.7.3.pom" \
+            "https://nexus-sg.gwell.cc/nexus/repository/maven-gwiot/com/gwell/gwiotapi/1.6.7.3/gwiotapi-1.6.7.3.pom"
+          do
+            CODE=$(curl -L -sS -o /tmp/probe.out -w "%{http_code}" "$URL")
+            echo "$CODE $URL"
+          done
+          exit 0
       - name: Resolve Gwell and compile
         run: |
           gradle -p android-vision-pilot :app:dependencies --configuration debugRuntimeClasspath --console=plain
