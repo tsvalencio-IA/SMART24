@@ -50,6 +50,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private lateinit var syncText: TextView
     private lateinit var rtspPlayer: MobileRtspPlayer
     private lateinit var outbox: MobileEventOutbox
+    private lateinit var appUpdater: AppUpdateManager
     private val visionDelegate = lazy { VisionEngine() }
     private val vision by visionDelegate
     private val itemEngine = MobileItemEngine()
@@ -143,6 +144,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         syncText = findViewById(R.id.mobileSyncText)
         rtspPlayer = MobileRtspPlayer(this, textureView, this)
         outbox = MobileEventOutbox(this)
+        appUpdater = AppUpdateManager(this) { message -> status.text = message }
         val prefs = getSharedPreferences("smart24_mobile", MODE_PRIVATE)
         val savedStore = prefs.getString("store", null)
         val savedCamera = prefs.getString("camera", null)
@@ -197,11 +199,13 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         status.text = "SMART24 3.3.1 • câmera Sala da oficina cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID • MAC $OFFICE_MAC. Digite somente a senha NVR/RTSP; o usuário RTSP é tentado automaticamente. No 4G, o IP privado exige rota remota/P2P."
         showPreviousFailure()
         updateSyncText()
+        lifecycleScope.launch { appUpdater.checkOnLaunch() }
     }
 
     override fun onResume() {
         super.onResume()
         resumed = true
+        appUpdater.resumePendingInstall()
         rtspPlayer.resume()
         reloadZones()
         handler.removeCallbacks(syncLoop)
