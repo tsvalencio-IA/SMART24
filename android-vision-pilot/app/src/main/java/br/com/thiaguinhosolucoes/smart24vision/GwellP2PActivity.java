@@ -1,6 +1,11 @@
 package br.com.thiaguinhosolucoes.smart24vision;
 
 import android.os.Bundle;
+import android.os.Build;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
@@ -21,6 +26,21 @@ import com.p2p.core.P2PView;
 import java.lang.reflect.Proxy;
 
 public class GwellP2PActivity extends BaseMonitorActivity {
+
+    /**
+     * O P2P-Core 0.4.4.9 registra receivers dinâmicos com a API antiga.
+     * Android 13+ exige explicitamente se o receiver é exportado.
+     * Interceptamos a chamada legada da classe-base e mantemos os broadcasts
+     * internos do SDK restritos a este aplicativo.
+     */
+    @Override
+    public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return super.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        }
+        return super.registerReceiver(receiver, filter);
+    }
+
     private static final String DEVICE_ID = "5646988473";
 
     private TextView status;
