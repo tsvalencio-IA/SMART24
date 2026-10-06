@@ -1,0 +1,83 @@
+name: Publish SMART24 3.3.1 Build 62
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-smart24-v3_3_1-build62.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_RUN_ID: '37479540685'
+      TESTED_COMMIT: 'd9d1533ed3c8995ddf25668f202b1c25e5fc50be'
+      ARTIFACT_ID: '11420014115'
+      ARTIFACT_ZIP_SHA256: '3c96dbd38457d1f8444c8651b46f8196c7378bd60fb7f4918e7b34d01beca9d6'
+      EXPECTED_APK_SHA256: '2efac3421c46b35f881f19024f02dc4dff1650b4f4eac70df867c685ac0de8c9'
+      RELEASE_TAG: 'v3.3.1-build62'
+      APK_NAME: 'SMART24-Vigilante-Celular-v3.3.1-Sala-Oficina-build62.apk'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirmar build aprovado e artefato exato
+        run: |
+          RESULT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTED_RUN_ID" --jq '.conclusion + " " + .head_sha')
+          test "$RESULT" = "success $TESTED_COMMIT"
+          ARTIFACT_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --jq '.workflow_run.id')
+          test "$ARTIFACT_RUN" = "$TESTED_RUN_ID"
+      - name: Baixar artefato aprovado
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > artifact.zip
+          echo "$ARTIFACT_ZIP_SHA256  artifact.zip" | sha256sum -c -
+          mkdir out
+          unzip -q artifact.zip app-debug.apk -d out
+          mv out/app-debug.apk "out/$APK_NAME"
+      - name: Conferir APK
+        run: |
+          APK="out/$APK_NAME"
+          APK_SHA=$(sha256sum "$APK" | cut -d ' ' -f1)
+          test "$APK_SHA" = "$EXPECTED_APK_SHA256"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$AAPT"
+          PACKAGE=$("$AAPT" dump badging "$APK" | head -n 1)
+          echo "$PACKAGE"
+          echo "$PACKAGE" | grep -F "name='br.com.thiaguinhosolucoes.smart24vision'"
+          echo "$PACKAGE" | grep -F "versionCode='11'"
+          echo "$PACKAGE" | grep -F "versionName='3.3.1-sala-oficina'"
+          echo "$EXPECTED_APK_SHA256  $APK_NAME" > out/SHA256SUMS.txt
+      - name: Publicar APK
+        run: |
+          cat > release-notes.md <<'EOF'
+          SMART24 Vigilante Celular 3.3.1 — Sala Oficina — Build #62.
+
+          Build validado no GitHub Actions com sucesso no build principal e nos android-smoke API 26 (Android 8) e API 35 (Android 15).
+
+          Câmera Sala pré-cadastrada no aplicativo:
+          OFICINA / SALA
+          IP local: 192.168.15.5
+          Porta RTSP: 554
+          ID: 5646988473
+          MAC: 38:7A:CC:3A:4D:8E
+
+          A senha NVR/RTSP não é incorporada nem salva no APK.
+
+          SHA-256:
+          2efac3421c46b35f881f19024f02dc4dff1650b4f4eac70df867c685ac0de8c9
+          EOF
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release já existe; conferindo o APK publicado."
+            DIGEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[] | select(.name == "SMART24-Vigilante-Celular-v3.3.1-Sala-Oficina-build62.apk") | .digest')
+            test "$DIGEST" = "sha256:$EXPECTED_APK_SHA256"
+          else
+            gh release create "$RELEASE_TAG" "out/$APK_NAME" out/SHA256SUMS.txt \
+              --target "$TESTED_COMMIT" \
+              --title 'SMART24 3.3.1 Sala Oficina — Build 62' \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
