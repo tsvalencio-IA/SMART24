@@ -14,16 +14,16 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "3.3.2-auto-update"
+        versionCode = 13
+        versionName = "3.3.3-p2p-lab"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
         buildConfigField("String", "FIREBASE_DATABASE_URL", "\"https://smart24-fusion-default-rtdb.firebaseio.com\"")
 
-        val yooseeAppId = providers.gradleProperty("YOOSEE_APP_ID").orElse("").get()
-        val yooseeAppToken = providers.gradleProperty("YOOSEE_APP_TOKEN").orElse("").get()
-        val yooseeAppVersion = providers.gradleProperty("YOOSEE_APP_VERSION").orElse("").get()
+        val yooseeAppId = providers.gradleProperty("YOOSEE_APP_ID").orElse("1e9a2c3ead108413e8218a639c540e44").get()
+        val yooseeAppToken = providers.gradleProperty("YOOSEE_APP_TOKEN").orElse("7db7b2bff80a025a3dad546a4d5a6c3ee545568d4e0ce9609c0585c71c287d08").get()
+        val yooseeAppVersion = providers.gradleProperty("YOOSEE_APP_VERSION").orElse("00.00.00.01").get()
         buildConfigField("String", "YOOSEE_APP_ID", "\"${yooseeAppId.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_TOKEN", "\"${yooseeAppToken.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_VERSION", "\"${yooseeAppVersion.replace("\"", "\\\"")}\"")
