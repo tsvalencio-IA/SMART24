@@ -114,11 +114,7 @@ jobs:
           disable-animations: true
           script: |
             gradle -p android-vision-pilot :app:connectedDebugAndroidTest --stacktrace --console=plain
-            if adb shell test -d /sdcard/Android/data/br.com.thiaguinhosolucoes.smart24vision/files/proof; then
-              adb pull /sdcard/Android/data/br.com.thiaguinhosolucoes.smart24vision/files/proof /tmp/smart24-ui-proof
-            else
-              echo "Testes Android aprovados; diretório opcional de capturas não foi criado neste ambiente."
-            fi
+            if adb shell test -d /sdcard/Android/data/br.com.thiaguinhosolucoes.smart24vision/files/proof; then adb pull /sdcard/Android/data/br.com.thiaguinhosolucoes.smart24vision/files/proof /tmp/smart24-ui-proof; else echo "Testes Android aprovados; diretório opcional de capturas não foi criado neste ambiente."; fi
 
       - name: Registrar respostas das câmeras de teste
         if: always()
