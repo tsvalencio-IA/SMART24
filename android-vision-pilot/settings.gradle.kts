@@ -6,14 +6,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("http://maven.bughd.com/public")
-            isAllowInsecureProtocol = true
-        }
-        maven {
-            url = uri("http://maven.aliyun.com/nexus/content/repositories/releases/")
-            isAllowInsecureProtocol = true
-        }
+        maven { url = uri("https://maven.aliyun.com/repository/jcenter") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
     }
 }
 rootProject.name = "SMART24VisionPilot"
