@@ -86,6 +86,9 @@ dependencies {
 
     // Player RTSP genérico. Não depende do aplicativo do fabricante da câmera.
     implementation("org.videolan.android:libvlc-all:3.7.0")
+
+    // Modern Gwell IoT API: ARM64-capable successor to legacy p2p-core.
+    implementation("com.gwell:gwiotapi:1.6.7.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.json:json:20240303")
