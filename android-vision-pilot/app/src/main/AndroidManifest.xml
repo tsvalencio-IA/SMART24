@@ -32,6 +32,10 @@
         </provider>
 
         <activity
+            android:name=".GwellP2PActivity"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".MobileCalibrationActivity"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait" />
