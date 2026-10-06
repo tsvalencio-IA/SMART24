@@ -172,6 +172,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 .apply()
         }
         findViewById<Button>(R.id.mobileConnectButton).setOnClickListener { connectCamera() }
+        findViewById<Button>(R.id.mobileP2PButton).setOnClickListener { startActivity(Intent(this, GwellP2PActivity::class.java)) }
         findViewById<Button>(R.id.mobileFirebaseLoginButton).setOnClickListener { loginFirebase() }
         findViewById<Button>(R.id.mobileCalibrateButton).setOnClickListener { captureAndCalibrate() }
         findViewById<Button>(R.id.mobileStartAiButton).setOnClickListener { startAi() }
