@@ -293,7 +293,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                     var selectedPlan: CameraConnectionPlanner.Plan? = null
                     var selectedUser = user
                     for ((attemptIndex, candidateUser) in userCandidates.withIndex()) {
-                        checkCancelled()
+                        cancel()
                         if (userCandidates.size > 1) {
                             progress("Autenticação RTSP automática ${attemptIndex + 1}/${userCandidates.size}…")
                         }
