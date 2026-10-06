@@ -220,7 +220,7 @@ public class GwellP2PActivity extends BaseMonitorActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         try {
             P2PHandler.getInstance().finish();
             if (p2pConnected) P2PHandler.getInstance().p2pDisconnect();
