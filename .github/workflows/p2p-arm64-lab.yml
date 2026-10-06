@@ -1,0 +1,31 @@
+name: P2P ARM64 Lab
+
+on:
+  push:
+    branches:
+      - p2p-iotvideo-arm64-lab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Resolve Gwell and compile
+        run: |
+          gradle -p android-vision-pilot :app:dependencies --configuration debugRuntimeClasspath --console=plain
+          gradle -p android-vision-pilot :app:assembleDebug --stacktrace --console=plain
