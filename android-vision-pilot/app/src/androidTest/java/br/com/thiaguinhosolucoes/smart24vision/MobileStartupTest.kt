@@ -234,6 +234,27 @@ class MobileStartupTest {
         }
         activityRule.finishActivity()
     }
+
+    @Test fun p2pRemoteScreenLaunchesWithoutDynamicReceiverSecurityCrash() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val monitor = instrumentation.addMonitor(GwellP2PActivity::class.java.name, null, false)
+        val intent = Intent(context, GwellP2PActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+        val remote = instrumentation.waitForMonitorWithTimeout(monitor, 10000L) as? GwellP2PActivity
+        assertNotNull("P2P screen crashed while launching", remote)
+        instrumentation.removeMonitor(monitor)
+        instrumentation.waitForIdleSync()
+        instrumentation.runOnMainSync {
+            val activity = remote!!
+            assertTrue(activity.findViewById<TextView>(R.id.p2pStatus).text.contains("SMART24 P2P LAB"))
+            assertTrue(activity.findViewById<Button>(R.id.p2pConnect).isEnabled)
+            activity.finish()
+        }
+        instrumentation.waitForIdleSync()
+    }
+
     private fun saveScreenshot(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val frame = instrumentation.uiAutomation.takeScreenshot()
