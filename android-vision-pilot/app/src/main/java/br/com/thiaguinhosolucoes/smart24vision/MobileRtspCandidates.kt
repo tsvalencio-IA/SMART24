@@ -25,7 +25,7 @@ object MobileRtspCandidates {
         val authorityHost = if (':' in cleanHost) "[$cleanHost]" else cleanHost
         val probe = runCatching { URI("rtsp://$authorityHost:$preferredPort") }.getOrNull()
         require(!probe?.host.isNullOrBlank()) { "O endereço da câmera é inválido." }
-        val paths = listOf("/onvif1", "/onvif2", "/live/ch00_0", "/live/ch00_1", "/Streaming/Channels/101", "/Streaming/Channels/102", "/cam/realmonitor?channel=1&subtype=0", "/cam/realmonitor?channel=1&subtype=1", "")
+        val paths = listOf("/onvif1", "/onvif2", "/live/ch0", "/live/ch1", "/live/ch00_0", "/live/ch00_1", "/11", "/Streaming/Channels/101", "/Streaming/Channels/102", "/cam/realmonitor?channel=1&subtype=0", "/cam/realmonitor?channel=1&subtype=1", "")
         return linkedSetOf(preferredPort, 554, 5000, 8554).flatMap { port ->
             paths.map { "rtsp://$auth$authorityHost:$port$it" }
         }.distinct()
