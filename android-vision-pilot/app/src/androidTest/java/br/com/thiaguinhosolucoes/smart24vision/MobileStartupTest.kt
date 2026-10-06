@@ -48,7 +48,8 @@ class MobileStartupTest {
             assertFalse(activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStartAiButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStopAiButton).isEnabled)
-            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("mesma rede"))
+            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("câmera Sala da oficina cadastrada"))
+            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("senha NVR/RTSP"))
             assertFalse(activity.findViewById<EditText>(R.id.mobileCameraPasswordInput).isSaveEnabled)
         }
         activityRule.finishActivity()
