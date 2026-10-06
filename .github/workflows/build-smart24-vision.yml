@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -133,3 +133,144 @@ jobs:
             /tmp/smart24-camera-fixtures-stats.json
             /tmp/smart24-ui-proof/
           if-no-files-found: ignore
+
+
+  publish-signed:
+    needs: [build, android-smoke]
+    if: \${{ needs.build.result == 'success' && needs.android-smoke.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SMART24_KEYSTORE_B64: \${{ secrets.SMART24_KEYSTORE_B64 }}
+      SMART24_KEYSTORE_PASSWORD: \${{ secrets.SMART24_KEYSTORE_PASSWORD }}
+      EXPECTED_CERT_SHA256: "7B2B93AFB05B660423AC1DC29E34905F5E2A2BE77ED226BCA9BE112605387E0D"
+      GH_TOKEN: \${{ github.token }}
+    steps:
+      - name: Verificar assinatura permanente
+        id: signing
+        shell: bash
+        run: |
+          if [ -n "$SMART24_KEYSTORE_B64" ] && [ -n "$SMART24_KEYSTORE_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Assinatura permanente ainda não configurada. Adicione SMART24_KEYSTORE_B64 e SMART24_KEYSTORE_PASSWORD nos Actions secrets." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Baixar repositório
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 17
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle 8.7
+        if: steps.signing.outputs.ready == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Restaurar chave definitiva e gerar APK release
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          SMART24_KEYSTORE_PATH: \${{ runner.temp }}/smart24-release.jks
+        run: |
+          printf '%s' "$SMART24_KEYSTORE_B64" | base64 --decode > "$SMART24_KEYSTORE_PATH"
+          gradle -p android-vision-pilot :app:assembleRelease --stacktrace --console=plain
+
+      - name: Validar assinatura, versão e decidir publicação
+        if: steps.signing.outputs.ready == 'true'
+        id: release
+        env:
+          SMART24_KEYSTORE_PATH: \${{ runner.temp }}/smart24-release.jks
+        run: |
+          APK="android-vision-pilot/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "$EXPECTED_CERT_SHA256"
+
+          PACKAGE=$("$AAPT" dump badging "$APK" | head -n 1)
+          echo "$PACKAGE"
+          echo "$PACKAGE" | grep -F "name='br.com.thiaguinhosolucoes.smart24vision'"
+          VERSION_CODE=$(printf '%s\n' "$PACKAGE" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")
+          VERSION_NAME=$(printf '%s\n' "$PACKAGE" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+
+          CURRENT_CODE=$(python3 - <<'PY'
+          import json
+          print(json.load(open('smart24-update.json', encoding='utf-8'))['versionCode'])
+          PY
+          )
+          if [ "$VERSION_CODE" -le "$CURRENT_CODE" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Versão $VERSION_CODE já está no canal de atualização; nenhuma nova release será criada." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          APK_SHA=$(sha256sum "$APK" | cut -d ' ' -f1)
+          TAG="v\${VERSION_NAME}-code\${VERSION_CODE}"
+          APK_NAME="SMART24-Vigilante-Celular-\${VERSION_NAME}.apk"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar APK assinado
+        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true'
+        run: |
+          APK="android-vision-pilot/app/build/outputs/apk/release/app-release.apk"
+          cp "$APK" "\${{ runner.temp }}/\${{ steps.release.outputs.apk_name }}"
+          cat > "\${{ runner.temp }}/release-notes.md" <<EOF
+          SMART24 \${{ steps.release.outputs.version_name }}
+
+          APK assinado com a chave permanente do SMART24.
+          versionCode: \${{ steps.release.outputs.version_code }}
+          SHA-256: \${{ steps.release.outputs.apk_sha }}
+          Certificado SHA-256: $EXPECTED_CERT_SHA256
+
+          Esta é a base para atualizações futuras sem desinstalar o aplicativo.
+          EOF
+          if gh release view "\${{ steps.release.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release já existe; mantendo publicação existente."
+          else
+            gh release create "\${{ steps.release.outputs.tag }}" \
+              "\${{ runner.temp }}/\${{ steps.release.outputs.apk_name }}" \
+              --target "$GITHUB_SHA" \
+              --title "SMART24 \${{ steps.release.outputs.version_name }}" \
+              --notes-file "\${{ runner.temp }}/release-notes.md"
+          fi
+
+      - name: Atualizar canal automático
+        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true'
+        run: |
+          REMOTE_HEAD=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$REMOTE_HEAD" != "$GITHUB_SHA" ]; then
+            echo "main avançou durante o build; release publicada, mas o manifesto automático não será sobrescrito por um commit antigo." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/\${{ steps.release.outputs.tag }}/\${{ steps.release.outputs.apk_name }}"
+          cat > smart24-update.json <<EOF
+          {
+            "enabled": true,
+            "versionCode": \${{ steps.release.outputs.version_code }},
+            "versionName": "\${{ steps.release.outputs.version_name }}",
+            "apkUrl": "$URL",
+            "sha256": "\${{ steps.release.outputs.apk_sha }}"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add smart24-update.json
+          git commit -m "Publish SMART24 \${{ steps.release.outputs.version_name }} update channel [skip ci]"
+          git push origin HEAD:main
