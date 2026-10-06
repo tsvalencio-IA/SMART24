@@ -1,3 +1,6 @@
+val smart24KeystorePath = providers.environmentVariable("SMART24_KEYSTORE_PATH").orNull
+val smart24KeystorePassword = providers.environmentVariable("SMART24_KEYSTORE_PASSWORD").orNull
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,8 +14,8 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "3.3.1-sala-oficina"
+        versionCode = 12
+        versionName = "3.3.2-auto-update"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
@@ -24,6 +27,24 @@ android {
         buildConfigField("String", "YOOSEE_APP_ID", "\"${yooseeAppId.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_TOKEN", "\"${yooseeAppToken.replace("\"", "\\\"")}\"")
         buildConfigField("String", "YOOSEE_APP_VERSION", "\"${yooseeAppVersion.replace("\"", "\\\"")}\"")
+    }
+
+    signingConfigs {
+        if (!smart24KeystorePath.isNullOrBlank() && !smart24KeystorePassword.isNullOrBlank()) {
+            create("smart24Release") {
+                storeFile = file(smart24KeystorePath)
+                storePassword = smart24KeystorePassword
+                keyAlias = "smart24"
+                keyPassword = smart24KeystorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfigs.findByName("smart24Release")?.let { signingConfig = it }
+        }
     }
 
     buildFeatures {
