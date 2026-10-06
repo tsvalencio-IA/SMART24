@@ -10,6 +10,9 @@ class MobileRtspCandidatesTest {
         assertEquals(urls.size, urls.distinct().size)
         assertTrue(urls.any { it.contains(":5000/onvif1") })
         assertTrue(urls.any { it.contains(":8554/onvif2") })
+        assertTrue(urls.any { it.contains(":554/live/ch0") })
+        assertTrue(urls.any { it.contains(":554/live/ch1") })
+        assertTrue(urls.any { it.contains(":554/11") })
     }
     @Test fun explicitCameraUrlNeverFallsBackToAnotherHost() {
         val urls = MobileRtspCandidates.build("192.168.15.5", "admin", "test-password", 554, "RTSP://192.168.15.9:8554/cam/realmonitor?channel=1&subtype=1")
