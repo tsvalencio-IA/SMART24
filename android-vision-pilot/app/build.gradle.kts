@@ -86,7 +86,9 @@ dependencies {
 
     // Player RTSP genérico. Não depende do aplicativo do fabricante da câmera.
     implementation("org.videolan.android:libvlc-all:3.7.0")
-    implementation("com.p2p.core:p2p-core:0.4.4.9")
+    implementation("com.p2p.core:p2p-core:0.4.4.9") {
+        exclude(group = "com.android.support")
+    }
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.json:json:20240303")
