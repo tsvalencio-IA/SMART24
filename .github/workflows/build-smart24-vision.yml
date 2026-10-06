@@ -1,4 +1,5 @@
 name: Build SMART24 Vigilante Celular APK
+# Revalidação após configuração da assinatura permanente do SMART24.
 
 on:
   workflow_dispatch:
