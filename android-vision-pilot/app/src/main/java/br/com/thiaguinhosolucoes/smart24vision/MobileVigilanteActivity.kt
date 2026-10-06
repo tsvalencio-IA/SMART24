@@ -67,6 +67,16 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private var connectionReport = ""
     private var knownOnvifServices: List<String> = emptyList()
 
+    private companion object {
+        const val OFFICE_STORE = "OFICINA"
+        const val OFFICE_CAMERA = "SALA"
+        const val OFFICE_HOST = "192.168.15.5"
+        const val OFFICE_RTSP_PORT = "554"
+        const val OFFICE_DEFAULT_USER = "administrator"
+        const val OFFICE_DEVICE_ID = "5646988473"
+        const val OFFICE_MAC = "38:7A:CC:3A:4D:8E"
+    }
+
     private fun input(id: Int) = findViewById<EditText>(id)
     private fun storeId() = input(R.id.mobileStoreInput).text.toString().trim().ifBlank { "loja-01" }
     private fun cameraId() = input(R.id.mobileCameraInput).text.toString().trim().uppercase().ifBlank { "CAM-01" }
@@ -133,12 +143,31 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         rtspPlayer = MobileRtspPlayer(this, textureView, this)
         outbox = MobileEventOutbox(this)
         val prefs = getSharedPreferences("smart24_mobile", MODE_PRIVATE)
-        input(R.id.mobileHostInput).setText(prefs.getString("host", "192.168.15.5"))
-        input(R.id.mobileUserInput).setText(prefs.getString("user", ""))
-        input(R.id.mobilePortInput).setText(prefs.getString("port", "554"))
+        val savedStore = prefs.getString("store", null)
+        val savedCamera = prefs.getString("camera", null)
+        val savedUser = prefs.getString("user", null)
+        val savedPort = prefs.getString("port", null)
+        val savedHost = prefs.getString("host", null)
+        val officeStore = if (savedStore.isNullOrBlank() || savedStore == "loja-01") OFFICE_STORE else savedStore
+        val officeCamera = if (savedCamera.isNullOrBlank() || savedCamera == "CAM-01") OFFICE_CAMERA else savedCamera
+        val officeUser = if (savedUser.isNullOrBlank()) OFFICE_DEFAULT_USER else savedUser
+        val officePort = if (savedPort.isNullOrBlank()) OFFICE_RTSP_PORT else savedPort
+        val officeHost = if (savedHost.isNullOrBlank()) OFFICE_HOST else savedHost
+        input(R.id.mobileHostInput).setText(officeHost)
+        input(R.id.mobileUserInput).setText(officeUser)
+        input(R.id.mobilePortInput).setText(officePort)
         input(R.id.mobileFirebaseEmailInput).setText(prefs.getString("email", ""))
-        input(R.id.mobileStoreInput).setText(prefs.getString("store", "loja-01"))
-        input(R.id.mobileCameraInput).setText(prefs.getString("camera", "CAM-01"))
+        input(R.id.mobileStoreInput).setText(officeStore)
+        input(R.id.mobileCameraInput).setText(officeCamera)
+        if (savedStore.isNullOrBlank() || savedStore == "loja-01" || savedCamera.isNullOrBlank() || savedCamera == "CAM-01") {
+            prefs.edit()
+                .putString("host", OFFICE_HOST)
+                .putString("user", OFFICE_DEFAULT_USER)
+                .putString("port", OFFICE_RTSP_PORT)
+                .putString("store", OFFICE_STORE)
+                .putString("camera", OFFICE_CAMERA)
+                .apply()
+        }
         findViewById<Button>(R.id.mobileConnectButton).setOnClickListener { connectCamera() }
         findViewById<Button>(R.id.mobileFirebaseLoginButton).setOnClickListener { loginFirebase() }
         findViewById<Button>(R.id.mobileCalibrateButton).setOnClickListener { captureAndCalibrate() }
@@ -164,7 +193,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 .setPositiveButton("Abrir eventos") { _, _ -> openEventSite() }.show()
         }
         cameraControls(false)
-        status.text = "SMART24 3.3 • conecte na mesma rede da câmera ou por uma VPN já configurada. Informe o IP e as credenciais NVR/RTSP."
+        status.text = "SMART24 3.3.1 • câmera Sala da oficina cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID • MAC $OFFICE_MAC. Digite somente a senha NVR/RTSP e conecte. No 4G, o IP privado exige rota remota/P2P."
         showPreviousFailure()
         updateSyncText()
     }
