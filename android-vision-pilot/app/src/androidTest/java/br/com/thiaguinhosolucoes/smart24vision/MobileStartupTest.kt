@@ -41,7 +41,7 @@ class MobileStartupTest {
         activityRule.runOnUiThread {
             val activity = activityRule.activity
             assertEquals("192.168.15.5", activity.findViewById<EditText>(R.id.mobileHostInput).text.toString())
-            assertEquals("administrator", activity.findViewById<EditText>(R.id.mobileUserInput).text.toString())
+            assertEquals("", activity.findViewById<EditText>(R.id.mobileUserInput).text.toString())
             assertEquals("554", activity.findViewById<EditText>(R.id.mobilePortInput).text.toString())
             assertEquals("OFICINA", activity.findViewById<EditText>(R.id.mobileStoreInput).text.toString())
             assertEquals("SALA", activity.findViewById<EditText>(R.id.mobileCameraInput).text.toString())
@@ -50,6 +50,7 @@ class MobileStartupTest {
             assertFalse(activity.findViewById<Button>(R.id.mobileStopAiButton).isEnabled)
             assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("câmera Sala da oficina cadastrada"))
             assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("senha NVR/RTSP"))
+            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("usuário RTSP é tentado automaticamente"))
             assertFalse(activity.findViewById<EditText>(R.id.mobileCameraPasswordInput).isSaveEnabled)
         }
         activityRule.finishActivity()
