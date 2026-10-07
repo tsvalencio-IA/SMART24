@@ -227,8 +227,16 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Publicar APK assinado como artefato de teste
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMART24-Signed-${{ github.ref_name }}-${{ github.run_number }}
+          path: android-vision-pilot/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
       - name: Publicar APK assinado
-        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true'
+        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true' && github.ref == 'refs/heads/main'
         run: |
           APK="android-vision-pilot/app/build/outputs/apk/release/app-release.apk"
           cp "$APK" "${{ runner.temp }}/${{ steps.release.outputs.apk_name }}"
@@ -253,7 +261,7 @@ jobs:
           fi
 
       - name: Atualizar canal automático
-        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true'
+        if: steps.signing.outputs.ready == 'true' && steps.release.outputs.publish == 'true' && github.ref == 'refs/heads/main'
         run: |
           REMOTE_HEAD=$(git ls-remote origin refs/heads/main | cut -f1)
           if [ "$REMOTE_HEAD" != "$GITHUB_SHA" ]; then
