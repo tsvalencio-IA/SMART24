@@ -48,9 +48,11 @@ class MobileStartupTest {
             assertFalse(activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStartAiButton).isEnabled)
             assertFalse(activity.findViewById<Button>(R.id.mobileStopAiButton).isEnabled)
-            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("câmera Sala da oficina cadastrada"))
-            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("senha NVR/RTSP"))
-            assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("usuário RTSP é tentado automaticamente"))
+            val startupStatus = activity.findViewById<TextView>(R.id.mobileStatus).text.toString()
+            assertTrue(startupStatus.contains("MODO LOJA LOCAL"))
+            assertTrue(startupStatus.contains("mesmo Wi-Fi"))
+            assertTrue(startupStatus.contains("Sala cadastrada: 192.168.15.5:554"))
+            assertTrue(startupStatus.contains("Central SMART24"))
             assertFalse(activity.findViewById<EditText>(R.id.mobileCameraPasswordInput).isSaveEnabled)
         }
         activityRule.finishActivity()
@@ -69,7 +71,7 @@ class MobileStartupTest {
         val deadline = System.currentTimeMillis() + 30000L
         while (!confirmed && System.currentTimeMillis() < deadline) {
             instrumentation.runOnMainSync {
-                confirmed = activityRule.activity.findViewById<TextView>(R.id.mobileStatus).text.contains("VÍDEO CONFIRMADO")
+                confirmed = activityRule.activity.findViewById<TextView>(R.id.mobileStatus).text.contains("VÍDEO LOCAL CONFIRMADO")
             }
             if (!confirmed) Thread.sleep(200L)
         }
@@ -97,7 +99,7 @@ class MobileStartupTest {
             activity.findViewById<EditText>(R.id.mobileCameraPasswordInput).setText("onvif-test-password")
             activity.findViewById<Button>(R.id.mobileConnectButton).performClick()
         }
-        waitForStatus("VÍDEO CONFIRMADO", 45000L)
+        waitForStatus("VÍDEO LOCAL CONFIRMADO", 45000L)
         activityRule.runOnUiThread {
             val activity = activityRule.activity
             assertTrue(activity.findViewById<TextView>(R.id.mobileStatus).text.contains("/testcam"))
@@ -181,7 +183,7 @@ class MobileStartupTest {
             activityRule.activity.findViewById<EditText>(R.id.mobileRtspUrlInput).setText("rtsp://10.0.2.2:8554/testcam")
             activityRule.activity.findViewById<Button>(R.id.mobileConnectButton).performClick()
         }
-        waitForStatus("VÍDEO CONFIRMADO",30000L)
+        waitForStatus("VÍDEO LOCAL CONFIRMADO",30000L)
         for (cycle in 0..1) {
             val monitor = instrumentation.addMonitor(MobileCalibrationActivity::class.java.name,null,false)
             activityRule.runOnUiThread { activityRule.activity.findViewById<Button>(R.id.mobileCalibrateButton).performClick() }
@@ -207,7 +209,7 @@ class MobileStartupTest {
             }
             saveScreenshot("calibration-$cycle")
             instrumentation.runOnMainSync { calibration!!.findViewById<Button>(R.id.mobileFinishZonesButton).performClick() }
-            waitForStatus("VÍDEO CONFIRMADO",30000L)
+            waitForStatus("VÍDEO LOCAL CONFIRMADO",30000L)
             activityRule.runOnUiThread {
                 assertTrue(activityRule.activity.findViewById<Button>(R.id.mobileCalibrateButton).isEnabled)
                 assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileGuide).text.contains("${cycle+1} áreas"))
@@ -222,7 +224,7 @@ class MobileStartupTest {
         Thread.sleep(1200)
         val intent = Intent(context,MobileVigilanteActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         context.startActivity(intent)
-        waitForStatus("VÍDEO CONFIRMADO",30000L)
+        waitForStatus("VÍDEO LOCAL CONFIRMADO",30000L)
         saveScreenshot("video-returned")
         // Opening the event site is optional and has a clear explanation before navigation.
         activityRule.runOnUiThread { activityRule.activity.findViewById<Button>(R.id.mobilePanelButton).performClick() }
@@ -230,7 +232,7 @@ class MobileStartupTest {
         instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         instrumentation.waitForIdleSync()
         activityRule.runOnUiThread {
-            assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileStatus).text.contains("VÍDEO CONFIRMADO"))
+            assertTrue(activityRule.activity.findViewById<TextView>(R.id.mobileStatus).text.contains("VÍDEO LOCAL CONFIRMADO"))
         }
         activityRule.finishActivity()
     }

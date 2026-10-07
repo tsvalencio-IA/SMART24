@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Base64
 import android.view.TextureView
 import android.view.WindowManager
 import android.widget.Button
@@ -35,6 +36,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.net.HttpURLConnection
@@ -68,6 +70,10 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     private var connectionGeneration = 0
     private var connectionReport = ""
     private var knownOnvifServices: List<String> = emptyList()
+    private var lastVisionResult: VisionResult? = null
+    private var livePublishBusy = false
+    private var commandBusy = false
+    private var lastHandledCommandId = ""
 
     private companion object {
         const val OFFICE_STORE = "OFICINA"
@@ -100,6 +106,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                                 val result = vision.analyze(bitmap)
                                 if (token != generation || !analyzing || !resumed) return@launch
                                 overlay.result = result
+                                lastVisionResult = result
                                 val events = itemEngine.update(bitmap, result, zones)
                                 events.forEach { publishEvent(it) }
                                 status.text = "Vigilante ativo • pessoas ${result.persons.size} • objetos ${result.objects.size} • zonas ${zones.size}"
@@ -123,7 +130,16 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         override fun run() {
             if (!resumed) return
             synchronizeEvents()
-            handler.postDelayed(this, 15000L)
+            pollCentralCommand()
+            handler.postDelayed(this, 5000L)
+        }
+    }
+
+    private val liveLoop = object : Runnable {
+        override fun run() {
+            if (!resumed) return
+            publishLiveFrame()
+            handler.postDelayed(this, 3000L)
         }
     }
 
@@ -196,7 +212,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 .setPositiveButton("Abrir eventos") { _, _ -> openEventSite() }.show()
         }
         cameraControls(false)
-        status.text = "SMART24 3.3.1 • câmera Sala da oficina cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID • MAC $OFFICE_MAC. Digite somente a senha NVR/RTSP; o usuário RTSP é tentado automaticamente. No 4G, o IP privado exige rota remota/P2P."
+        status.text = "MODO LOJA LOCAL • celular e câmera devem estar no mesmo Wi-Fi. Sala cadastrada: $OFFICE_HOST:$OFFICE_RTSP_PORT • ID $OFFICE_DEVICE_ID. Conecte a câmera aqui; a Central SMART24 controlará este celular pelo Firebase."
         showPreviousFailure()
         updateSyncText()
         lifecycleScope.launch { appUpdater.checkOnLaunch() }
@@ -210,6 +226,8 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         reloadZones()
         handler.removeCallbacks(syncLoop)
         handler.post(syncLoop)
+        handler.removeCallbacks(liveLoop)
+        handler.post(liveLoop)
     }
     override fun onPause() {
         resumed = false
@@ -220,6 +238,7 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         }
         stopAi()
         handler.removeCallbacks(syncLoop)
+        handler.removeCallbacks(liveLoop)
         rtspPlayer.pause()
         cameraControls(false)
         if (hadConfirmedVideo) {
@@ -371,8 +390,9 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 PilotSession.sessionId = sessionId
                 input(R.id.mobileFirebasePasswordInput).text.clear()
                 saveIdentity(email)
-                status.text = "Firebase conectado como $role. Eventos autenticados serão sincronizados."
+                status.text = "Firebase conectado como $role. Este celular agora é um nó da loja e pode receber comandos da Central SMART24."
                 synchronizeEvents()
+                publishLiveFrame()
             } catch (error: CancellationException) { throw error
             } catch (error: Exception) {
                 PilotSession.clearAuthentication()
@@ -503,9 +523,24 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                         firebase.put("events/${row.getString("id")}", values)
                         withContext(Dispatchers.IO) { outbox.uploaded(row.getString("id")) }
                     }
-                    if (PilotSession.uid == uid && rtspPlayer.isConnected) {
+                    if (PilotSession.uid == uid) {
                         val now = System.currentTimeMillis()
-                        firebase.put("visionPilots/${PilotSession.pilotId}", mapOf("pilotId" to PilotSession.pilotId, "storeId" to storeId(), "cameraId" to cameraId(), "status" to if (analyzing) "VIGILANTE_ACTIVE" else "VIDEO_DIRECT_VISIBLE", "lastSeenAt" to now, "source" to "SMART24_MOBILE_RTSP", "sessionId" to sessionId))
+                        val nodeStatus = when {
+                            analyzing && rtspPlayer.isConnected -> "VIGILANTE_ACTIVE"
+                            rtspPlayer.isConnected -> "VIDEO_VISIBLE"
+                            else -> "APP_ONLINE_CAMERA_OFFLINE"
+                        }
+                        firebase.patch("visionPilots/${PilotSession.pilotId}", mapOf(
+                            "pilotId" to PilotSession.pilotId,
+                            "storeId" to storeId(),
+                            "cameraId" to cameraId(),
+                            "status" to nodeStatus,
+                            "lastSeenAt" to now,
+                            "source" to "SMART24_LOCAL_WIFI_EDGE",
+                            "sessionId" to sessionId,
+                            "cameraConnected" to rtspPlayer.isConnected,
+                            "vigilanteActive" to analyzing
+                        ))
                     }
                     updateSyncText()
                 } catch (error: CancellationException) { throw error
@@ -517,7 +552,126 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
     }
     private fun updateSyncText() {
         if (!::outbox.isInitialized) return
-        syncText.text = "Fila local: ${outbox.count()} • teste sem login: ${outbox.localOnlyCount()}\n${if (PilotSession.authenticated) "Firebase autenticado; tentativas automáticas a cada 15 s." else "Sem login: eventos ficam neste celular."}"
+        syncText.text = "Fila local: ${outbox.count()} • teste sem login: ${outbox.localOnlyCount()}\n${if (PilotSession.authenticated) "Firebase autenticado; heartbeat e comandos da Central a cada 5 s." else "Sem login: eventos ficam neste celular."}"
+    }
+
+    private fun publishLiveFrame() {
+        if (!PilotSession.authenticated || !resumed || !rtspPlayer.isConnected || livePublishBusy) return
+        val bitmap = rtspPlayer.captureFrame(640) ?: return
+        livePublishBusy = true
+        lifecycleScope.launch {
+            try {
+                val frameDataUrl = withContext(Dispatchers.Default) {
+                    val bytes = ByteArrayOutputStream()
+                    check(bitmap.compress(Bitmap.CompressFormat.JPEG, 52, bytes))
+                    "data:image/jpeg;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+                }
+                if (!resumed || destroyed || !PilotSession.authenticated) return@launch
+                val result = lastVisionResult
+                val people = result?.persons.orEmpty().associate { person ->
+                    person.personId to mapOf(
+                        "personId" to person.personId,
+                        "confidence" to person.confidence,
+                        "source" to person.source
+                    )
+                }
+                val objects = result?.objects.orEmpty().associate { item ->
+                    item.objectId to mapOf(
+                        "objectId" to item.objectId,
+                        "confidence" to item.confidence
+                    )
+                }
+                firebase.put("cameraLive/${storeId()}/${cameraId()}", mapOf(
+                    "storeId" to storeId(),
+                    "cameraId" to cameraId(),
+                    "pilotId" to PilotSession.pilotId,
+                    "status" to if (analyzing) "VIGILANTE_ACTIVE" else "VIDEO_VISIBLE",
+                    "updatedAt" to System.currentTimeMillis(),
+                    "frameDataUrl" to frameDataUrl,
+                    "personsDetected" to people.size,
+                    "objectsDetected" to objects.size,
+                    "persons" to people,
+                    "objects" to objects,
+                    "source" to "SMART24_LOCAL_WIFI_EDGE"
+                ))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                syncText.text = "Central conectada, mas o quadro não foi publicado: ${error.message ?: "erro"}"
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
+                livePublishBusy = false
+            }
+        }
+    }
+
+    private fun pollCentralCommand() {
+        if (!PilotSession.authenticated || !resumed || commandBusy || PilotSession.pilotId.isBlank()) return
+        commandBusy = true
+        lifecycleScope.launch {
+            try {
+                val node = firebase.getObject("visionPilots/${PilotSession.pilotId}")
+                val command = node?.optJSONObject("command") ?: return@launch
+                val commandId = command.optString("commandId")
+                if (commandId.isBlank() || commandId == lastHandledCommandId || command.optString("status") != "PENDING") return@launch
+
+                var ok = true
+                val resultMessage = when (command.optString("action")) {
+                    "START_VIGILANTE" -> {
+                        if (!rtspPlayer.isConnected) {
+                            ok = false
+                            "Câmera local não está conectada."
+                        } else if (zones.isEmpty()) {
+                            reloadZones()
+                            if (zones.isEmpty()) {
+                                ok = false
+                                "Nenhuma zona/produto configurado."
+                            } else {
+                                startAi()
+                                "Vigilante iniciado pela Central."
+                            }
+                        } else {
+                            startAi()
+                            "Vigilante iniciado pela Central."
+                        }
+                    }
+                    "STOP_VIGILANTE" -> {
+                        stopAi()
+                        updateGuide()
+                        "Vigilante parado pela Central; vídeo local mantido."
+                    }
+                    "RECONNECT_VIDEO" -> {
+                        if (rtspPlayer.reconnect()) "Reconexão RTSP local iniciada." else {
+                            ok = false
+                            "Não há sessão RTSP em memória; reconecte localmente neste celular."
+                        }
+                    }
+                    "REQUEST_SNAPSHOT" -> {
+                        publishLiveFrame()
+                        "Novo quadro solicitado pela Central."
+                    }
+                    "PING" -> "Celular da loja respondeu."
+                    else -> {
+                        ok = false
+                        "Comando desconhecido."
+                    }
+                }
+                lastHandledCommandId = commandId
+                firebase.patch("visionPilots/${PilotSession.pilotId}/command", mapOf(
+                    "status" to if (ok) "DONE" else "ERROR",
+                    "handledAt" to System.currentTimeMillis(),
+                    "result" to resultMessage
+                ))
+                status.text = resultMessage
+                synchronizeEvents()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                syncText.text = "Falha ao receber comando da Central: ${error.message ?: error.javaClass.simpleName}"
+            } finally {
+                commandBusy = false
+            }
+        }
     }
 
     private fun discoverCameras() {
@@ -552,7 +706,9 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
         findViewById<View>(R.id.mobileConnectionSettings).visibility = View.GONE
         input(R.id.mobileStoreInput).isEnabled = false
         input(R.id.mobileCameraInput).isEnabled = false
-        status.text = "VÍDEO CONFIRMADO • ${storeId()} / ${cameraId()}\n$maskedUrl"
+        status.text = "VÍDEO LOCAL CONFIRMADO • ${storeId()} / ${cameraId()}\n$maskedUrl\nCentral SMART24: ${if (PilotSession.authenticated) "ONLINE" else "aguardando login Firebase"}"
+        synchronizeEvents()
+        publishLiveFrame()
     }
     override fun onFailed(message: String) {
         stopAi(); cameraControls(false); status.text = message

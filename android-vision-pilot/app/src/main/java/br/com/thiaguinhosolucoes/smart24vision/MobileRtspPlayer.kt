@@ -172,6 +172,24 @@ class MobileRtspPlayer(context: Context, private val textureView: TextureView, p
         if (index in candidates.indices) { index--; nextCandidate() }
     }
 
+    /**
+     * Reinicia a mesma câmera usando os candidatos RTSP que já estão somente
+     * na memória do celular. Não persiste usuário, senha ou URL no Firebase.
+     */
+    fun reconnect(): Boolean {
+        if (released || candidates.isEmpty()) return false
+        paused = false
+        generation++
+        handler.removeCallbacksAndMessages(null)
+        connected = false
+        playing = false
+        videoOutput = false
+        disposePlayer()
+        index = -1
+        nextCandidate()
+        return true
+    }
+
     fun disconnect() {
         generation++
         handler.removeCallbacksAndMessages(null)

@@ -1,52 +1,73 @@
-# SMART24 Vision Pilot — teste real com a câmera Yoosee
+# SMART24 — celular da loja + câmera no mesmo Wi‑Fi
 
-Este aplicativo Android é a ponte de **piloto controlado** para testar a sua câmera residencial sem computador na loja e sem colocar senha Yoosee no GitHub/Firebase.
+Esta é a arquitetura operacional adotada para os mercadinhos:
 
-## O que ele faz de verdade
+```text
+CÂMERA LOCAL ──RTSP/ONVIF──> CELULAR SMART24 DA LOJA
+                                  │
+                                  │ Internet / Firebase
+                                  ▼
+                           CENTRAL SMART24
+```
 
-1. você entra no SMART24 Vision com um usuário Firebase `admin` ou `operator`;
-2. o Android pede autorização de captura de tela;
-3. o aplicativo Yoosee é aberto;
-4. você abre o vídeo ao vivo da câmera e deixa em tela cheia;
-5. o SMART24 processa digitalmente os quadros mostrados pelo Yoosee;
-6. reconhece QR das etiquetas SMART24;
-7. detecta faces/objetos e cria IDs temporários `PERSON-XX`;
-8. calibra retângulos de geladeira/prateleira;
-9. registra `PRODUCT_PICKUP`, `PRODUCT_RETURN` ou `AMBIGUOUS_INTERACTION`;
-10. atualiza carrinhos, heartbeat e eventos no Firebase.
+A câmera não precisa ser aberta remotamente pela Central. O celular que fica fisicamente no mercadinho acessa a câmera pela própria rede Wi‑Fi da loja. A Central conversa com esse celular pelo Firebase.
 
-## O que não faz ainda
+## O que o celular da loja faz
 
-- não realiza reconhecimento facial nominal do morador;
-- não substitui uma conexão direta em nuvem com dezenas de câmeras;
-- não afirma que uma etiqueta escondida continua visível;
-- não conecta ao caixa automaticamente;
-- não transforma um teste de uma câmera em implantação final das seis lojas.
+1. fica conectado no mesmo Wi‑Fi da câmera;
+2. conecta diretamente ao RTSP/ONVIF local da câmera;
+3. mantém o vídeo aberto no SMART24;
+4. executa a análise visual no próprio Android;
+5. mantém heartbeat no Firebase a cada poucos segundos;
+6. publica quadros reduzidos para o mosaico da Central;
+7. envia eventos detectados;
+8. recebe comandos da Central, como iniciar/parar o vigilante, reconectar o vídeo e atualizar o quadro.
 
-## Como gerar o APK sem terminal
+A senha RTSP/NVR e a URL completa da câmera não são publicadas no Firebase. Durante a sessão, os dados de conexão permanecem no celular da loja.
 
-1. envie a pasta completa do projeto para o repositório SMART24;
-2. confirme que apareceu `.github/workflows/build-smart24-vision.yml`;
-3. no GitHub, abra **Actions**;
-4. abra **Build SMART24 Vision APK**;
-5. toque em **Run workflow**;
-6. ao terminar, abra a execução e baixe o artefato `SMART24-Vision-Pilot-APK`;
-7. extraia o ZIP do artefato e instale `app-debug.apk` no Android.
+## O que a Central SMART24 faz
 
-## Ordem do primeiro teste
+Na tela **Ao vivo**, a Central mostra as lojas/câmeras que estão publicando quadros e o estado do celular local. Para cada celular identificado, a Central pode enviar:
 
-1. publique as regras novas de `web/firebase/database.rules.json`;
-2. gere 3 etiquetas de um produto de teste;
-3. use Reposição para associá-las à zona `GELADEIRA-01-P01`;
-4. instale o APK;
-5. entre com o mesmo usuário Firebase do painel;
-6. toque em **Autorizar captura e abrir Yoosee**;
-7. abra o vídeo da câmera;
-8. deixe 3 produtos etiquetados visíveis;
-9. volte ao app e calibre a zona;
-10. retorne ao Yoosee, retire uma unidade e aguarde;
-11. confira **Eventos** e **Carrinhos** no painel SMART24 em outro celular.
+- **Iniciar vigilante**
+- **Parar vigilante**
+- **Reconectar câmera**
+- **Atualizar quadro**
 
-## Observação técnica honesta
+O comando é gravado no registro do próprio nó `visionPilots/{pilotId}`. O celular consulta esse registro, executa localmente e devolve o resultado.
 
-O piloto usa a sessão do aplicativo oficial Yoosee para transportar o vídeo remoto. A análise é executada no Android que autorizou a captura. A versão final para seis lojas exigirá ingestão contínua em nuvem ou câmeras com fluxo/API compatível, porque nenhum código roda 24 horas no GitHub Pages quando o navegador está fechado.
+## Primeiro teste — oficina / câmera Sala
+
+Dados já conhecidos do teste:
+
+- câmera: **SALA**
+- IP local: **192.168.15.5**
+- porta RTSP: **554**
+- ID do dispositivo: **5646988473**
+- MAC: **38:7A:CC:3A:4D:8E**
+
+Ordem:
+
+1. deixe o celular no mesmo Wi‑Fi da câmera;
+2. abra o SMART24;
+3. confirme o IP `192.168.15.5` e porta `554`;
+4. informe a senha NVR/RTSP somente no celular;
+5. toque em **Conectar câmera**;
+6. aguarde **VÍDEO LOCAL CONFIRMADO**;
+7. entre no Firebase dentro do APK;
+8. deixe o SMART24 aberto;
+9. abra a Central SMART24 em outro aparelho;
+10. entre em **Ao vivo** e confirme o quadro da câmera;
+11. use os botões da Central para testar o comando do celular da loja.
+
+## Escala para os mercadinhos
+
+Cada loja terá seu próprio identificador e seu próprio celular Android. O Firebase separa os dados por `storeId`, `cameraId` e `pilotId`.
+
+A primeira etapa valida uma câmera ativa por celular. Depois de estabilizar a câmera Sala, o mesmo nó local será evoluído para cadastrar e alternar/monitorar várias câmeras da mesma loja sem mudar a arquitetura da Central.
+
+## Regra operacional
+
+O celular da loja deve permanecer ligado, com alimentação contínua, Wi‑Fi estável e o SMART24 aberto. Se a internet externa cair, a câmera local continua sendo acessível pelo Wi‑Fi; eventos que não puderem sincronizar permanecem na fila local e são reenviados quando a conexão voltar.
+
+Powered by **thIAguinho Soluções Digitais**.
