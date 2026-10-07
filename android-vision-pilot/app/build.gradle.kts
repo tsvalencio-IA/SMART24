@@ -14,8 +14,8 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "3.4.0-local-edge"
+        versionCode = 15
+        versionName = "3.4.1-local-edge-android16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyDBFXRrgb7KwNVZArx_Du4DSLEOrKN5Vbw\"")
@@ -79,10 +79,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")
-    implementation("com.google.mlkit:face-detection:16.1.7")
-    implementation("com.google.mlkit:object-detection:17.0.2")
-    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    // QR sem ML Kit nativo: evita libmlkitcommonpipeline.so em Android 16/16 KB.
+    implementation("com.google.zxing:core:3.5.3")
 
     // Player RTSP genérico. Não depende do aplicativo do fabricante da câmera.
     implementation("org.videolan.android:libvlc-all:3.7.0")
