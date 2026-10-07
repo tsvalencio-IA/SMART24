@@ -14,7 +14,7 @@ android {
         applicationId = "br.com.thiaguinhosolucoes.smart24vision"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
+        versionCode = 14
         versionName = "3.4.0-local-edge"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
