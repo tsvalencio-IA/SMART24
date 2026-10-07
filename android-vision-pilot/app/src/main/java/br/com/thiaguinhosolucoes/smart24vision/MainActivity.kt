@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -18,9 +19,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,23 +43,30 @@ class MainActivity : AppCompatActivity() {
     private val qrImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@registerForActivityResult
         setStatus("Lendo o QR da imagem selecionada…")
-        val image = runCatching { InputImage.fromFilePath(this, uri) }.getOrElse {
-            setStatus("Não foi possível abrir a imagem: ${friendly(it.message)}")
-            return@registerForActivityResult
-        }
-        BarcodeScanning.getClient().process(image)
-            .addOnSuccessListener { barcodes ->
-                val value = barcodes.firstNotNullOfOrNull { it.rawValue?.trim()?.takeIf(String::isNotBlank) }
-                if (value == null) {
-                    setStatus("Nenhum QR legível foi encontrado nessa imagem.")
-                } else {
+        lifecycleScope.launch {
+            runCatching { decodeQrImage(uri) }
+                .onSuccess { value ->
                     yooseeShareInput.setText(value)
                     setStatus("QR lido da galeria. Toque em ‘Abrir convite no Yoosee’.")
                 }
-            }
-            .addOnFailureListener { error ->
-                setStatus("Falha ao ler o QR: ${friendly(error.message)}")
-            }
+                .onFailure { error ->
+                    setStatus("Nenhum QR legível foi encontrado nessa imagem: ${friendly(error.message)}")
+                }
+        }
+    }
+
+    private suspend fun decodeQrImage(uri: Uri): String = withContext(Dispatchers.IO) {
+        val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+            ?: error("imagem inválida")
+        try {
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            val source = RGBLuminanceSource(bitmap.width, bitmap.height, pixels)
+            val result = MultiFormatReader().decode(BinaryBitmap(HybridBinarizer(source)))
+            result.text?.trim()?.takeIf { it.isNotBlank() } ?: error("QR vazio")
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
