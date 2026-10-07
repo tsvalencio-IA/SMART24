@@ -12,6 +12,9 @@ permissions:
 jobs:
   dependency-and-build:
     runs-on: ubuntu-latest
+    env:
+      GWELL_NEXUS_USER: ${{ secrets.GWELL_NEXUS_USER }}
+      GWELL_NEXUS_PASSWORD: ${{ secrets.GWELL_NEXUS_PASSWORD }}
     timeout-minutes: 12
     steps:
       - name: Checkout
