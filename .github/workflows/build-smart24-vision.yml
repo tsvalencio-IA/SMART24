@@ -18,6 +18,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GWELL_NEXUS_USER: ${{ secrets.GWELL_NEXUS_USER }}
+      GWELL_NEXUS_PASSWORD: ${{ secrets.GWELL_NEXUS_PASSWORD }}
     timeout-minutes: 30
     steps:
       - name: Baixar repositório
@@ -53,6 +56,9 @@ jobs:
   android-smoke:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      GWELL_NEXUS_USER: ${{ secrets.GWELL_NEXUS_USER }}
+      GWELL_NEXUS_PASSWORD: ${{ secrets.GWELL_NEXUS_PASSWORD }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -144,6 +150,8 @@ jobs:
     env:
       SMART24_KEYSTORE_B64: ${{ secrets.SMART24_KEYSTORE_B64 }}
       SMART24_KEYSTORE_PASSWORD: ${{ secrets.SMART24_KEYSTORE_PASSWORD }}
+      GWELL_NEXUS_USER: ${{ secrets.GWELL_NEXUS_USER }}
+      GWELL_NEXUS_PASSWORD: ${{ secrets.GWELL_NEXUS_PASSWORD }}
       EXPECTED_CERT_SHA256: "7B2B93AFB05B660423AC1DC29E34905F5E2A2BE77ED226BCA9BE112605387E0D"
       GH_TOKEN: ${{ github.token }}
     steps:
