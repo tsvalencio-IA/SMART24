@@ -1,8 +1,10 @@
-import { subscribeData } from "./database.js";
+import { setData, subscribeData } from "./database.js";
 import { escapeHtml, formatDate, objectEntries } from "./utils.js";
 
-let unsubscribe = null;
+let unsubscribeLive = null;
+let unsubscribePilots = null;
 let streams = [];
+let pilots = {};
 let selectedKey = "";
 
 function flatten(value) {
@@ -81,6 +83,7 @@ function render() {
   const selected = streams.find(item => item.key === selectedKey);
   if (!selected) return;
 
+  const pilot = selected.pilotId ? pilots?.[selected.pilotId] || null : null;
   detail.classList.remove("is-hidden");
   const people = objectEntries(selected.persons || {});
   const objects = objectEntries(selected.objects || {});
@@ -122,21 +125,74 @@ function render() {
             ? objects.map(object => `<div><strong>${escapeHtml(object.objectId || object.id)}</strong><span>${Math.round(Number(object.confidence || 0) * 100)}% · não significa SKU reconhecido</span></div>`).join("")
             : `<p>Nenhum objeto genérico isolado no quadro atual.</p>`}
         </div>
+        <div class="live-detection-list">
+          <h3>Celular da loja</h3>
+          ${pilot
+            ? `<div><strong>${escapeHtml(pilot.status || "SEM ESTADO")}</strong><span>Último heartbeat: ${pilot.lastSeenAt ? formatDate(pilot.lastSeenAt) : "—"}</span></div>`
+            : `<p>Aguardando identificação do celular local.</p>`}
+          <div class="form-actions">
+            <button class="btn btn--primary" type="button" data-central-command="START_VIGILANTE" ${selected.pilotId ? "" : "disabled"}>Iniciar vigilante</button>
+            <button class="btn btn--secondary" type="button" data-central-command="STOP_VIGILANTE" ${selected.pilotId ? "" : "disabled"}>Parar vigilante</button>
+            <button class="btn btn--secondary" type="button" data-central-command="RECONNECT_VIDEO" ${selected.pilotId ? "" : "disabled"}>Reconectar câmera</button>
+            <button class="btn btn--secondary" type="button" data-central-command="REQUEST_SNAPSHOT" ${selected.pilotId ? "" : "disabled"}>Atualizar quadro</button>
+          </div>
+          <p id="centralCommandMessage" class="form-message" role="status">${pilot?.command?.result ? escapeHtml(pilot.command.result) : "Comandos são enviados ao celular que está na mesma rede Wi-Fi da câmera."}</p>
+        </div>
       </div>
     </div>`;
+
+  document.querySelectorAll("[data-central-command]").forEach(button => {
+    button.addEventListener("click", () => sendCentralCommand(button.dataset.centralCommand));
+  });
 }
 
 export function initializeLiveMonitor() {
   document.getElementById("refreshLiveMonitor")?.addEventListener("click", () => startLiveMonitorSubscription());
 }
 
+async function sendCentralCommand(action) {
+  const selected = streams.find(item => item.key === selectedKey);
+  const message = document.getElementById("centralCommandMessage");
+  if (!selected?.pilotId) {
+    if (message) message.textContent = "Este quadro ainda não informou qual celular da loja o publicou.";
+    return;
+  }
+
+  const command = {
+    commandId: `CMD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    action,
+    status: "PENDING",
+    storeId: selected.storeId,
+    cameraId: selected.cameraId,
+    createdAt: Date.now()
+  };
+
+  try {
+    if (message) message.textContent = "Enviando comando ao celular da loja…";
+    await setData(`visionPilots/${selected.pilotId}/command`, command);
+    if (message) message.textContent = "Comando enviado. O celular local responde em até alguns segundos.";
+  } catch (error) {
+    if (message) message.textContent = `Falha ao enviar comando: ${error?.message || "erro"}`;
+  }
+}
+
 export function startLiveMonitorSubscription() {
-  unsubscribe?.();
-  unsubscribe = subscribeData("cameraLive", value => {
+  unsubscribeLive?.();
+  unsubscribePilots?.();
+
+  unsubscribeLive = subscribeData("cameraLive", value => {
     streams = flatten(value);
     render();
   }, () => {
     streams = [];
+    render();
+  });
+
+  unsubscribePilots = subscribeData("visionPilots", value => {
+    pilots = value || {};
+    render();
+  }, () => {
+    pilots = {};
     render();
   });
 }
