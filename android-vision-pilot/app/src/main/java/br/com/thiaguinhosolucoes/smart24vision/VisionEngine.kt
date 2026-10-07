@@ -2,204 +2,183 @@ package br.com.thiaguinhosolucoes.smart24vision
 
 import android.graphics.Bitmap
 import android.graphics.PointF
-import android.graphics.Rect
 import android.graphics.RectF
-import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetectorOptions
-import com.google.mlkit.vision.objects.ObjectDetection
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.google.mlkit.vision.pose.PoseDetection
-import com.google.mlkit.vision.pose.PoseLandmark
-import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Motor visual deliberadamente simples para a demonstração.
+ * Motor visual Local Edge sem bibliotecas nativas de ML.
  *
- * Verdade operacional:
- * - detecta uma pose corporal principal;
- * - usa faces como apoio para manter pessoas;
- * - rastreia objetos genéricos salientes pelo ML Kit;
- * - QR SMART24 continua opcional, mas NÃO é necessário para o botão PEGOU.
+ * Android 16 do aparelho real registrou crash nativo em libmlkitcommonpipeline.so.
+ * O monitor RTSP, Firebase e Central não podem cair por causa do motor de visão.
  *
- * Ele não afirma reconhecer SKU automaticamente.
+ * Este motor usa movimento entre quadros para manter o vigilante funcionando sem
+ * carregar ML Kit nativo. As inferências continuam heurísticas e exigem revisão humana.
  */
 class VisionEngine {
-    private val faceDetector = FaceDetection.getClient(
-        FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-            .enableTracking()
-            .setMinFaceSize(0.06f)
-            .build()
-    )
-
-    private val objectDetector = ObjectDetection.getClient(
-        ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
-            .enableMultipleObjects()
-            .enableClassification()
-            .build()
-    )
-
-    private val poseDetector = PoseDetection.getClient(
-        PoseDetectorOptions.Builder()
-            .setDetectorMode(PoseDetectorOptions.STREAM_MODE)
-            .build()
-    )
-
     private val personTracker = PersonTracker()
+    private var previousGray: IntArray? = null
 
     suspend fun analyze(bitmap: Bitmap): VisionResult = withContext(Dispatchers.Default) {
         val capturedAt = System.currentTimeMillis()
-        val input = InputImage.fromBitmap(bitmap, 0)
-        val candidates = mutableListOf<PersonObservation>()
+        val sampleWidth = 96
+        val ratio = bitmap.height.toDouble() / bitmap.width.toDouble()
+        val sampleHeight = (sampleWidth * ratio).toInt().coerceIn(54, 128)
+        val scaled = Bitmap.createScaledBitmap(bitmap, sampleWidth, sampleHeight, true)
 
-        val pose = runCatching {
-            Tasks.await(poseDetector.process(input), 6, TimeUnit.SECONDS)
-        }.getOrNull()
-
-        val poseLandmarks = pose?.allPoseLandmarks.orEmpty()
-            .filter { it.inFrameLikelihood >= 0.45f }
-
-        if (poseLandmarks.size >= 8) {
-            val left = poseLandmarks.minOf { it.position.x }.coerceIn(0f, bitmap.width.toFloat())
-            val top = poseLandmarks.minOf { it.position.y }.coerceIn(0f, bitmap.height.toFloat())
-            val right = poseLandmarks.maxOf { it.position.x }.coerceIn(0f, bitmap.width.toFloat())
-            val bottom = poseLandmarks.maxOf { it.position.y }.coerceIn(0f, bitmap.height.toFloat())
-            val padX = (right - left) * 0.18f
-            val padY = (bottom - top) * 0.12f
-
-            val rect = RectF(
-                ((left - padX) / bitmap.width).coerceIn(0f, 1f),
-                ((top - padY) / bitmap.height).coerceIn(0f, 1f),
-                ((right + padX) / bitmap.width).coerceIn(0f, 1f),
-                ((bottom + padY) / bitmap.height).coerceIn(0f, 1f)
-            )
-
-            val leftWrist = pose?.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-                ?.takeIf { it.inFrameLikelihood >= 0.35f }
-                ?.let { normalizedPoint(it.position, bitmap.width, bitmap.height) }
-
-            val rightWrist = pose?.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-                ?.takeIf { it.inFrameLikelihood >= 0.35f }
-                ?.let { normalizedPoint(it.position, bitmap.width, bitmap.height) }
-
-            candidates += PersonObservation(
-                personId = "POSE-PRIMARY",
-                box = rect,
-                confidence = poseLandmarks.map { it.inFrameLikelihood.toDouble() }
-                    .average().coerceIn(0.45, 0.98),
-                source = "POSE_PRIMARY",
-                landmarks = poseLandmarks.map {
-                    normalizedPoint(it.position, bitmap.width, bitmap.height)
-                },
-                leftWrist = leftWrist,
-                rightWrist = rightWrist
-            )
-        }
-
-        val faces = runCatching {
-            Tasks.await(faceDetector.process(input), 6, TimeUnit.SECONDS)
-        }.getOrDefault(emptyList())
-
-        faces.forEachIndexed { index, face ->
-            val faceRect = normalized(face.boundingBox, bitmap.width, bitmap.height)
-            if (candidates.none { iou(it.box, faceRect) > 0.18f }) {
-                candidates += PersonObservation(
-                    personId = "FACE-${face.trackingId ?: (index + 1)}",
-                    box = expandFaceBox(faceRect),
-                    confidence = 0.80,
-                    source = "FACE_TRACK"
-                )
+        try {
+            val pixels = IntArray(sampleWidth * sampleHeight)
+            scaled.getPixels(pixels, 0, sampleWidth, 0, 0, sampleWidth, sampleHeight)
+            val gray = IntArray(pixels.size) { index ->
+                val color = pixels[index]
+                (((color shr 16) and 255) * 30 + ((color shr 8) and 255) * 59 + (color and 255) * 11) / 100
             }
-        }
 
-        val rawObjects = runCatching {
-            Tasks.await(objectDetector.process(input), 6, TimeUnit.SECONDS)
-        }.getOrDefault(emptyList())
-
-        // Primeiro aproveitamos objetos com formato humano para reforçar a lista de pessoas.
-        rawObjects.forEachIndexed { index, obj ->
-            val rect = normalized(obj.boundingBox, bitmap.width, bitmap.height)
-            val aspect = if (rect.height() > 0) rect.width() / rect.height() else 2f
-            val area = rect.width() * rect.height()
-            val looksHuman = rect.height() >= 0.24f && aspect in 0.16f..1.05f && area >= 0.03f
-            val overlapsKnown = candidates.any { iou(it.box, rect) > 0.16f }
-            if (looksHuman && !overlapsKnown) {
-                candidates += PersonObservation(
-                    personId = "OBJECT-PERSON-${obj.trackingId ?: index + 1}",
-                    box = rect,
-                    confidence = 0.52,
-                    source = "OBJECT_PERSON_HEURISTIC"
-                )
+            val before = previousGray
+            previousGray = gray
+            if (before == null || before.size != gray.size) {
+                return@withContext VisionResult(bitmap.width, bitmap.height, emptyList(), emptyList(), emptyList(), capturedAt)
             }
-        }
 
-        val persons = personTracker.update(candidates, capturedAt)
-
-        // Objetos genéricos: não chamamos isso de "produto reconhecido".
-        // Excluímos caixas grandes que parecem ser a própria pessoa.
-        val genericObjects = rawObjects.mapIndexedNotNull { index, obj ->
-            val rect = normalized(obj.boundingBox, bitmap.width, bitmap.height)
-            val area = rect.width() * rect.height()
-            val personOverlap = persons.maxOfOrNull { iou(it.box, rect) } ?: 0f
-            val tooLarge = area > 0.42f
-            val probablyPerson = personOverlap > 0.58f && rect.height() > 0.28f
-            if (tooLarge || probablyPerson || area < 0.0008f) return@mapIndexedNotNull null
-
-            val labels = obj.labels.mapNotNull { label ->
-                label.text?.trim()?.takeIf { it.isNotBlank() }
+            val moving = BooleanArray(gray.size)
+            var movingCount = 0
+            for (i in gray.indices) {
+                if (abs(gray[i] - before[i]) >= 28) {
+                    moving[i] = true
+                    movingCount++
+                }
             }
-            val confidence = obj.labels.maxOfOrNull { it.confidence.toDouble() } ?: 0.55
 
-            GenericObjectObservation(
-                objectId = "OBJ-${obj.trackingId ?: index + 1}",
-                trackingId = obj.trackingId,
-                box = rect,
-                confidence = confidence.coerceIn(0.35, 0.95),
-                labels = labels
+            if (movingCount < max(24, gray.size / 250)) {
+                val persons = personTracker.update(emptyList(), capturedAt)
+                return@withContext VisionResult(bitmap.width, bitmap.height, persons, emptyList(), emptyList(), capturedAt)
+            }
+
+            val components = components(moving, sampleWidth, sampleHeight)
+            val personCandidates = components
+                .mapNotNull { component ->
+                    val rect = normalized(component, sampleWidth, sampleHeight)
+                    val area = rect.width() * rect.height()
+                    val aspect = if (rect.height() > 0f) rect.width() / rect.height() else 9f
+                    val looksHuman = area >= 0.025f && rect.height() >= 0.18f && aspect in 0.16f..1.55f
+                    if (!looksHuman) return@mapNotNull null
+
+                    val expanded = RectF(
+                        (rect.left - rect.width() * 0.08f).coerceIn(0f, 1f),
+                        (rect.top - rect.height() * 0.05f).coerceIn(0f, 1f),
+                        (rect.right + rect.width() * 0.08f).coerceIn(0f, 1f),
+                        (rect.bottom + rect.height() * 0.05f).coerceIn(0f, 1f)
+                    )
+                    val wristY = (expanded.top + expanded.height() * 0.62f).coerceIn(0f, 1f)
+                    PersonObservation(
+                        personId = "MOTION-${component.size}",
+                        box = expanded,
+                        confidence = (0.50 + min(0.35, area.toDouble() * 1.8)).coerceIn(0.50, 0.85),
+                        source = "MOTION_VISION_SAFE",
+                        leftWrist = PointF((expanded.left + expanded.width() * 0.28f).coerceIn(0f, 1f), wristY),
+                        rightWrist = PointF((expanded.left + expanded.width() * 0.72f).coerceIn(0f, 1f), wristY)
+                    )
+                }
+                .sortedByDescending { it.box.width() * it.box.height() }
+                .take(3)
+
+            val persons = personTracker.update(personCandidates, capturedAt)
+
+            val objects = components
+                .mapIndexedNotNull { index, component ->
+                    val rect = normalized(component, sampleWidth, sampleHeight)
+                    val area = rect.width() * rect.height()
+                    val personOverlap = persons.maxOfOrNull { iou(it.box, rect) } ?: 0f
+                    if (area !in 0.0025f..0.20f || personOverlap > 0.55f) return@mapIndexedNotNull null
+                    GenericObjectObservation(
+                        objectId = "MOTION-OBJ-${index + 1}",
+                        trackingId = null,
+                        box = rect,
+                        confidence = (0.45 + min(0.30, component.size.toDouble() / gray.size * 8.0)).coerceIn(0.45, 0.75),
+                        labels = listOf("movimento")
+                    )
+                }
+                .take(8)
+
+            VisionResult(
+                width = bitmap.width,
+                height = bitmap.height,
+                persons = persons,
+                objects = objects,
+                tags = emptyList(),
+                capturedAt = capturedAt
             )
+        } finally {
+            if (scaled !== bitmap) scaled.recycle()
         }
-
-        val tags = emptyList<TagObservation>()
-
-        VisionResult(
-            width = bitmap.width,
-            height = bitmap.height,
-            persons = persons,
-            objects = genericObjects,
-            tags = tags,
-            capturedAt = capturedAt
-        )
     }
 
-    private fun normalizedPoint(point: PointF, width: Int, height: Int) = PointF(
-        (point.x / width).coerceIn(0f, 1f),
-        (point.y / height).coerceIn(0f, 1f)
+    private data class Component(
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+        val size: Int
     )
 
-    private fun expandFaceBox(face: RectF): RectF {
-        val width = face.width()
-        val height = face.height()
-        return RectF(
-            (face.left - width * 0.65f).coerceIn(0f, 1f),
-            (face.top - height * 0.35f).coerceIn(0f, 1f),
-            (face.right + width * 0.65f).coerceIn(0f, 1f),
-            (face.bottom + height * 4.2f).coerceIn(0f, 1f)
-        )
+    private fun components(mask: BooleanArray, width: Int, height: Int): List<Component> {
+        val visited = BooleanArray(mask.size)
+        val queue = IntArray(mask.size)
+        val result = mutableListOf<Component>()
+        val minPixels = max(10, mask.size / 700)
+
+        for (start in mask.indices) {
+            if (!mask[start] || visited[start]) continue
+
+            var head = 0
+            var tail = 0
+            queue[tail++] = start
+            visited[start] = true
+
+            var left = width
+            var top = height
+            var right = 0
+            var bottom = 0
+            var size = 0
+
+            while (head < tail) {
+                val current = queue[head++]
+                val x = current % width
+                val y = current / width
+                size++
+                left = min(left, x)
+                top = min(top, y)
+                right = max(right, x)
+                bottom = max(bottom, y)
+
+                fun add(nx: Int, ny: Int) {
+                    if (nx !in 0 until width || ny !in 0 until height) return
+                    val next = ny * width + nx
+                    if (!mask[next] || visited[next]) return
+                    visited[next] = true
+                    queue[tail++] = next
+                }
+
+                add(x - 1, y)
+                add(x + 1, y)
+                add(x, y - 1)
+                add(x, y + 1)
+            }
+
+            if (size >= minPixels) result += Component(left, top, right, bottom, size)
+        }
+
+        return result.sortedByDescending { it.size }.take(16)
     }
 
-    private fun normalized(rect: Rect, width: Int, height: Int): RectF = RectF(
-        (rect.left.toFloat() / width).coerceIn(0f, 1f),
-        (rect.top.toFloat() / height).coerceIn(0f, 1f),
-        (rect.right.toFloat() / width).coerceIn(0f, 1f),
-        (rect.bottom.toFloat() / height).coerceIn(0f, 1f)
+    private fun normalized(component: Component, width: Int, height: Int) = RectF(
+        component.left.toFloat() / width,
+        component.top.toFloat() / height,
+        (component.right + 1).toFloat() / width,
+        (component.bottom + 1).toFloat() / height
     )
 
     private fun iou(a: RectF, b: RectF): Float {
@@ -213,8 +192,6 @@ class VisionEngine {
     }
 
     fun close() {
-        faceDetector.close()
-        objectDetector.close()
-        poseDetector.close()
+        previousGray = null
     }
 }
