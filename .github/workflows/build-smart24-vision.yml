@@ -33,6 +33,14 @@ jobs:
           gradle-version: '8.7'
       - name: Compilar, testar e verificar Android
         run: gradle -p android-vision-pilot :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace --console=plain
+      - name: Bloquear pipeline ML Kit que crasha no Android 16
+        run: |
+          APK="android-vision-pilot/app/build/outputs/apk/debug/app-debug.apk"
+          if unzip -l "$APK" | grep -q 'libmlkitcommonpipeline.so'; then
+            echo "ERRO: libmlkitcommonpipeline.so voltou ao APK."
+            exit 1
+          fi
+          echo "OK: APK sem libmlkitcommonpipeline.so."
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
@@ -57,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [26, 35]
+        api: [26, 35, 36]
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -184,6 +192,11 @@ jobs:
         run: |
           printf '%s' "$SMART24_KEYSTORE_B64" | base64 --decode > "$SMART24_KEYSTORE_PATH"
           gradle -p android-vision-pilot :app:assembleRelease --stacktrace --console=plain
+          APK="android-vision-pilot/app/build/outputs/apk/release/app-release.apk"
+          if unzip -l "$APK" | grep -q 'libmlkitcommonpipeline.so'; then
+            echo "ERRO: release contém libmlkitcommonpipeline.so."
+            exit 1
+          fi
 
       - name: Validar assinatura, versão e decidir publicação
         if: steps.signing.outputs.ready == 'true'
