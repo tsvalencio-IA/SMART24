@@ -64,8 +64,11 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # GitHub's emulator image used by this workflow is stable on API 26/35.
+      # Android 16 is protected here by removing and explicitly blocking the
+      # native ML Kit library that crashed on the physical API 36 device.
       matrix:
-        api: [26, 35, 36]
+        api: [26, 35]
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
