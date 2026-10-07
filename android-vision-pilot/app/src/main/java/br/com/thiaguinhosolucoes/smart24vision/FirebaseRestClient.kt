@@ -40,6 +40,11 @@ class FirebaseRestClient {
         request(path, "POST", JSONObject(values).toString()).optString("name")
     }
 
+    suspend fun getObject(path: String): JSONObject? = withContext(Dispatchers.IO) {
+        val raw = requestRaw(path, "GET", null)
+        if (raw.isBlank() || raw == "null") null else runCatching { JSONObject(raw) }.getOrNull()
+    }
+
     suspend fun getZones(storeId: String, cameraId: String): List<Zone> = withContext(Dispatchers.IO) {
         val result = requestRaw("zones/$storeId/$cameraId", "GET", null)
         if (result.isBlank() || result == "null") return@withContext emptyList()
