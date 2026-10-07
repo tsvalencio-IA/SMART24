@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "versionCode": 12,
-  "versionName": "3.3.2-auto-update",
-  "apkUrl": "https://github.com/tsvalencio-IA/SMART24/releases/download/v3.3.2-auto-update-code12/SMART24-Vigilante-Celular-3.3.2-auto-update.apk",
-  "sha256": "9f0a63b4f6899da72530a2e95cd94285472f2a1dc2bb646bf175a253a5b19792"
+  "versionCode": 14,
+  "versionName": "3.4.0-local-edge",
+  "apkUrl": "https://github.com/tsvalencio-IA/SMART24/releases/download/v3.4.0-local-edge-code14/SMART24-Vigilante-Celular-3.4.0-local-edge.apk",
+  "sha256": "8e583bdc9785cf47c9ca06741dbfe067e167f99adaec1e99586fd4c25451075b"
 }
