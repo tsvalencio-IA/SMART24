@@ -4,6 +4,7 @@ import { escapeHtml, formatDate, objectEntries } from "./utils.js";
 let unsubscribeLive = null;
 let unsubscribePilots = null;
 let streams = [];
+let liveValue = {};
 let pilots = {};
 let selectedKey = "";
 
@@ -33,7 +34,37 @@ function stale(item) {
   return !item.updatedAt || Date.now() - Number(item.updatedAt) > 12000;
 }
 
+function mergeWithPilots(rows) {
+  const map = new Map(rows.map(item => [item.key, item]));
+  Object.values(pilots || {}).forEach(pilot => {
+    if (!pilot?.storeId || !pilot?.cameraId) return;
+    const key = `${pilot.storeId}/${pilot.cameraId}`;
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, {
+        ...existing,
+        pilotId: existing.pilotId || pilot.pilotId,
+        pilotStatus: pilot.status,
+        pilotLastSeenAt: pilot.lastSeenAt
+      });
+    } else {
+      map.set(key, {
+        storeId: pilot.storeId,
+        cameraId: pilot.cameraId,
+        key,
+        pilotId: pilot.pilotId,
+        status: pilot.status || "APP_ONLINE_CAMERA_OFFLINE",
+        updatedAt: pilot.lastSeenAt || 0,
+        personsDetected: 0,
+        objectsDetected: 0
+      });
+    }
+  });
+  return [...map.values()].sort((a, b) => String(a.key).localeCompare(String(b.key), "pt-BR"));
+}
+
 function render() {
+  streams = mergeWithPilots(flatten(liveValue));
   const grid = document.getElementById("liveCameraGrid");
   const empty = document.getElementById("liveCameraEmpty");
   const detail = document.getElementById("liveCameraDetail");
@@ -181,10 +212,10 @@ export function startLiveMonitorSubscription() {
   unsubscribePilots?.();
 
   unsubscribeLive = subscribeData("cameraLive", value => {
-    streams = flatten(value);
+    liveValue = value || {};
     render();
   }, () => {
-    streams = [];
+    liveValue = {};
     render();
   });
 
