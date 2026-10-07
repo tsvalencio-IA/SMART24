@@ -594,8 +594,8 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                     "objects" to objects,
                     "source" to "SMART24_LOCAL_WIFI_EDGE"
                 ))
-            } catch (_: CancellationException) {
-                throw
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 syncText.text = "Central conectada, mas o quadro não foi publicado: ${error.message ?: "erro"}"
             } finally {
@@ -664,8 +664,8 @@ class MobileVigilanteActivity : AppCompatActivity(), MobileRtspPlayer.Listener {
                 ))
                 status.text = resultMessage
                 synchronizeEvents()
-            } catch (_: CancellationException) {
-                throw
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 syncText.text = "Falha ao receber comando da Central: ${error.message ?: error.javaClass.simpleName}"
             } finally {
